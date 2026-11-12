@@ -197,6 +197,7 @@ export class Game {
     if (dmg <= 0) return 0;
     target.hp -= dmg;
     target.flashT = Math.min(1, target.flashT + (opts.crit ? 1 : 0.7));
+    target.anim.hit = 1;
     target.recentAttackers.set(source.id, this.time);
     target.lastAttacker = source;
     source.stats.damage += dmg;
