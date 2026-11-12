@@ -52,7 +52,7 @@ Shared style suffix (append to every hero prompt):
 
 ## Ability & arena prop prompts (optional upgrades)
 
-Props use this suffix instead:
+Props use this suffix instead. (Ability effects such as the Gravity Well's dark-matter core, beams, domes and auras are shader effects in code, so they need no models.)
 
 > single game prop, stylized 3D, hand-painted PBR, centered, front three-quarter view, plain pure white
 > background, soft even studio lighting, no shadow, no text, isolated object
@@ -62,7 +62,6 @@ Props use this suffix instead:
 | `sunflower.glb` | Van Gogh · Sunflower Field | giant stylized sunflower, thick curved green stem with two big leaves, large flower head with glowing golden petals and a deep brown seed center, slightly tilted face + suffix |
 | `palette.glb` | Van Gogh · held prop | wooden painter's palette with a thumb hole and thick colorful oil paint blobs (cobalt, chrome yellow, vermilion, viridian, white) + one long paint brush with blue paint + suffix |
 | `golden_bell.glb` | Yeat · Bell Ring projectile / pendant | ornate polished golden hand bell, engraved swirling patterns, small clapper visible, glossy metal + suffix |
-| `chalk_orb.glb` | Einstein · Gravity Well core | floating dark-matter sphere wrapped in thin glowing violet rings and chalk-white handwritten equations + suffix |
 | `marble_statue.glb` | Arena centerpiece decor | broken ancient Greek marble statue of a thinker on a square pedestal, weathered cracks, missing one arm, moss in the crevices + suffix |
 | `brazier.glb` | Arena braziers | ancient bronze tripod brazier, wide shallow bowl, green patina, ornate legs, empty (no fire) + suffix |
 | `ruined_arch.glb` | Arena cover | ruined classical marble archway, two fluted columns and a cracked lintel, chunks missing, ivy climbing one side + suffix |

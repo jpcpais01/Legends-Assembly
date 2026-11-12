@@ -30,9 +30,17 @@ WASD move · Space jump · Mouse aim · **LMB** basic attack · **RMB** ability 
 ## Adding Meshy models
 
 See [`docs/MESHY_AND_ASSETS.md`](docs/MESHY_AND_ASSETS.md) for the image prompts and Meshy settings.
-Put a rigged GLB at `public/models/heroes/<hero>.glb` and set `modelUrl: '/models/heroes/<hero>.glb'`
-in `src/heroes/<hero>.ts`. The loader normalizes scale to 1.8 m, plants the feet and maps clips named
-idle / walk / run / attack / jump. The procedural rig shows until the GLB finishes loading.
+1. Drop the raw Meshy export (any size, rigged or not, A/T-pose) at `models-src/heroes/<hero>.glb`.
+   This folder is git-ignored because raw exports are huge.
+2. Run `npm run models`. It cuts triangles 10x with meshoptimizer (`--ratio 0.1`), keeping UVs and normals.
+   It also shrinks textures to 2K WebP and meshopt-compresses the result into `public/models/heroes/<hero>.glb`.
+3. Unrigged models are **auto-rigged** (`scripts/autorig.mjs`). The script scales the model to 1.8 m, turns it to face
+   forward, finds the crotch, legs, hands, torso and neck from cross-sections, and binds the mesh to the same
+   17-bone skeleton the procedural animator drives. Walk, aim, attack, cast, levitate and death all work with no clips.
+4. Set `modelUrl: '/models/heroes/<hero>.glb'` in `src/heroes/<hero>.ts`.
+
+GLBs that were already rigged elsewhere also load. They are scaled to 1.8 m and their clips are mapped by name
+(idle / walk / run / attack / jump). The procedural rig shows until the GLB finishes loading.
 
 ## Patch notes
 
