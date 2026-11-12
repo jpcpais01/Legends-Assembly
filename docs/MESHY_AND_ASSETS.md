@@ -3,20 +3,17 @@
 The game ships with procedural placeholder heroes (one draw call each). Drop in Meshy models and they
 replace the placeholders automatically, keeping every VFX, hitbox and animation hook.
 
-## Meshy workflow (do this for every hero)
+## Meshy workflow
 
-1. **Image** – generate with the prompt below (any image model, or Meshy's Text to Image). Pick the
-   cleanest result: full body, nothing cropped, arms clearly away from the body.
-2. **Image to 3D** – Meshy settings that work best for us:
-   - Topology: **Triangle**, target polycount **~25k–40k** (heroes) / **~5k–10k** (props)
-   - Texture: **PBR on**, 2K is plenty
-   - Symmetry: **Auto** for heroes
-3. **Rig** (heroes only) – Meshy auto-rigging, humanoid. Then add animations:
-   **Idle, Walking, Running, Attack (punch/throw/cast), Jump**. Clip names just need to contain
-   those words; the game maps them automatically.
-4. **Export GLB** (with animations) and send it here. File names: `einstein.glb`, `yeat.glb`, `vangogh.glb`.
+1. **Image**: generate it with the prompt below. Pick the cleanest result, with the full body visible, nothing cropped and the arms clearly away from the body.
+2. **Image to 3D**: use **Meshy 7.1** with PBR on and **2K** textures. The polycount doesn't matter, because `npm run models` cuts it 10x.
+3. **No rigging needed.** Export the **unrigged** GLB at any size. The pipeline scales the model, turns it to face forward and auto-rigs it onto the game skeleton.
+4. Drop the GLB in the project chat.
 
 > Tip: if an image has a shadow on the floor or a cropped foot, regenerate it. Meshy copies mistakes literally.
+
+### Delivered so far
+Einstein, Yeat and Van Gogh are in. Props in: sunflower, palette, thinker statue, bronze cauldron and ivy ruins.
 
 ---
 
@@ -50,21 +47,37 @@ Shared style suffix (append to every hero prompt):
 
 ---
 
-## Ability & arena prop prompts (optional upgrades)
+## Prop prompts
 
-Props use this suffix instead. (Ability effects such as the Gravity Well's dark-matter core, beams, domes and auras are shader effects in code, so they need no models.)
+Props use this suffix. (Ability effects such as the Gravity Well core, beams, domes, auras and blasts are shader code, so they need no models.)
 
 > single game prop, stylized 3D, hand-painted PBR, centered, front three-quarter view, plain pure white
 > background, soft even studio lighting, no shadow, no text, isolated object
 
+### Yeat's new kit (needed now)
 | File name | Used for | Prompt |
 |---|---|---|
-| `sunflower.glb` | Van Gogh · Sunflower Field | giant stylized sunflower, thick curved green stem with two big leaves, large flower head with glowing golden petals and a deep brown seed center, slightly tilted face + suffix |
-| `palette.glb` | Van Gogh · held prop | wooden painter's palette with a thumb hole and thick colorful oil paint blobs (cobalt, chrome yellow, vermilion, viridian, white) + one long paint brush with blue paint + suffix |
-| `golden_bell.glb` | Yeat · Bell Ring projectile / pendant | ornate polished golden hand bell, engraved swirling patterns, small clapper visible, glossy metal + suffix |
-| `marble_statue.glb` | Arena centerpiece decor | broken ancient Greek marble statue of a thinker on a square pedestal, weathered cracks, missing one arm, moss in the crevices + suffix |
-| `brazier.glb` | Arena braziers | ancient bronze tripod brazier, wide shallow bowl, green patina, ornate legs, empty (no fire) + suffix |
-| `ruined_arch.glb` | Arena cover | ruined classical marble archway, two fluted columns and a cracked lintel, chunks missing, ivy climbing one side + suffix |
+| `tonka_truck.glb` | Yeat · RMB **Tonka** | big chunky classic yellow steel toy dump truck, oversized black rubber tires with deep treads, tilted dump bed, chrome front bumper and grille, round headlights, black and yellow hazard stripes, a few scuffs and dents, side view three-quarter + suffix |
+| `giant_bell.glb` | Yeat · Shift **The Bell** | colossal ancient bronze church bell hanging from a thick wooden yoke with iron straps, flared lip, engraved rings of runes around the waist, heavy iron clapper visible inside, green patina in the grooves, polished gold highlights + suffix |
+
+### Arena dressing (Sunset Ruins)
+| File name | Used for | Prompt |
+|---|---|---|
+| `fallen_column.glb` | cover | toppled fluted white marble Greek column broken into three chunky drum segments lying on the ground, cracked edges, moss and small flowers in the cracks + suffix |
+| `ruined_wall.glb` | cover | waist-high crumbling ancient stone wall segment, irregular sandstone blocks, one broken end, ivy draping over the top, tufts of grass at the base + suffix |
+| `healing_altar.glb` | health pads | low round ancient marble altar with a shallow carved basin on top, laurel-leaf reliefs around the side, four small steps, gold inlay lines + suffix |
+| `spawn_gate.glb` | team spawn gates | grand ancient marble triumphal gateway, two tall fluted columns, heavy carved lintel with an empty round crest in the middle, cloth banner hooks, slightly weathered + suffix |
+| `amphora_cluster.glb` | decor | cluster of four ancient terracotta amphorae and clay pots of different sizes, one tipped over and cracked, black-figure painted patterns + suffix |
+| `muse_statue.glb` | decor | weathered marble statue of a Greek muse in flowing robes holding a lyre, on a square plinth, cracked, missing one hand, moss at the feet + suffix |
+| `olive_tree.glb` | decor trees | gnarled ancient olive tree, twisted thick trunk, silver-green rounded leaf canopy, stylized hand-painted look + suffix |
+| `boulder_set.glb` | cover rocks | three mossy weathered granite boulders of different sizes grouped together, rounded stylized shapes + suffix |
+
+### Whole arena (experiment)
+Meshy builds one object, so a whole arena comes out as a single low-detail mesh with no clean collision. I'll use it as the **distant backdrop ring** around the playable area, which is where it will look best:
+
+> top-down three-quarter view of a circular ruined ancient Greek colosseum arena on a grassy hill, crumbling
+> tiered marble seating rings, broken columns and arches around the rim, cypress trees, golden sunset light,
+> stylized hand-painted game environment, plain pure white background, isolated diorama, no text
 
 ---
 

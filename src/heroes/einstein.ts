@@ -347,6 +347,7 @@ export const EINSTEIN: HeroDef = {
   color: '#7fd3ff',
   accent: '#b48cff',
   maxHp: 250,
+  modelUrl: '/models/heroes/einstein.glb',
   speed: 6.0,
   secondaryCd: 10,
   ultCost: 1500,

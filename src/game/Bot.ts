@@ -186,8 +186,10 @@ export class Bot {
         if (h.ult >= 1 && (enemiesClose(9) >= 2 || (enemiesClose(6) >= 1 && t.hp > 90))) inp.ult = true;
         break;
       case 'yeat':
-        if (h.secondaryCd <= 0 && vis && tDist > 4 && tDist < 13 && !lowHp) inp.secondary = true;
-        if (h.ult >= 1 && enemiesClose(9) >= 1) inp.ult = true;
+        // Tonka: needs a run-up and a straight line to the target
+        if (h.secondaryCd <= 0 && vis && tDist > 7 && tDist < 24 && yawErr < 0.35 && !lowHp) inp.secondary = true;
+        // The Bell: drop it on a visible target, ideally one that's busy fighting
+        if (h.ult >= 1 && vis && tDist < 40 && (t.hp > 120 || g.enemiesNear(h.team, t.pos, 6).length >= 2)) inp.ult = true;
         break;
       case 'vangogh': {
         if (h.secondaryCd <= 0) {

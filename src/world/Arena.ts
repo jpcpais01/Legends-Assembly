@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PROPS, type PropTemplate } from '../render/props';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { World, SPAWNS, ARENA_RADIUS } from './collision';
 import { Sky, SUN_DIR, SKY_GLSL, skyUniforms } from './Sky';
@@ -185,6 +186,7 @@ export class Arena {
   private sigil!: THREE.Mesh;
   private beacons: THREE.Mesh[] = [];
   private statics: THREE.Mesh[] = [];
+  private brazier: { bowls: THREE.InstancedMesh; fire: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
   readonly healthPadPositions = [new THREE.Vector3(-10, 0, 21), new THREE.Vector3(10, 0, -21), new THREE.Vector3(10, 0, 21), new THREE.Vector3(-10, 0, -21)];
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
@@ -816,12 +818,69 @@ export class Arena {
     spots.forEach((p, i) => { d.position.copy(p).setY(p.y + 1.3); d.updateMatrix(); fire.setMatrixAt(i, d.matrix); });
     fire.frustumCulled = false;
     this.scene.add(fire);
+    this.brazier = { bowls: im, fire, spots };
     // embers: GPU-animated points
     this.scene.add(gpuPoints({
       count: spots.length * 40,
       origin: (i) => spots[i % spots.length].clone().setY(spots[i % spots.length].y + 1.5),
       mode: 'ember',
     }));
+  }
+
+  /** Swap in / add the Meshy props once they're loaded (see render/props.ts). Each kind is one instanced draw. */
+  placeProps() {
+    const d = new THREE.Object3D();
+    const inst = (t: PropTemplate, list: { p: THREE.Vector3; ry: number; h: number }[]) => {
+      const im = new THREE.InstancedMesh(t.geometry, t.material, list.length);
+      list.forEach((x, i) => { d.position.copy(x.p); d.rotation.set(0, x.ry, 0); d.scale.setScalar(x.h); d.updateMatrix(); im.setMatrixAt(i, d.matrix); });
+      im.castShadow = im.receiveShadow = true;
+      im.computeBoundingSphere();
+      this.scene.add(im);
+      return im;
+    };
+    const ground = (x: number, z: number, sink = 0.05) => new THREE.Vector3(x, this.world.heightAt(x, z) - sink, z);
+
+    // bronze cauldrons replace the lathe braziers (fire + embers stay)
+    const cauldron = PROPS.cauldron;
+    if (cauldron && this.brazier) {
+      const H = 1.15;
+      const { bowls, fire, spots } = this.brazier;
+      bowls.geometry = cauldron.geometry;
+      bowls.material = cauldron.material;
+      spots.forEach((p, i) => {
+        d.position.copy(p); d.rotation.set(0, i * 1.7, 0); d.scale.setScalar(H); d.updateMatrix(); bowls.setMatrixAt(i, d.matrix);
+        d.position.copy(p).setY(p.y + H * 0.82); d.rotation.set(0, 0, 0); d.scale.setScalar(1); d.updateMatrix(); fire.setMatrixAt(i, d.matrix);
+        if (Math.hypot(p.x, p.z) > 6) this.world.addCircle(p.x, p.z, cauldron.size.x * H * 0.5, p.y + H);
+      });
+      bowls.instanceMatrix.needsUpdate = true;
+      fire.instanceMatrix.needsUpdate = true;
+      bowls.computeBoundingSphere();
+    }
+
+    // thinker statues guarding the four lanes into the dais, facing out toward the approaching legends
+    const statue = PROPS.statue;
+    if (statue) {
+      const H = 3.3;
+      const list = [[0, 10.9], [0, -10.9], [10.9, 0], [-10.9, 0]].map(([x, z]) => ({ p: ground(x, z, 0.08), ry: Math.atan2(x, z), h: H }));
+      inst(statue, list);
+      for (const s of list) this.world.addCircle(s.p.x, s.p.z, Math.max(statue.size.x, statue.size.z) * H * 0.5, s.p.y + H);
+    }
+
+    // ivy ruins: two cover arches on the north/south lanes + a ring of backdrop arches on the rim
+    const ruins = PROPS.ruins;
+    if (ruins) {
+      const H = 4.6;
+      const cover = [{ p: ground(0, 18.5), ry: 0, h: H }, { p: ground(0, -18.5), ry: Math.PI, h: H }];
+      const rim: { p: THREE.Vector3; ry: number; h: number }[] = [];
+      for (const a of [0.55, 1.2, 1.95, 2.6, 3.7, 4.35, 5.1, 5.75]) {
+        const r = 47.5;
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        rim.push({ p: ground(x, z, 0.3), ry: Math.atan2(-x, -z), h: 6 });
+      }
+      inst(ruins, [...cover, ...rim]);
+      const off = ruins.size.x * H * 0.33;
+      for (const c of cover) for (const sgn of [-1, 1]) this.world.addCircle(c.p.x + sgn * off, c.p.z, 0.55, c.p.y + H);
+    }
   }
 
   private buildFlowers() {
@@ -871,6 +930,30 @@ export class Arena {
       },
       mode: 'mote',
     }));
+  }
+
+  private doomBase: { zen: THREE.Color; hor: THREE.Color; gnd: THREE.Color; sunc: THREE.Color; fog: THREE.Color; fogD: number; sun: number; env: number } | null = null;
+  private doomK = -1;
+  /** The Bell's doom sky: 0 = golden hour, 1 = dark, sickly green storm light. */
+  setDoom(k: number) {
+    if (Math.abs(k - this.doomK) < 0.002) return;
+    this.doomK = k;
+    const u = this.sky.material.uniforms;
+    const fog = this.scene.fog as THREE.FogExp2;
+    if (!this.doomBase) {
+      this.doomBase = { zen: u.uZenith.value.clone(), hor: u.uHorizon.value.clone(), gnd: u.uGround.value.clone(), sunc: u.uSunColor.value.clone(), fog: fog.color.clone(), fogD: fog.density, sun: this.sun.intensity, env: this.scene.environmentIntensity };
+    }
+    const b = this.doomBase;
+    const e = k * k * (3 - 2 * k);
+    u.uZenith.value.copy(b.zen).lerp(new THREE.Color(0.01, 0.05, 0.03), e);
+    u.uHorizon.value.copy(b.hor).lerp(new THREE.Color(0.2, 0.55, 0.22), e);
+    u.uGround.value.copy(b.gnd).lerp(new THREE.Color(0.05, 0.14, 0.07), e);
+    u.uSunColor.value.copy(b.sunc).lerp(new THREE.Color(0.35, 1.1, 0.4), e);
+    fog.color.copy(b.fog).lerp(new THREE.Color(0.08, 0.2, 0.1), e);
+    fog.density = b.fogD * (1 + e * 1.3);
+    this.sun.intensity = b.sun * (1 - e * 0.72);
+    this.sun.color.setRGB(1.0 - e * 0.45, 0.8 + e * 0.1, 0.6 - e * 0.15);
+    this.scene.environmentIntensity = b.env * (1 - e * 0.6);
   }
 
   update(time: number, camera: THREE.Camera) {

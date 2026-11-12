@@ -58,6 +58,8 @@ export class Game {
   state: 'menu' | 'intro' | 'playing' | 'ended' = 'menu';
   introT = 0;
   paused = false;
+  /** 0..1 "doom sky" (The Bell): zones raise it each frame, it falls back on its own. */
+  doom = 0;
   timeScale = 1;
   endT = 0;
   winner = -1;
@@ -131,7 +133,7 @@ export class Game {
         this.spawn(h, i, info.size);
       }
     }
-    this.camRig.mode = 'play';
+    this.camRig.mode = 'play'; this.camRig.vehicle = 0;
     this.state = 'intro';
     this.introT = 0;
     this.lastCount = 4;
@@ -148,6 +150,7 @@ export class Game {
   }
 
   clearMatch() {
+    this.doom = 0;
     for (const z of this.zones) z.dispose(z, this);
     this.zones = [];
     this.projectiles = [];
@@ -424,6 +427,7 @@ export class Game {
     }
 
     const frozen = this.state === 'intro';
+    this.doom = Math.max(0, this.doom - dt * 1.2);
     this.updateLocalInput(rawDt);
     for (const b of this.bots) b.think(dt, frozen);
 

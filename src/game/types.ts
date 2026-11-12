@@ -2,6 +2,7 @@ import type * as THREE from 'three';
 import type { Hero } from './Hero';
 import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
+import type { PropName } from '../render/props';
 
 export type HeroId = 'einstein' | 'yeat' | 'vangogh';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
@@ -42,6 +43,8 @@ export interface HeroDef {
   abilities: { primary: AbilityInfo; secondary: AbilityInfo; ult: AbilityInfo };
   /** Optional Meshy GLB. Falls back to the procedural rig while missing. */
   modelUrl?: string;
+  /** Optional Meshy prop held in a hand of the GLB model (meters / radians in the hand bone's frame). */
+  held?: { prop: PropName; hand: 'L' | 'R'; size: number; pos: [number, number, number]; rot: [number, number, number] };
   look: RigLook;
   createKit(): HeroKit;
   /** Difficulty / stats for UI bars, 0..1. */

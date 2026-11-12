@@ -8,6 +8,37 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.2.0',
+    date: '2026-11-12',
+    title: 'Legends Take Shape',
+    sections: [
+      {
+        heading: 'Sculpted legends',
+        items: [
+          'Einstein, Yeat and Van Gogh now have fully sculpted, hand-textured bodies, from the cardigan and wild hair to the puffer and chains to the straw hat and paint-stained coat.',
+          'Van Gogh carries his painter\'s palette into battle.',
+          'Van Gogh\'s Sunflower Field now blooms a giant hand-painted sunflower.',
+        ],
+      },
+      {
+        heading: 'Yeat rework',
+        items: [
+          'New RMB, Tonka: Yeat turns into a speeding toy truck that keeps accelerating but turns wide. Ram an enemy for up to 140 damage. The camera pulls back while you drive.',
+          'New SHIFT, The Bell: the sky turns dark and green as a colossal bell appears above your target. It tolls once, then crashes down for up to 230 damage. It tracks the target for a moment, so a sharp dodge can still escape.',
+          'Rage Dash and 2093 Mode have been retired.',
+        ],
+      },
+      {
+        heading: 'Arena',
+        items: [
+          'Marble thinker statues now guard the four lanes into the central dais.',
+          'Bronze cauldrons replace the old braziers.',
+          'Ivy-covered ruined arches add cover on the north and south lanes and ring the arena\'s rim.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.1',
     date: '2026-11-12',
     title: 'Sculpted Legends Prep',

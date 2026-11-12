@@ -11,11 +11,13 @@ import { audio } from './core/Audio';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
+import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
 import { Menu } from './ui/Menu';
 import { renderPortraits } from './ui/portraits';
-import { warmupEinstein, warmupYeat, warmupVanGogh } from './heroes';
+import { warmupEinstein, warmupYeat, warmupVanGogh, HERO_LIST } from './heroes';
+import { warmupHeroModels } from './render/GltfHeroModel';
 import type { HeroId } from './game/types';
 import type { Mode } from './game/Game';
 import { damp } from './core/math';
@@ -40,7 +42,10 @@ async function boot() {
 
   await progress(20, 'Raising the ruins');
   const arena = new Arena(scene, renderer.gl);
-  await progress(55, 'Growing the meadow');
+  await progress(45, 'Growing the meadow');
+  await loadProps();
+  arena.placeProps();
+  await progress(58, 'Placing the relics');
 
   const uiRoot = document.getElementById('ui')!;
   const input = new Input(renderer.gl.domElement);
@@ -64,10 +69,11 @@ async function boot() {
   (window as unknown as { __legends: unknown }).__legends = { game, renderer, settings };
 
   await progress(70, 'Painting the legends');
-  renderPortraits(renderer.gl, scene.environment);
+  await renderPortraits(renderer.gl, scene.environment);
 
   await progress(85, 'Warming up the shaders');
-  const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game)];
+  const heroModels = await warmupHeroModels(HERO_LIST);
+  const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...heroModels.map((m) => m.root)];
   const warmGroup = new THREE.Group();
   warm.forEach((m) => { m.position.set(0, -50, 0); warmGroup.add(m); });
   const spr = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, blending: THREE.AdditiveBlending }));
@@ -77,6 +83,7 @@ async function boot() {
   try { await renderer.gl.compileAsync(scene, camera); } catch { renderer.gl.compile(scene, camera); }
   renderer.render(0.016, 16);
   scene.remove(warmGroup);
+  heroModels.forEach((m) => m.dispose());
 
   let lastMode: Mode = '3v3';
   let lastHero: HeroId = 'einstein';
@@ -181,6 +188,7 @@ async function boot() {
     const want = game.state !== 'menu' && h && h.alive ? 0.12 - Math.max(0, 0.35 - h.hp / h.maxHp) * 1.6 : game.state !== 'menu' && h && !h.alive ? -0.35 : 0.12;
     sat = damp(sat, want, 5, dt);
     renderer.setSaturation(sat);
+    arena.setDoom(game.doom);
     arena.update(globalUniforms.uTime.value, camera);
     renderer.render(dt, ms);
     if (game.state !== 'menu') hud.update(dt, camera, renderer.fps, renderer.gl.info.render.calls);

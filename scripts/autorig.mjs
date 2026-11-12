@@ -158,24 +158,31 @@ export function autoRig(doc, { height = H, flip = null, log = console.log } = {}
       legs[side] = { hip, knee, ankle, toe: V(ankle.x, 0.015 * H, toeZ) };
     }
 
-    // torso half-width at mid chest (walk out from the center until a gap)
+    // torso half-width: walk out from the center on each side until a gap, at several heights below the
+    // armpits; the median is robust to sleeves touching the torso at one height
     let torsoW = 0.11 * H;
     {
-      const y = 0.66 * H;
-      const sl = sliceSegs(y);
-      const bin = 0.005 * H;
-      const occ = new Set();
-      // mark every bin a cross-section segment covers (mirrored to |x|)
-      for (let i = 0; i < sl.length; i += 6) {
-        const a = sl[i], b = sl[i + 3];
-        const lo = Math.min(a, b), hi = Math.max(a, b);
-        const add = (u, v) => { for (let k = Math.floor(u / bin); k <= Math.floor(v / bin); k++) occ.add(k); };
-        if (lo >= 0) add(lo, hi); else if (hi <= 0) add(-hi, -lo); else { add(0, hi); add(0, -lo); }
+      const bin = 0.004 * H;
+      const widths = [];
+      for (let y = 0.56 * H; y <= 0.7 * H; y += 0.02 * H) {
+        const sl = sliceSegs(y);
+        for (const sign of [1, -1]) {
+          const occ = new Set();
+          for (let i = 0; i < sl.length; i += 6) {
+            const a = sl[i] * sign, b = sl[i + 3] * sign;
+            const lo = Math.max(0, Math.min(a, b)), hi = Math.max(a, b);
+            if (hi < 0) continue;
+            for (let k = Math.floor(lo / bin); k <= Math.floor(hi / bin); k++) occ.add(k);
+          }
+          let gap = 0;
+          for (let k = 0; k < 120; k++) {
+            if (occ.has(k)) gap = 0;
+            else if (++gap * bin >= 0.008 * H) { if (k - gap + 1 > 0) widths.push((k - gap + 1) * bin); break; }
+          }
+        }
       }
-      let gap = 0;
-      for (let b = 0; b < 80; b++) {
-        if (occ.has(b)) gap = 0; else if (++gap * bin >= 0.015 * H) { torsoW = (b - gap + 1) * bin; break; }
-      }
+      widths.sort((a, b) => a - b);
+      if (widths.length) torsoW = widths[Math.floor(widths.length / 2)];
       torsoW = THREE.MathUtils.clamp(torsoW, 0.07 * H, 0.17 * H);
     }
 
@@ -220,15 +227,16 @@ export function autoRig(doc, { height = H, flip = null, log = console.log } = {}
       const radii = [];
       const q = V(0, 0, 0);
       for (let i = 0; i < P.length; i += 3) {
-        if (P[i] < 0) continue;
+        if (P[i] < torsoW) continue; // sleeve only, not the torso
         q.set(P[i] - S.x, P[i + 1] - S.y, P[i + 2] - S.z);
         const t = q.dot(ax) / len;
         if (t < 0.35 || t > 0.65) continue;
-        radii.push(q.addScaledVector(ax, -t * len).length());
+        const d = q.addScaledVector(ax, -t * len).length();
+        if (d < 0.09 * H) radii.push(d);
       }
       radii.sort((a, b) => a - b);
       const armR = radii.length ? radii[Math.floor(radii.length * 0.6)] : 0.04 * H;
-      armOut = THREE.MathUtils.clamp(Math.atan2(torsoW + armR - S.x, len) - 0.12, 0, 0.55);
+      armOut = THREE.MathUtils.clamp(Math.atan2(torsoW + armR - S.x, len) - 0.12, 0, 0.38);
     }
 
     const joints = {

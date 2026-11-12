@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
+import { PROPS } from './props';
 import type { HeroDef } from '../game/types';
 
 const loader = new GLTFLoader();
@@ -40,14 +41,17 @@ export class GltfHeroModel implements HeroModel {
   private inner = new THREE.Group();
   /** Set when the GLB was auto-rigged onto the game skeleton (scripts/autorig.mjs): procedural animation drives it. */
   private animator: RigAnimator | null = null;
+  private heldMesh: THREE.Mesh | null = null;
   private disposed = false;
+  /** Resolves once the GLB is shown (or failed and the procedural rig stays). */
+  ready: Promise<void>;
 
   constructor(def: HeroDef, rim: THREE.Color) {
     this.fallback = new ProceduralHeroModel(def.look, rim);
     this.fx = this.fallback.fx;
     this.root.add(this.fallback.root);
     this.root.add(this.inner);
-    load(def.modelUrl!).then((res) => {
+    this.ready = load(def.modelUrl!).then((res) => {
       if (!res || this.disposed) return;
       const obj = SkeletonUtils.clone(res.scene);
       const laRig = obj.getObjectByName('la_hips');
@@ -83,6 +87,16 @@ export class GltfHeroModel implements HeroModel {
         const armOut = Number(obj.getObjectByName('la_armature')?.userData?.armOut ?? 0);
         this.animator = new RigAnimator(bones as unknown as RigBones, { armOut });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
+        const held = def.held, t = held ? PROPS[held.prop] : undefined;
+        if (held && t) {
+          const m = new THREE.Mesh(t.geometry, t.material);
+          m.scale.setScalar(held.size / Math.max(t.size.x, t.size.z));
+          m.position.set(...held.pos);
+          m.rotation.set(...held.rot);
+          m.castShadow = true;
+          (held.hand === 'L' ? bones.handL : bones.handR).add(m);
+          this.heldMesh = m;
+        }
       } else if (res.animations.length) {
         this.mixer = new THREE.AnimationMixer(obj);
         const find = (re: RegExp) => res.animations.find((a) => re.test(a.name));
@@ -110,7 +124,11 @@ export class GltfHeroModel implements HeroModel {
 
   update(dt: number, s: AnimState) {
     if (!this.obj) { this.fallback.update(dt, s); return; }
-    if (this.animator) { this.animator.update(dt, s); return; }
+    if (this.animator) {
+      this.animator.update(dt, s);
+      if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
+      return;
+    }
     if (this.mixer) {
       if (s.dead) { /* freeze */ }
       else if (!s.grounded && this.actions.jump) this.play('jump');
@@ -145,4 +163,11 @@ export class GltfHeroModel implements HeroModel {
     this.fallback.dispose();
     this.obj?.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) (m.material as THREE.Material).dispose(); });
   }
+}
+
+/** Loads every hero GLB once (fills the cache) and returns posed instances so the main scene can pre-compile their shaders. */
+export async function warmupHeroModels(defs: HeroDef[]) {
+  const models = defs.filter((d) => d.modelUrl).map((d) => new GltfHeroModel(d, new THREE.Color(d.color)));
+  await Promise.all(models.map((m) => m.ready));
+  return models;
 }
