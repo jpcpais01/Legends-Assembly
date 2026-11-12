@@ -39,6 +39,10 @@ See [`docs/MESHY_AND_ASSETS.md`](docs/MESHY_AND_ASSETS.md) for the image prompts
    17-bone skeleton the procedural animator drives. Walk, aim, attack, cast, levitate and death all work with no clips.
 4. Set `modelUrl: '/models/heroes/<hero>.glb'` in `src/heroes/<hero>.ts`.
 
+Props such as statues, cauldrons, ruins, the sunflower, the palette, `tonka_truck` and `giant_bell` go in `models-src/props/<name>.glb`.
+Run `npm run models:props` to process them. Textures shrink to 1K WebP and props are never decimated. `src/render/props.ts` loads every prop at boot.
+Anything missing keeps its procedural stand-in.
+
 GLBs that were already rigged elsewhere also load. They are scaled to 1.8 m and their clips are mapped by name
 (idle / walk / run / attack / jump). The procedural rig shows until the GLB finishes loading.
 

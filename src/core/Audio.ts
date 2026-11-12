@@ -7,7 +7,7 @@ import { settings } from './settings';
  */
 export type Sfx =
   | 'photon' | 'gravity' | 'emcCharge' | 'boom'
-  | 'bell' | 'dash' | 'bass808' | 'mode2093'
+  | 'bell' | 'dash' | 'bass808' | 'mode2093' | 'tonka' | 'crash' | 'bigBell' | 'bellDrop'
   | 'paint' | 'splat' | 'bloom' | 'starry'
   | 'hit' | 'crit' | 'kill' | 'hurt' | 'jump' | 'heal' | 'ui' | 'uiHover' | 'respawn' | 'victory' | 'defeat'
   | 'denied' | 'ultReady' | 'pickup' | 'countdown' | 'go';
@@ -204,6 +204,46 @@ export class AudioEngine {
         const bg = ctx.createGain(); this.env(bg.gain, t + 0.15, 0.002, 0.3, 1.5); bg.connect(out);
         for (const n of [0, 3, 7, 10]) this.osc('sine', 622 * Math.pow(2, n / 12), t + 0.15, 1.6, bg);
         life = 2.2; break;
+      }
+      case 'tonka': {
+        // diesel rev + two-tone horn
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 6;
+        f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1400, t + 0.6); f.frequency.exponentialRampToValueAtTime(500, t + 1.4);
+        const g = ctx.createGain(); this.env(g.gain, t, 0.05, 0.55, 1.2); f.connect(g).connect(this.dist);
+        for (const d of [0, 0.04]) { const o = this.osc('sawtooth', 48 * (1 + d), t, 1.5, f); o.frequency.exponentialRampToValueAtTime(110, t + 0.7); o.frequency.exponentialRampToValueAtTime(70, t + 1.4); }
+        const hg = ctx.createGain(); this.env(hg.gain, t + 0.05, 0.01, 0.16, 0.35); hg.connect(out);
+        this.osc('square', 392, t + 0.05, 0.4, hg); this.osc('square', 494, t + 0.05, 0.4, hg);
+        life = 1.6; break;
+      }
+      case 'crash': {
+        const g = ctx.createGain(); this.env(g.gain, t, 0.002, 0.9, 0.9); g.connect(this.dist);
+        const o = this.osc('sine', 120, t, 1, g); o.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.7;
+        const ng = ctx.createGain(); this.env(ng.gain, t, 0.001, 0.7, 0.5); f.connect(ng).connect(out); this.noiseSrc(t, 0.6, f);
+        const mg = ctx.createGain(); this.env(mg.gain, t, 0.001, 0.25, 0.7); mg.connect(out);
+        for (const fr of [523, 787, 1131]) this.osc('square', fr, t, 0.7, mg);
+        life = 1.1; break;
+      }
+      case 'bigBell': {
+        // colossal church bell: inharmonic partials with a long decay
+        const base = 82;
+        const partials: [number, number, number][] = [[0.5, 0.5, 7], [1, 0.9, 6], [1.2, 0.35, 4.5], [1.5, 0.3, 4], [2, 0.45, 3.5], [2.74, 0.22, 2.5], [3.76, 0.14, 2], [5.4, 0.08, 1.4]];
+        for (const [r, a, d] of partials) {
+          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.004, a * 0.75, d);
+          const o = this.osc('sine', base * r, t, d + 0.1, g); o.detune.value = (Math.random() - 0.5) * 8;
+        }
+        const s = ctx.createGain(); this.env(s.gain, t, 0.002, 0.6, 1.4); s.connect(this.dist);
+        const o = this.osc('sine', 70, t, 1.5, s); o.frequency.exponentialRampToValueAtTime(38, t + 1.2);
+        life = 7.2; break;
+      }
+      case 'bellDrop': {
+        const g = ctx.createGain(); this.env(g.gain, t, 0.002, 1, 1.6); g.connect(this.dist);
+        const o = this.osc('sine', 95, t, 1.7, g); o.frequency.exponentialRampToValueAtTime(26, t + 1.2);
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + 1.2);
+        const ng = ctx.createGain(); this.env(ng.gain, t, 0.002, 0.8, 1.2); f.connect(ng).connect(out); this.noiseSrc(t, 1.3, f);
+        const rg = ctx.createGain(); this.env(rg.gain, t, 0.003, 0.35, 2.5); rg.connect(out);
+        for (const fr of [164, 197, 328]) this.osc('sine', fr, t, 2.6, rg);
+        life = 2.8; break;
       }
       case 'paint': {
         const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;

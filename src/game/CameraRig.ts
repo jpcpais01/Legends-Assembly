@@ -12,6 +12,9 @@ export class CameraRig {
   private trauma = 0;
   private fovKick = 0;
   private dist = 3.6;
+  /** 1 while the local hero is a vehicle (Yeat's Tonka): camera rises, centers and pulls back. */
+  vehicle = 0;
+  private vehicleK = 0;
   private pivot = new THREE.Vector3();
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
@@ -63,8 +66,10 @@ export class CameraRig {
     this.smoothY = hero.grounded ? damp(this.smoothY, hero.pos.y, 14, dt) : damp(this.smoothY, hero.pos.y, 22, dt);
     const fwd = this.forward(this.tmp2);
     const right = this.tmp.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    this.pivot.set(hero.pos.x, this.smoothY + 1.62, hero.pos.z).addScaledVector(right, 0.62 * this.shoulder);
-    const pitchDist = this.dist + Math.max(0, -this.pitch) * 0.6;
+    this.vehicleK = damp(this.vehicleK, this.vehicle, 5, dt);
+    const vk = this.vehicleK;
+    this.pivot.set(hero.pos.x, this.smoothY + 1.62 + vk * 0.9, hero.pos.z).addScaledVector(right, 0.62 * this.shoulder * (1 - vk));
+    const pitchDist = this.dist + vk * 3.2 + Math.max(0, -this.pitch) * 0.6;
     const desired = new THREE.Vector3().copy(this.pivot).addScaledVector(fwd, -pitchDist);
     desired.y += 0.12;
     // pull in against geometry

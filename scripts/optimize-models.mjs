@@ -9,7 +9,8 @@
  * - auto-rigs unrigged A/T-pose humanoids onto the game's skeleton (scripts/autorig.mjs)
  * - quantizes + meshopt-compresses geometry (the game's GLTFLoader already has the decoder)
  *
- * Usage: npm run models [-- --ratio 0.1] [-- --only yeat] [-- --rig] [-- --flip]
+ * Usage: npm run models [-- --ratio 0.1] [-- --only yeat] [-- --rig | --norig] [-- --flip]
+ *        props: npm run models -- --src models-src/props --out public/models/props --ratio 1 --norig --tex 1024
  */
 import { readdirSync, mkdirSync, statSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -28,6 +29,7 @@ const TEX = Number(arg('tex', '2048'));
 const SRC = arg('src', 'models-src/heroes');
 const OUT = arg('out', 'public/models/heroes');
 const FORCE_RIG = args.includes('--rig');
+const NO_RIG = args.includes('--norig');
 const FLIP = args.includes('--flip') ? true : null;
 
 await MeshoptSimplifier.ready;
@@ -61,8 +63,8 @@ for (const f of files) {
 
   // Loosen the error budget until the target count is reached, so flat areas collapse first
   // and silhouettes / detailed parts keep the most triangles.
-  let doc, after = before;
-  for (const error of [0.002, 0.005, 0.01, 0.02, 0.04, 0.08]) {
+  let doc = await io.read(inPath), after = before;
+  for (const error of RATIO >= 1 ? [] : [0.002, 0.005, 0.01, 0.02, 0.04, 0.08]) {
     doc = await io.read(inPath);
     await doc.transform(dedup(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: RATIO, error }));
     after = triangles(doc);
@@ -70,7 +72,7 @@ for (const f of files) {
   }
 
   // Unrigged (or --rig): bind to the game's own skeleton so the procedural animator drives it.
-  if (FORCE_RIG || !doc.getRoot().listSkins().length) await autoRig(doc, { flip: FLIP });
+  if (!NO_RIG && (FORCE_RIG || !doc.getRoot().listSkins().length)) await autoRig(doc, { flip: FLIP });
 
   await doc.transform(
     resample(),

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { propMesh } from '../render/props';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { HeroDef, HeroKit, Projectile, Zone } from '../game/types';
 import type { Hero } from '../game/Hero';
@@ -85,22 +86,30 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
   if (prev && !prev.dead) prev.t = Math.max(prev.t, prev.dur - 0.01);
   const pos = at.clone();
   pos.y = g.world.heightAt(pos.x, pos.z);
-  const geos = sunflowerGeos();
-  const mats = sunflowerMats();
   const group = new THREE.Group();
   group.position.copy(pos);
-  const stem = new THREE.Mesh(geos.stem, mats.stem);
-  const headPivot = new THREE.Group();
-  headPivot.position.set(0.1, 2.3, 0.05);
-  const head = new THREE.Mesh(geos.head, mats.head);
-  const petals = new THREE.Mesh(geos.petals, mats.petals);
-  petals.scale.setScalar(1.25);
-  headPivot.add(head, petals);
-  // face the owner's team side
-  headPivot.rotation.y = owner.team === 0 ? -Math.PI / 2 : Math.PI / 2;
-  headPivot.rotation.x = -0.25;
-  group.add(stem, headPivot);
-  for (const m of [stem, head, petals]) m.castShadow = true;
+  // sway pivot at the base; the head faces the enemy side
+  const sway = new THREE.Group();
+  sway.rotation.y = Math.atan2(owner.forward.x, owner.forward.z);
+  group.add(sway);
+  let petals: THREE.Object3D | null = null;
+  const model = propMesh('sunflower', 3.1);
+  if (model) sway.add(model);
+  else {
+    const geos = sunflowerGeos();
+    const mats = sunflowerMats();
+    const stem = new THREE.Mesh(geos.stem, mats.stem);
+    const headPivot = new THREE.Group();
+    headPivot.position.set(0.1, 2.3, 0.05);
+    const head = new THREE.Mesh(geos.head, mats.head);
+    const pm = new THREE.Mesh(geos.petals, mats.petals);
+    pm.scale.setScalar(1.25);
+    headPivot.add(head, pm);
+    headPivot.rotation.x = -0.25;
+    sway.add(stem, headPivot);
+    for (const m of [stem, head, pm]) m.castShadow = true;
+    petals = pm;
+  }
   group.scale.setScalar(0.01);
   g.scene.add(group);
   g.play('bloom', pos, 1);
@@ -114,8 +123,9 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
       const elastic = k >= 1 ? 1 : 1 - Math.pow(2, -10 * k) * Math.cos(k * 10);
       const out = z.t > z.dur - 0.4 ? Math.max(0.01, (z.dur - z.t) / 0.4) : 1;
       group.scale.setScalar(Math.max(0.01, elastic * out));
-      headPivot.rotation.z = Math.sin(z.t * 1.7) * 0.1;
-      petals.rotation.z += dt * 0.4;
+      sway.rotation.z = Math.sin(z.t * 1.7) * 0.05;
+      sway.rotation.x = Math.sin(z.t * 1.1 + 1) * 0.03;
+      if (petals) petals.rotation.z += dt * 0.4;
       if (Math.random() < dt * 14) {
         const a = rand(0, TAU), r = rand(0, z.radius);
         g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + 0.1, z: pos.z + Math.sin(a) * r, vy: rand(0.8, 2), r: HEAL.r, g: HEAL.g, b: HEAL.b, size: rand(0.06, 0.12), life: rand(0.8, 1.4), shape: Shape.Star, spin: 2 });
@@ -133,7 +143,7 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
       }
     },
     dispose(z, g) {
-      const hp = _v1.copy(pos).setY(pos.y + 2.3);
+      const hp = _v1.copy(pos).setY(pos.y + 2.6);
       for (let i = 0; i < 24; i++) g.vfx.pa({ x: hp.x, y: hp.y, z: hp.z, vx: rand(-3, 3), vy: rand(0, 4), vz: rand(-3, 3), r: 1, g: rand(0.55, 0.75), b: 0.05, a: 1, size: rand(0.12, 0.2), life: rand(1, 1.8), gravity: 4, drag: 1.5, shape: Shape.Petal, spin: rand(-6, 6) });
       g.scene.remove(group);
       if (owner.kitState.flower === z) owner.kitState.flower = null;
@@ -407,6 +417,8 @@ export const VANGOGH: HeroDef = {
   color: '#ffc21a',
   accent: '#2b6bff',
   maxHp: 275,
+  modelUrl: '/models/heroes/vangogh.glb',
+  held: { prop: 'palette', hand: 'L', size: 0.46, pos: [0.02, -0.09, 0.1], rot: [0, 0, 0] },
   speed: 6.0,
   secondaryCd: 12,
   ultCost: 1500,
