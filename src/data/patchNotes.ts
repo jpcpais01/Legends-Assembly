@@ -8,6 +8,36 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.4.0',
+    date: '2026-11-12',
+    title: 'Center Stage',
+    sections: [
+      {
+        heading: 'All-new menus',
+        items: [
+          'A brand-new console-style home screen: mode tiles across the top, a big Play button, your legend on the dais and a live clock. Switch tabs with Q and E, pick modes with the arrow keys and press Enter to play.',
+          'New hero select. Your legend steps up close while their role, stats, difficulty and full kit fill the screen. Flip through the roster with A and D, then Lock In with a cinematic stamp.',
+          'Redesigned Settings with Graphics, Controls, Audio, Interface and Profile pages, quality cards and smooth sliders.',
+          'New Learn page with a visual control map, fundamentals and tips for the legend you play. Patch notes now live in a News tab.',
+          'New pause menu with your live match stats and kit, plus a two-step Leave so you never quit by accident.',
+          'New end-of-match screen: a dramatic Victory or Defeat reveal, an MVP spotlight, your personal stats counting up, full team breakdowns, and one-click Play again or Change legend.',
+        ],
+      },
+      {
+        heading: 'All-new HUD',
+        items: [
+          'Bigger, cleaner health readout with a damage trail, heal flash and a low-health pulse.',
+          'Skewed ability slots with names, cooldown sweeps and a flash when your ability is ready. The special ring spins and glows the screen edges when it is charged.',
+          'New scoreboard bar with team portraits, respawn timers and progress toward the win target.',
+          'Kill feed with hero portraits, an elimination and assist ticker under your crosshair, and a death card that shows who took you out and when you respawn.',
+          'Match intro card and a ring countdown before every fight. Hold Tab for a redesigned scoreboard.',
+          'New Interface settings: HUD scale, crosshair color and a damage numbers toggle.',
+          'The HUD only updates what changed each frame, which keeps it light on the CPU.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-11-12',
     title: 'Living Motion',

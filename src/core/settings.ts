@@ -30,6 +30,10 @@ export interface Settings {
   invertY: boolean;
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
+  /** HUD size multiplier (0.8 to 1.25). */
+  hudScale: number;
+  damageNumbers: boolean;
+  crosshairColor: string;
 }
 
 const KEY = 'legends-assembly:settings:v1';
@@ -65,6 +69,9 @@ function defaults(): Settings {
     invertY: false,
     playerName: 'Player',
     botDifficulty: 'normal',
+    hudScale: 1,
+    damageNumbers: true,
+    crosshairColor: '#ffffff',
   };
 }
 

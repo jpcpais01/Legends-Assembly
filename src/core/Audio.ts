@@ -10,7 +10,8 @@ export type Sfx =
   | 'bell' | 'dash' | 'bass808' | 'mode2093' | 'tonka' | 'crash' | 'bigBell' | 'bellDrop'
   | 'paint' | 'splat' | 'bloom' | 'starry'
   | 'hit' | 'crit' | 'kill' | 'hurt' | 'jump' | 'heal' | 'ui' | 'uiHover' | 'respawn' | 'victory' | 'defeat'
-  | 'denied' | 'ultReady' | 'pickup' | 'countdown' | 'go';
+  | 'denied' | 'ultReady' | 'pickup' | 'countdown' | 'go'
+  | 'uiTab' | 'uiBack' | 'lockIn';
 
 const PENTA = [0, 2, 4, 7, 9, 12, 14];
 
@@ -326,6 +327,30 @@ export class AudioEngine {
         const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.001, name === 'ui' ? 0.18 : 0.05, 0.06);
         this.osc('sine', name === 'ui' ? 1200 : 1800, t, 0.08, g);
         life = 0.1; break;
+      }
+      case 'uiTab': {
+        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.09, 0.09);
+        const o = this.osc('triangle', 820, t, 0.1, g); o.frequency.exponentialRampToValueAtTime(1500, t + 0.07);
+        life = 0.15; break;
+      }
+      case 'uiBack': {
+        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.1, 0.12);
+        const o = this.osc('sine', 1100, t, 0.13, g); o.frequency.exponentialRampToValueAtTime(520, t + 0.11);
+        life = 0.18; break;
+      }
+      case 'lockIn': {
+        // airy whoosh + bright rising chord
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+        f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(5000, t + 0.35);
+        const gn = ctx.createGain(); this.env(gn.gain, t, 0.12, 0.22, 0.35);
+        f.connect(gn).connect(out); this.noiseSrc(t, 0.6, f);
+        [0, 7, 12, 16].forEach((n, i) => {
+          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + 0.05 + i * 0.035, 0.005, 0.16, 0.9);
+          this.osc('triangle', 523 * Math.pow(2, n / 12), t + 0.05 + i * 0.035, 1, g);
+        });
+        const b = ctx.createGain(); b.connect(out); this.env(b.gain, t, 0.004, 0.35, 0.4);
+        const o = this.osc('sine', 110, t, 0.45, b); o.frequency.exponentialRampToValueAtTime(55, t + 0.4);
+        life = 1.1; break;
       }
       case 'denied': {
         const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.15, 0.12);
