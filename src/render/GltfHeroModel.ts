@@ -1,0 +1,135 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { ProceduralHeroModel, type AnimState, type HeroModel } from './HeroRig';
+import { patchHeroMaterial, type HeroFxUniforms } from './materials';
+import type { HeroDef } from '../game/types';
+
+const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
+const cache = new Map<string, Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] } | null>>();
+
+function load(url: string) {
+  let p = cache.get(url);
+  if (!p) {
+    p = loader.loadAsync(url).then((g) => ({ scene: g.scene, animations: g.animations })).catch((e) => {
+      console.warn('[Legends] model failed to load, using procedural rig:', url, e);
+      return null;
+    });
+    cache.set(url, p);
+  }
+  return p;
+}
+
+/**
+ * Meshy (or any rigged humanoid GLB) hero model. Auto-normalizes scale to 1.8 m, plants feet,
+ * maps clips by name (idle / walk|run / attack / jump), and keeps the procedural rig visible until loaded.
+ */
+export class GltfHeroModel implements HeroModel {
+  root = new THREE.Group();
+  fx: HeroFxUniforms;
+  private fallback: ProceduralHeroModel;
+  private obj: THREE.Object3D | null = null;
+  private mixer: THREE.AnimationMixer | null = null;
+  private actions: Record<string, THREE.AnimationAction | undefined> = {};
+  private current: THREE.AnimationAction | null = null;
+  private handR: THREE.Object3D | null = null;
+  private handL: THREE.Object3D | null = null;
+  private head: THREE.Object3D | null = null;
+  private inner = new THREE.Group();
+  private disposed = false;
+
+  constructor(def: HeroDef, rim: THREE.Color) {
+    this.fallback = new ProceduralHeroModel(def.look, rim);
+    this.fx = this.fallback.fx;
+    this.root.add(this.fallback.root);
+    this.root.add(this.inner);
+    load(def.modelUrl!).then((res) => {
+      if (!res || this.disposed) return;
+      const obj = SkeletonUtils.clone(res.scene);
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3());
+      const s = 1.8 / Math.max(0.01, size.y);
+      obj.scale.setScalar(s);
+      const c = box.getCenter(new THREE.Vector3());
+      obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+      obj.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) {
+          m.castShadow = true;
+          m.frustumCulled = false;
+          const src = m.material as THREE.MeshStandardMaterial;
+          const mat = (src && (src as any).isMeshStandardMaterial) ? src.clone() : new THREE.MeshStandardMaterial({ color: 0xcccccc });
+          patchHeroMaterial(mat, this.fx);
+          m.material = mat;
+        }
+        const n = o.name.toLowerCase();
+        if (!this.handR && /(right|_r\b|\.r\b|r_).*hand|hand.*(right|_r\b|\.r\b)/.test(n)) this.handR = o;
+        if (!this.handL && /(left|_l\b|\.l\b|l_).*hand|hand.*(left|_l\b|\.l\b)/.test(n)) this.handL = o;
+        if (!this.head && /head/.test(n) && !/top|end/.test(n)) this.head = o;
+      });
+      this.inner.add(obj);
+      this.obj = obj;
+      if (res.animations.length) {
+        this.mixer = new THREE.AnimationMixer(obj);
+        const find = (re: RegExp) => res.animations.find((a) => re.test(a.name));
+        const map: Record<string, THREE.AnimationClip | undefined> = {
+          idle: find(/idle|stand/i),
+          run: find(/run|sprint/i) ?? find(/walk/i),
+          walk: find(/walk/i),
+          attack: find(/attack|punch|shoot|cast|throw|slash/i),
+          jump: find(/jump|fall/i),
+        };
+        for (const [k, clip] of Object.entries(map)) if (clip) this.actions[k] = this.mixer.clipAction(clip);
+        this.play('idle');
+      }
+      this.fallback.root.visible = false;
+    });
+  }
+
+  private play(name: string, fade = 0.18) {
+    const a = this.actions[name] ?? this.actions.idle;
+    if (!a || a === this.current) return;
+    a.reset().fadeIn(fade).play();
+    this.current?.fadeOut(fade);
+    this.current = a;
+  }
+
+  update(dt: number, s: AnimState) {
+    if (!this.obj) { this.fallback.update(dt, s); return; }
+    if (this.mixer) {
+      if (s.dead) { /* freeze */ }
+      else if (!s.grounded && this.actions.jump) this.play('jump');
+      else if (s.attack > 0.6 && this.actions.attack) this.play('attack', 0.08);
+      else if (s.speed > 4.5) this.play('run');
+      else if (s.speed > 0.6) this.play(this.actions.walk ? 'walk' : 'run');
+      else if (s.attack <= 0.2) this.play('idle');
+      if (this.current && (this.current === this.actions.run || this.current === this.actions.walk)) {
+        this.current.timeScale = Math.max(0.6, s.speed / 5.5);
+      }
+      this.mixer.update(dt);
+    }
+    // procedural layer on top: lean + death topple + levitation
+    this.inner.rotation.x = s.dead ? Math.max(this.inner.rotation.x - dt * 3, -1.45) : Math.min(0.35, s.fwd / 30 + s.dash * 0.3);
+    this.inner.position.y = s.levitate * 0.15;
+    if (!this.mixer) this.inner.position.y += Math.abs(Math.sin(s.time * 9)) * 0.04 * Math.min(1, s.speed / 6);
+  }
+
+  handWorld(side: 'L' | 'R', out: THREE.Vector3) {
+    const h = side === 'L' ? this.handL : this.handR;
+    if (h && this.obj) return h.getWorldPosition(out);
+    return this.fallback.handWorld(side, out);
+  }
+
+  headWorld(out: THREE.Vector3) {
+    if (this.head && this.obj) return this.head.getWorldPosition(out);
+    return this.fallback.headWorld(out);
+  }
+
+  dispose() {
+    this.disposed = true;
+    this.fallback.dispose();
+    this.obj?.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) (m.material as THREE.Material).dispose(); });
+  }
+}
