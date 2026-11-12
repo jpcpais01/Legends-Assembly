@@ -58,6 +58,7 @@ export const PATCH_NOTES: PatchNote[] = [
           'Healing shows rising green crosses, slowed legends shed frosty sparkles, and a legend with a ready special glows at their feet.',
           'Footsteps, jumps and landings kick up dust, and big falls send out a dust ring.',
           'Each special starts with a flare, a rune circle and a pillar of light in the legend’s color.',
+          'Fixed: shockwave rings, paint stains and other effects on the floor were invisible from above. They now show up everywhere they should.',
           'New settings under Interface: Screen effects and Camera shake can each be turned off.',
         ],
       },
