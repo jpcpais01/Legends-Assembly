@@ -157,7 +157,7 @@ export class Game {
     p.y = this.world.heightAt(p.x, p.z);
     const yaw = Math.atan2(-dx, -dz); // face the center
     h.respawnAt(p, yaw);
-    if (h.isLocal) { this.camRig.yaw = yaw; this.camRig.pitch = -0.08; }
+    if (h.isLocal) { this.camRig.yaw = yaw; this.camRig.pitch = -0.08; this.camRig.reset(); }
   }
 
   clearMatch() {
