@@ -26,10 +26,10 @@ class YeatKit implements HeroKit {
     if (h.kitState.truck) return;
     h.primaryCd = 0.62;
     const m = h.muzzle('R');
-    m.addScaledVector(h.right, -0.3); // both hands, center-ish
     const base = h.aimDir(m);
     h.anim.attack = 1;
-    h.anim.attackSide = (h.anim.attackSide * -1) || 1;
+    h.anim.attackSide = 1; // the bell is in his right hand
+    h.anim.attackKind = 'ring';
     const col = GOLD;
     const st = h.kitState;
     st.riff = g.time - (st.riffT ?? -9) > 1.8 ? 0 : ((st.riff ?? -1) + 1) % RIFF.length;
@@ -516,6 +516,7 @@ export const YEAT: HeroDef = {
   accent: '#ffcf5a',
   maxHp: 350,
   modelUrl: '/models/heroes/yeat.glb',
+  motion: 'swagger',
   held: { prop: 'golden_bell', hand: 'R', size: 0.15, pos: [0, -0.1, 0.03], rot: [0, 0, 0], ring: true },
   speed: 6.3,
   secondaryCd: 9,

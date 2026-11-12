@@ -308,7 +308,7 @@ class VanGoghKit implements HeroKit {
     h.primaryCd = 0.42;
     const m = h.muzzle('R');
     const dir = h.aimDir(m);
-    h.anim.attack = 1; h.anim.attackSide = 1;
+    h.anim.attack = 1; h.anim.attackSide = 1; h.anim.attackKind = 'stroke';
     const col = PAINTS[this.ci++ % PAINTS.length];
     g.play('paint', m, 0.7);
     for (let i = 0; i < 5; i++) g.vfx.pa({ x: m.x, y: m.y, z: m.z, vx: dir.x * 4 + rand(-1, 1), vy: dir.y * 4 + rand(0, 1.5), vz: dir.z * 4 + rand(-1, 1), r: col.r, g: col.g, b: col.b, size: rand(0.04, 0.08), life: 0.5, gravity: 9 });
@@ -339,9 +339,9 @@ class VanGoghKit implements HeroKit {
   }
 
   secondary(h: Hero, g: Game) {
-    const m = h.muzzle('L');
+    const m = h.muzzle('R'); // the palette is in his left hand
     const dir = h.aimDir(m);
-    h.anim.attack = 1; h.anim.attackSide = -1;
+    h.anim.attack = 1; h.anim.attackSide = 1; h.anim.attackKind = 'toss';
     g.play('seedToss', m, 0.7);
     g.spawnProjectile({
       owner: h, kind: 'seed', pos: m.clone(), vel: dir.multiplyScalar(20).add(new THREE.Vector3(0, 4, 0)), gravity: 16, radius: 0.15, life: 2.5, damage: 0, color: SUN,
@@ -420,6 +420,7 @@ export const VANGOGH: HeroDef = {
   accent: '#2b6bff',
   maxHp: 275,
   modelUrl: '/models/heroes/vangogh.glb',
+  motion: 'artist',
   held: { prop: 'palette', hand: 'L', size: 0.46, pos: [0.02, -0.09, 0.1], rot: [0, 0, 0] },
   speed: 6.0,
   secondaryCd: 12,

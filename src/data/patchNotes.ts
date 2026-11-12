@@ -8,6 +8,33 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.7.0',
+    date: '2026-11-12',
+    title: 'Fighting Form',
+    sections: [
+      {
+        heading: 'Attacks you can feel',
+        items: [
+          'Every attack is now a full-body move with a wind-up, a strike and a follow-through, instead of an arm snapping straight out.',
+          "Einstein fires photons with quick alternating palm thrusts and hurls his gravity orb overhand from behind his head.",
+          'Yeat raises his golden bell high, snaps it down and shakes it out with every ring.',
+          'Van Gogh slashes paint in sweeping brush strokes and lobs his sunflower seeds underhand.',
+          'The chest, hips and knees drive each strike, and the head stays locked on the target.',
+        ],
+      },
+      {
+        heading: 'More natural movement',
+        items: [
+          'Legends shift their weight over the planted foot as they walk, and their hips sway with it.',
+          'Direction changes ripple up the spine instead of turning the whole body at once.',
+          'Arms swing with relaxed elbows that bend as they come forward, and hands drift toward the middle when sprinting.',
+          'Starting and stopping leans harder into the change of speed.',
+          'Each legend moves like themselves: Yeat bounces with a swagger, Einstein keeps a scholarly hunch and Van Gogh tilts his head like he is sizing up a canvas.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-11-12',
     title: "The Giant's Study",

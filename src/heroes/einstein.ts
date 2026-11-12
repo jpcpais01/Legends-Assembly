@@ -215,6 +215,7 @@ class EinsteinKit implements HeroKit {
     const dir = h.aimDir(m);
     h.anim.attack = 1;
     h.anim.attackSide = h.hand;
+    h.anim.attackKind = 'flick';
     g.vfx.burst(m, PHOTON, 5, 3, 0.1, 0.15);
     g.play('photon', m, 0.55);
     g.spawnProjectile({
@@ -242,7 +243,7 @@ class EinsteinKit implements HeroKit {
   secondary(h: Hero, g: Game) {
     const m = h.muzzle('R');
     const dir = h.aimDir(m);
-    h.anim.attack = 1; h.anim.attackSide = 1;
+    h.anim.attack = 1; h.anim.attackSide = 1; h.anim.attackKind = 'throw';
     g.play('gravityThrow', m, 0.8);
     g.spawnProjectile({
       owner: h, kind: 'gravityOrb', pos: m.clone(), vel: dir.multiplyScalar(30).add(new THREE.Vector3(0, 2.5, 0)), gravity: 9, radius: 0.32, life: 1.0, damage: 0, color: VIOLET,
@@ -351,6 +352,7 @@ export const EINSTEIN: HeroDef = {
   accent: '#b48cff',
   maxHp: 250,
   modelUrl: '/models/heroes/einstein.glb',
+  motion: 'scholar',
   speed: 6.0,
   secondaryCd: 10,
   ultCost: 1500,
