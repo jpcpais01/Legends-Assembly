@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.6.1',
+    date: '2026-11-12',
+    title: 'Steady Cam',
+    sections: [
+      {
+        heading: 'Camera',
+        items: [
+          "The camera no longer clips through walls or book stacks when your back is against them. It now checks a whole lens-sized area instead of a single line, so corners can't sneak into view.",
+          'Backing along a wall is smooth: the camera tucks in instantly when something gets in the way and glides back out instead of popping.',
+          'Hugging a wall on your right side now slides the over-the-shoulder view inward instead of pushing the camera into the wall.',
+          'If the camera ends up right behind your head, your legend steps out of view so you can still see the fight.',
+          'Shots fired while the camera is squeezed in against a wall now start from your legend, not from past them.',
+          'The camera snaps cleanly into place when you spawn and respawn.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-11-12',
     title: "The Giant's Study",
