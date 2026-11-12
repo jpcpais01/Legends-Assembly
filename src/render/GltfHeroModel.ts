@@ -89,7 +89,7 @@ export class GltfHeroModel implements HeroModel {
         const bones = { body: this.inner } as Record<string, THREE.Object3D>;
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         const armOut = Number(obj.getObjectByName('la_armature')?.userData?.armOut ?? 0);
-        this.animator = new RigAnimator(bones as unknown as RigBones, { armOut });
+        this.animator = new RigAnimator(bones as unknown as RigBones, { armOut, style: def.motion });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {

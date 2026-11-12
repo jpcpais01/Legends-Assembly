@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeHeroFxUniforms, patchRigMaterial, type HeroFxUniforms } from './materials';
-import { RigAnimator } from './RigAnimator';
+import { RigAnimator, type AttackKind } from './RigAnimator';
 
 export { RigAnimator };
 
@@ -24,6 +24,8 @@ export interface AnimState {
   vy?: number;
   /** 0..1 pulse when damaged (flinch). */
   hit?: number;
+  /** Which attack gesture the next attack pulse plays (defaults to the hero's style). */
+  attackKind?: AttackKind;
 }
 
 export interface HeroModel {

@@ -1,4 +1,5 @@
 import type * as THREE from 'three';
+import type { MotionStyle } from '../render/RigAnimator';
 import type { Hero } from './Hero';
 import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
@@ -43,6 +44,8 @@ export interface HeroDef {
   abilities: { primary: AbilityInfo; secondary: AbilityInfo; ult: AbilityInfo };
   /** Optional Meshy GLB. Falls back to the procedural rig while missing. */
   modelUrl?: string;
+  /** Body language for the procedural animator (posture, arm swing, default attack gesture). */
+  motion?: MotionStyle;
   /** Optional Meshy prop held in a hand of the GLB model (meters / radians in the hand bone's frame). */
   held?: {
     prop: PropName; hand: 'L' | 'R'; size: number; pos: [number, number, number]; rot: [number, number, number];

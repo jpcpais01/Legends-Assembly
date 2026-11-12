@@ -30,6 +30,34 @@ interface LegRig { hip: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object
 
 const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
+export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss';
+export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist';
+
+/**
+ * One key of an attack gesture, for the attacking arm. Angles in radians, side-relative:
+ * x = shoulder pitch (negative raises the arm forward), z = shoulder abduction (positive = away from the body),
+ * e = elbow bend (negative bends), w = wrist flex, cy = chest yaw driving the attacking shoulder forward,
+ * cp = chest pitch (positive leans in), hp = how much of the aim pitch the arm follows.
+ */
+interface GKey { t: number; x: number; z: number; e: number; w: number; cy: number; cp: number; hp: number }
+interface Gesture { keys: GKey[]; end: number; dip: number; shake?: number; off?: { x: number; z: number; e: number } }
+const k = (t: number, x: number, z: number, e: number, w: number, cy: number, cp: number, hp = 1): GKey => ({ t, x, z, e, w, cy, cp, hp });
+/** Anticipation, strike, follow-through, recovery. The arm springs track these, so they overshoot and settle. */
+const GESTURES: Record<AttackKind, Gesture> = {
+  // quick alternating palm thrust (Einstein's photons)
+  flick: { end: 0.34, dip: 0.25, keys: [k(0, -0.45, 0.22, -1.6, 0.35, -0.2, -0.02), k(0.05, -0.3, 0.28, -2.05, 0.5, -0.3, -0.05), k(0.1, -1.55, 0.02, -0.1, -0.35, 0.3, 0.08), k(0.2, -1.45, 0.06, -0.28, -0.1, 0.22, 0.05), k(0.34, -1.15, 0.12, -0.7, 0, 0.08, 0.02)] },
+  // bell raised high, then snapped down and shaken (Yeat)
+  ring: { end: 0.62, dip: 0.6, shake: 1, keys: [k(0, -1.4, 0.35, -1.2, 0.3, -0.1, -0.06, 0.4), k(0.09, -2.35, 0.42, -1.05, 0.6, -0.22, -0.14, 0.2), k(0.17, -1.25, 0.18, -0.35, -0.55, 0.32, 0.16), k(0.32, -1.35, 0.22, -0.45, -0.2, 0.22, 0.1), k(0.62, -1.1, 0.25, -0.75, 0, 0.05, 0.02)] },
+  // diagonal brush stroke from high-outside across the body (Van Gogh)
+  stroke: { end: 0.56, dip: 0.4, keys: [k(0, -1.4, 0.55, -0.9, 0.3, -0.2, -0.04), k(0.1, -2.15, 0.95, -0.75, 0.55, -0.42, -0.1), k(0.21, -1.05, -0.38, -0.2, -0.45, 0.42, 0.14), k(0.34, -0.8, -0.5, -0.35, -0.2, 0.34, 0.1), k(0.56, -0.9, 0.0, -0.7, 0, 0.08, 0.02)] },
+  // overhand throw: cock the arm behind the head, whip it through (Einstein's gravity orb)
+  throw: { end: 0.72, dip: 0.8, keys: [k(0, -1.6, 0.5, -1.4, 0.2, -0.25, -0.08, 0.3), k(0.14, -2.75, 0.55, -2.0, 0.5, -0.5, -0.2, 0), k(0.25, -1.35, 0.1, -0.15, -0.5, 0.5, 0.26), k(0.42, -0.75, -0.2, -0.3, -0.2, 0.38, 0.18, 0.5), k(0.72, -0.6, 0.1, -0.6, 0, 0.08, 0.03, 0.3)] },
+  // underhand lob (Van Gogh's seeds)
+  toss: { end: 0.66, dip: 0.55, keys: [k(0, -0.2, 0.2, -0.3, 0.1, -0.1, 0.04, 0), k(0.13, 0.65, 0.25, -0.2, 0.3, -0.28, 0.12, 0), k(0.26, -1.55, 0.05, -0.35, -0.4, 0.3, -0.04, 0.4), k(0.42, -1.95, 0.1, -0.45, -0.2, 0.2, -0.06, 0.4), k(0.66, -1.2, 0.15, -0.6, 0, 0.05, 0, 0.3)] },
+};
+
+interface ArmGesture { g: Gesture | null; t: number; struck: boolean; x: Spring; z: Spring; e: Spring; w: Spring }
+
 /**
  * Procedural locomotion with real foot placement.
  * - Distance-driven gait: cadence and stride follow ground speed, stance feet stay planted (two-bone leg IK).
@@ -74,11 +102,18 @@ export class RigAnimator {
   private armLS = new Spring();
   private armRS = new Spring();
 
+  private armG: [ArmGesture, ArmGesture] = [0, 1].map(() => ({ g: null, t: 0, struck: false, x: new Spring(), z: new Spring(), e: new Spring(), w: new Spring() })) as [ArmGesture, ArmGesture];
+  private chestYawS = new Spring();
+  private chestPitchS = new Spring();
+  private twistS = new Spring();
+  private style: MotionStyle;
+
   private deadT = 0;
   private fallA = 0; private fallV = 0; private fallSide = 0;
 
-  constructor(private r: RigBones, opts: { armOut?: number } = {}) {
+  constructor(private r: RigBones, opts: { armOut?: number; style?: MotionStyle } = {}) {
     this.armOut = opts.armOut ?? 0;
+    this.style = opts.style ?? 'default';
     this.hipsY0 = r.hips.position.y;
     const mk = (hip: THREE.Object3D, knee: THREE.Object3D, foot: THREE.Object3D, side: 1 | -1): LegRig => ({
       hip, knee, foot, side, joint: hip.position.clone(), L1: Math.max(1e-3, knee.position.length()), L2: Math.max(1e-3, foot.position.length()),
@@ -180,6 +215,50 @@ export class RigAnimator {
     }
     const psi = this.psi;
 
+    // ── attack gestures: per-arm timelines (anticipation -> strike -> follow-through), whole body drives them ──
+    const attackRise = s.attack > this.lastAttack + 0.3;
+    this.lastAttack = s.attack;
+    if (attackRise) {
+      const kind: AttackKind = s.attackKind ?? (this.style === 'swagger' ? 'ring' : this.style === 'artist' ? 'stroke' : 'flick');
+      const arm = this.armG[kind === 'ring' || s.attackSide >= 0 ? 1 : 0];
+      arm.g = GESTURES[kind]; arm.t = 0; arm.struck = false;
+    }
+    let gYaw = 0, gPitch = 0;
+    const gPose: ({ x: number; z: number; e: number; w: number; wgt: number } | null)[] = [null, null];
+    for (let i = 0; i < 2; i++) {
+      const a = this.armG[i];
+      if (!a.g) continue;
+      a.t += dt;
+      const g = a.g;
+      if (a.t > g.end + 0.3) { a.g = null; continue; }
+      const keys = g.keys;
+      let j = 0;
+      while (j < keys.length - 2 && a.t > keys[j + 1].t) j++;
+      const k0 = keys[j], k1 = keys[j + 1];
+      const u = easeInOut(clamp((a.t - k0.t) / Math.max(1e-3, k1.t - k0.t), 0, 1));
+      const L = (p: keyof GKey) => lerp(k0[p], k1[p], u);
+      const wgt = 1 - smoothstep(g.end - 0.04, g.end + 0.3, a.t);
+      const pose = { x: L('x') - s.pitch * L('hp'), z: L('z'), e: L('e'), w: L('w'), wgt };
+      if (g.shake && a.t > keys[2].t) {
+        const ts = a.t - keys[2].t, d = Math.exp(-ts * 6.5);
+        pose.w += Math.sin(ts * 46) * 0.55 * d;
+        pose.e += Math.sin(ts * 46 + 1.2) * 0.14 * d;
+        pose.x += Math.sin(ts * 23) * 0.08 * d;
+      }
+      gPose[i] = pose;
+      const drive = i === 1 ? 1 : -1; // right arm forward = chest turns left (+y)
+      gYaw += L('cy') * drive * wgt;
+      gPitch += L('cp') * wgt;
+      if (!a.struck && a.t >= keys[2].t - 0.02) {
+        a.struck = true;
+        this.dropS.v -= g.dip * 0.75;
+        this.pitchS.v += g.dip * 0.9;
+        this.headS.v += g.dip * 1.2;
+      }
+    }
+    const gy = this.chestYawS.step(gYaw, 6.5, 0.5, dt);
+    const gp = this.chestPitchS.step(gPitch, 6, 0.55, dt);
+
     // ── hips ──
     const cyc = this.phase * TAU;
     const bobAmp = lerp(0.022, -0.045, runK) * mw;
@@ -191,8 +270,10 @@ export class RigAnimator {
     const shift = Math.sin(t * 0.8) * (1 - mw) * (1 - this.air); // contrapposto weight shift
     const pelvisTwist = -0.13 * Math.cos(cyc) * mw * (0.5 + 0.5 * runK) * (this.backpedal ? -0.6 : 1);
     r.hips.position.y = this.hipsY0 + (bob - crouch + breathe + drop - Math.abs(shift) * 0.012) * upm + this.air * 0.04 * upm * (1 - s.levitate);
-    r.hips.position.x = shift * 0.025 * upm;
-    r.hips.rotation.set(0, psi + pelvisTwist, -shift * 0.05 + Math.sin(cyc) * 0.035 * mw * (1 - runK * 0.5));
+    // weight rides over the stance foot (strongest when walking)
+    const sway = Math.cos(cyc - duty * Math.PI) * lerp(0.03, 0.012, runK) * mw * (this.style === 'swagger' ? 1.4 : 1);
+    r.hips.position.x = (shift * 0.025 + sway) * upm;
+    r.hips.rotation.set(0, psi + pelvisTwist + gy * 0.25, -shift * 0.05 + Math.sin(cyc) * 0.035 * mw * (1 - runK * 0.5) - sway * 0.6);
 
     // ── legs (two-bone IK) ──
     r.hips.updateMatrix();
@@ -257,8 +338,6 @@ export class RigAnimator {
     }
 
     // ── torso: lean into acceleration, bank into turns, overshoot when stopping ──
-    const attackRise = s.attack > this.lastAttack + 0.3;
-    this.lastAttack = s.attack;
     const hit = s.hit ?? 0;
     if (hit > this.lastHit + 0.3) {
       this.pitchS.v -= 2.6;
@@ -266,42 +345,57 @@ export class RigAnimator {
       this.headS.v -= 4;
     }
     this.lastHit = hit;
-    if (attackRise) this.pitchS.v -= 0.9;
-    const leanTarget = 0.12 * runK * mw * (this.backpedal ? -0.4 : 1) + clamp(this.accF * 0.018, -0.22, 0.28) + s.dash * 0.5 + this.air * (0.08 - 0.18 * this.rise);
+    const st = this.style;
+    const posture = st === 'scholar' ? 0.09 : st === 'artist' ? 0.04 : st === 'swagger' ? -0.03 : 0;
+    const leanTarget = posture + 0.12 * runK * mw * (this.backpedal ? -0.4 : 1) + clamp(this.accF * 0.024, -0.26, 0.34) + s.dash * 0.5 + this.air * (0.08 - 0.18 * this.rise);
     const lean = this.pitchS.step(leanTarget, 2.2, 0.42, dt);
-    const bank = this.bankS.step(clamp(this.accR * 0.016, -0.3, 0.3), 2, 0.5, dt);
+    const bank = this.bankS.step(clamp(this.accR * 0.018, -0.32, 0.32), 2, 0.5, dt);
     const shoulderCounter = 0.2 * Math.cos(cyc) * mw * (0.4 + 0.6 * runK);
     const pitch = s.pitch;
-    const twist = -(psi + pelvisTwist);
-    r.spine.rotation.set(lean * 0.6 - pitch * 0.2, twist * 0.55, bank * 0.6 + shift * 0.04);
-    r.chest.rotation.set(lean * 0.4 - pitch * 0.25 + Math.sin(t * 2.0) * 0.012, twist * 0.45 + shoulderCounter, bank * 0.4);
+    // the chest follows the pelvis twist with a little lag, so direction changes ripple up the spine
+    const twist = this.twistS.step(-(psi + pelvisTwist), 4.5, 0.7, dt);
+    // swagger: shoulders roll with each step
+    const roll = st === 'swagger' ? Math.sin(cyc) * 0.07 * mw : 0;
+    r.spine.rotation.set(lean * 0.6 - pitch * 0.2 + gp * 0.4, twist * 0.55 + gy * 0.4, bank * 0.6 + shift * 0.04 + roll * 0.5);
+    r.chest.rotation.set(lean * 0.4 - pitch * 0.25 + Math.sin(t * 2.0) * 0.012 + gp * 0.6, twist * 0.45 + shoulderCounter + gy * 0.6, bank * 0.4 + roll);
 
-    // ── head: stabilized gaze ──
+    // ── head: stabilized gaze (keeps looking at the target while the body works) ──
     const headKick = this.headS.step(0, 3.5, 0.35, dt);
-    r.neck.rotation.set(-lean * 0.3, -shoulderCounter * 0.4, -bank * 0.4);
-    r.head.rotation.set(-pitch * 0.45 - lean * 0.45 + headKick * 0.25, -shoulderCounter * 0.5 + Math.sin(t * 0.55) * 0.06 * (1 - mw), -bank * 0.3);
+    const nod = st === 'swagger' ? Math.sin(t * 3.6) * 0.035 * (1 - mw) + Math.cos(cyc * 2) * 0.03 * mw : 0;
+    r.neck.rotation.set(-lean * 0.3 - gp * 0.4 + posture * 0.6, -shoulderCounter * 0.4 - gy * 0.45, -bank * 0.4 - roll * 0.5);
+    r.head.rotation.set(-pitch * 0.45 - lean * 0.45 + headKick * 0.25 - gp * 0.4 - posture + nod, -shoulderCounter * 0.5 - gy * 0.5 + Math.sin(t * 0.55) * 0.06 * (1 - mw), -bank * 0.3 + (st === 'artist' ? 0.06 : 0));
 
-    // ── arms ──
-    const swingAmp = lerp(0.32, 0.72, runK) * mw * (this.backpedal ? 0.5 : 1);
-    let lx = this.armLS.step(swingAmp * Math.cos(cyc) + 0.06 - this.air * 0.5 * this.rise, 3.2, 0.5, dt);
-    let rx = this.armRS.step(-swingAmp * Math.cos(cyc) + 0.06 - this.air * 0.5 * this.rise, 3.2, 0.5, dt);
-    const spread = 0.1 + this.armOut + 0.08 * runK * mw + Math.sin(t * 1.3) * 0.015 + this.air * 0.45;
-    let lz = spread, rz = -spread;
+    // ── arms: locomotion pose ──
+    const swingK = st === 'swagger' ? 1.15 : st === 'scholar' ? 0.8 : 1;
+    const swingAmp = lerp(0.32, 0.72, runK) * mw * (this.backpedal ? 0.5 : 1) * swingK;
+    const swing = Math.cos(cyc);
+    let lx = this.armLS.step(swingAmp * swing + 0.06 - this.air * 0.5 * this.rise, 3.2, 0.5, dt);
+    let rx = this.armRS.step(-swingAmp * swing + 0.06 - this.air * 0.5 * this.rise, 3.2, 0.5, dt);
+    const spread = 0.1 + this.armOut + 0.08 * runK * mw + Math.sin(t * 1.3) * 0.015 + this.air * 0.45 + (st === 'swagger' ? 0.08 : 0);
+    // hands drift toward the midline on the forward swing
+    let lz = spread - Math.max(0, -lx) * 0.18 * runK, rz = -spread + Math.max(0, -rx) * 0.18 * runK;
     const pump = Math.sin(cyc * 2) * 0.12 * runK * mw;
-    let le = -0.22 - lerp(0.15, 1.2, runK) * mw - pump, re = -0.22 - lerp(0.15, 1.2, runK) * mw + pump;
+    // elbows bend more as the arm swings forward
+    let le = -0.22 - lerp(0.15, 1.2, runK) * mw - pump - Math.max(0, -lx) * 0.35 * mw;
+    let re = -0.22 - lerp(0.15, 1.2, runK) * mw + pump - Math.max(0, -rx) * 0.35 * mw;
     // weapon-ready right arm, steadier while sprinting
     const aimPose = 0.32 * (1 - 0.35 * runK * mw);
     rx = lerp(rx, -1.0 - pitch * 0.6, aimPose);
     re = lerp(re, -0.75, aimPose);
-    // attack: snap forward along the aim, chest drives the shoulder
-    if (s.attack > 0) {
-      const k = smoothstep(0, 0.45, s.attack);
-      const side = s.attackSide >= 0 ? 1 : -1;
-      if (side > 0) { rx = lerp(rx, -1.55 - pitch, k); re = lerp(re, -0.05, k); rz = lerp(rz, 0.05, k); }
-      else { lx = lerp(lx, -1.55 - pitch, k); le = lerp(le, -0.05, k); lz = lerp(lz, -0.05, k); }
-      r.chest.rotation.y += side * 0.22 * k;
-      r.spine.rotation.y += side * 0.08 * k;
+
+    // ── arms: blend in the attack gestures through fast springs (overshoot + settle reads as weight) ──
+    const base = [[lx, lz, le], [rx, -rz, re]];
+    const out: number[][] = [];
+    for (let i = 0; i < 2; i++) {
+      const a = this.armG[i], gp2 = gPose[i];
+      let [x, z, e] = base[i];
+      let w = 0;
+      if (gp2) { x = lerp(x, gp2.x, gp2.wgt); z = lerp(z, gp2.z, gp2.wgt); e = lerp(e, gp2.e, gp2.wgt); w = gp2.w * gp2.wgt; }
+      const active = !!gp2;
+      const f = active ? 10 : 7;
+      out.push([a.x.step(x, f, 0.5, dt), a.z.step(z, f, 0.6, dt), a.e.step(e, f * 1.1, 0.5, dt), a.w.step(w, 12, 0.45, dt)]);
     }
+    [lx, lz, le] = out[0]; [rx, rz, re] = out[1]; rz = -rz;
     if (s.cast > 0) {
       lx = lerp(lx, -2.7, s.cast); rx = lerp(rx, -2.7, s.cast);
       lz = lerp(lz, 0.35, s.cast); rz = lerp(rz, -0.35, s.cast);
@@ -317,6 +411,8 @@ export class RigAnimator {
     r.shoulderR.rotation.set(rx, 0, rz);
     r.elbowL.rotation.set(le, 0, 0);
     r.elbowR.rotation.set(re, 0, 0);
+    r.handL.rotation.set(out[0][3], 0, 0);
+    r.handR.rotation.set(out[1][3], 0, 0);
   }
 
   /** Two-bone IK: hip rotation as a basis (knee hinge = local X), knee as a pure hinge. `rel` is hip-joint -> ankle in hips space. */
