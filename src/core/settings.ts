@@ -37,6 +37,9 @@ export interface Settings {
   hudScale: number;
   damageNumbers: boolean;
   crosshairColor: string;
+  /** Shockwave ripples, lensing, color punches and flashes on big moments. */
+  screenFx: boolean;
+  cameraShake: boolean;
 }
 
 const KEY = 'legends-assembly:settings:v1';
@@ -78,6 +81,8 @@ function defaults(): Settings {
     hudScale: 1,
     damageNumbers: true,
     crosshairColor: '#ffffff',
+    screenFx: true,
+    cameraShake: true,
   };
 }
 

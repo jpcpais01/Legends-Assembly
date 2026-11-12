@@ -10,6 +10,8 @@ import { globalUniforms } from '../render/materials';
 import { pick, rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
+import { screenFx } from '../vfx/ScreenFx';
+import { TrailStyle, type Trail } from '../vfx/Trails';
 
 const PAINTS = [
   new THREE.Color(0.08, 0.22, 0.95), // cobalt
@@ -20,6 +22,9 @@ const PAINTS = [
 ];
 const SUN = new THREE.Color(3.2, 2.4, 0.6);
 const HEAL = new THREE.Color(1.6, 2.8, 0.8);
+const STAR = new THREE.Color(3.4, 2.8, 1.1);
+const NIGHT = new THREE.Color(0.35, 0.6, 2.6);
+const FIELD = [new THREE.Color(0.95, 0.72, 0.08), new THREE.Color(0.85, 0.5, 0.05), new THREE.Color(0.35, 0.6, 0.12), new THREE.Color(0.98, 0.85, 0.3)];
 
 function globPool() {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.18, metalness: 0.0, emissive: 0x111111 });
@@ -115,7 +120,22 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
   g.play('bloom', pos, 1);
   g.vfx.shockwave(pos, new THREE.Color(2.2, 2.4, 0.5), 7, 0.6, 0.06);
   g.vfx.add.spawn({ x: pos.x, y: pos.y + 0.06, z: pos.z, r: 0.9, g: 1.1, b: 0.25, a: 0.8, size: 13, life: 6, shape: Shape.Ring, flat: true, aux: 0.03, hold: 0.85, fadeIn: 0.05, rot: 0 });
+  // the healing field is painted onto the ground: a ring of thick brush strokes and a few dabs inside
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * TAU + rand(-0.06, 0.06), r = 6.3 + rand(-0.25, 0.25);
+    const c = FIELD[i % FIELD.length];
+    g.vfx.pa({ x: pos.x + Math.cos(a) * r, y: pos.y + 0.04, z: pos.z + Math.sin(a) * r, r: c.r, g: c.g, b: c.b, a: 0.85, size: rand(2, 2.6), life: 6, hold: 0.88, fadeIn: 0.05 + i * 0.006, shape: Shape.Stroke, flat: true, rot: -(a + Math.PI / 2), aux: Math.random() });
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 5;
+    const c = FIELD[i % FIELD.length];
+    g.vfx.pa({ x: pos.x + Math.cos(a) * r, y: pos.y + 0.035, z: pos.z + Math.sin(a) * r, r: c.r * 0.8, g: c.g * 0.8, b: c.b * 0.8, a: 0.45, size: rand(1, 1.6), life: 6, hold: 0.88, fadeIn: 0.1, shape: Shape.Stroke, flat: true, rot: rand(0, TAU), aux: Math.random() });
+  }
+  g.vfx.flare(pos.clone().setY(pos.y + 0.6), SUN, 4, 0.3);
+  for (let i = 0; i < 30; i++) g.vfx.pa({ x: pos.x, y: pos.y + 0.3, z: pos.z, vx: rand(-4, 4), vy: rand(3, 7), vz: rand(-4, 4), r: 1, g: rand(0.55, 0.78), b: 0.05, a: 1, size: rand(0.12, 0.2), life: rand(1, 1.6), gravity: 5, drag: 1.4, shape: Shape.Petal, spin: rand(-6, 6) });
+  g.vfx.dust(pos, 8, 0.6, 0.3, 2.4, new THREE.Color(0.45, 0.36, 0.2));
   let tick = 0;
+  let sunT = 0;
   const zone: Zone = {
     owner, team: owner.team, pos, radius: 6.5, t: 0, dur: 6, dead: false, kind: 'sunflower',
     update(z, g, dt) {
@@ -126,6 +146,14 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
       sway.rotation.z = Math.sin(z.t * 1.7) * 0.05;
       sway.rotation.x = Math.sin(z.t * 1.1 + 1) * 0.03;
       if (petals) petals.rotation.z += dt * 0.4;
+      // a soft little sun glows around the flower head
+      sunT -= dt;
+      if (sunT <= 0 && z.t > 0.4 && z.t < z.dur - 0.3) {
+        sunT = 0.12;
+        const hp = _v1.copy(pos).setY(pos.y + 2.7);
+        g.vfx.p({ x: hp.x, y: hp.y, z: hp.z, r: 1.4, g: 1.0, b: 0.2, size: rand(3, 3.6), life: 0.45, shape: Shape.Dot, fadeIn: 0.3 });
+        if (Math.random() < 0.4) g.vfx.p({ x: hp.x + rand(-0.6, 0.6), y: hp.y + rand(-0.4, 0.4), z: hp.z + rand(-0.6, 0.6), vy: rand(-0.4, 0.2), r: 2.4, g: 1.8, b: 0.4, size: rand(0.08, 0.14), life: 1.2, shape: Shape.Star, spin: 2 });
+      }
       if (Math.random() < dt * 14) {
         const a = rand(0, TAU), r = rand(0, z.radius);
         g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + 0.1, z: pos.z + Math.sin(a) * r, vy: rand(0.8, 2), r: HEAL.r, g: HEAL.g, b: HEAL.b, size: rand(0.06, 0.12), life: rand(0.8, 1.4), shape: Shape.Star, spin: 2 });
@@ -138,6 +166,14 @@ function bloomSunflower(g: Game, owner: Hero, at: THREE.Vector3) {
           if (healed > 0 && Math.random() < 0.5) {
             const c = a.center;
             g.vfx.p({ x: c.x + rand(-0.3, 0.3), y: c.y + rand(-0.5, 0.6), z: c.z + rand(-0.3, 0.3), vy: 1.5, r: 1.8, g: 3, b: 0.8, size: 0.12, life: 0.7, shape: Shape.Star });
+          }
+          // golden motes drift from the flower to whoever it is healing
+          if (healed > 0) {
+            const c = a.center, hp = _v1.copy(pos).setY(pos.y + 2.5);
+            for (let i = 0; i < 2; i++) {
+              const life = rand(0.45, 0.65);
+              g.vfx.p({ x: hp.x + rand(-0.3, 0.3), y: hp.y + rand(-0.3, 0.3), z: hp.z + rand(-0.3, 0.3), vx: (c.x - hp.x) / life, vy: (c.y - hp.y) / life + 1, vz: (c.z - hp.z) / life, r: 2.6, g: 2.2, b: 0.6, r2: 0.8, g2: 2.6, b2: 0.6, size: rand(0.07, 0.12), life, shape: Shape.Spark, stretch: 0.025 });
+            }
           }
         }
       }
@@ -256,6 +292,18 @@ function createStarryNight(g: Game, owner: Hero) {
   g.vfx.shockwave(pos, new THREE.Color(3, 2.4, 0.8), 10, 0.6, 0.08);
   g.vfx.glyph('The Starry Night', pos.clone().setY(pos.y + 7), { color: '#ffe9a6', glow: '#4f7bff', scale: 2.4, dur: 2.4, vy: 0.3 });
   g.shake(pos, 0.4, 30);
+  // the canvas opens: rune of the brush, a painted ripple and a swirl of strokes on the floor
+  g.vfx.rune(pos, new THREE.Color(1.6, 1.4, 0.5), 24, 1.6, 0.6, 0.9, 1.05);
+  screenFx.ripple(pos.clone().setY(pos.y + 2), 12, 0.9, 0.8);
+  if (owner.isLocal) screenFx.zoomPunch(0.5);
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * TAU * 2, r = 1.5 + (i / 28) * 9.5;
+    const c = i % 3 === 0 ? new THREE.Color(0.95, 0.8, 0.2) : i % 3 === 1 ? new THREE.Color(0.12, 0.28, 0.85) : new THREE.Color(0.35, 0.6, 1);
+    g.vfx.pa({ x: pos.x + Math.cos(a) * r, y: pos.y + 0.05, z: pos.z + Math.sin(a) * r, r: c.r, g: c.g, b: c.b, a: 0.55, size: rand(2.4, 3.2), life: 7, hold: 0.85, fadeIn: 0.03 + i * 0.008, shape: Shape.Stroke, flat: true, rot: -(a + Math.PI / 2 + 0.35), aux: Math.random() });
+  }
+  interface Shooter { from: THREE.Vector3; to: THREE.Vector3; t: number; trail: Trail | null }
+  const shooters: Shooter[] = [];
+  let swirlT = 0;
   let tick = 0;
   let starT = 0;
   g.addZone({
@@ -271,6 +319,32 @@ function createStarryNight(g: Game, owner: Hero) {
         const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 11;
         g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + rand(1, 8), z: pos.z + Math.sin(a) * r, vx: -Math.sin(a) * 1.5, vz: Math.cos(a) * 1.5, r: 3, g: 2.6, b: 1.1, size: rand(0.12, 0.3), life: rand(1, 2), shape: Shape.Star, spin: 1, fadeIn: 0.3 });
       }
+      // swirling brush strokes ride the wind of the painting
+      swirlT -= dt;
+      if (swirlT <= 0 && f > 0.3) {
+        swirlT = 0.05;
+        const a = rand(0, TAU), r = rand(3, 10.5), y = rand(2, 7);
+        const sp = rand(3, 5);
+        const c = Math.random() < 0.35 ? new THREE.Color(2.4, 2.0, 0.7) : new THREE.Color(0.5, 0.9, 2.6);
+        g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + y, z: pos.z + Math.sin(a) * r, vx: -Math.sin(a) * sp, vy: rand(-0.3, 0.3), vz: Math.cos(a) * sp, r: c.r * 0.6, g: c.g * 0.6, b: c.b * 0.6, size: rand(0.9, 1.5), life: rand(0.9, 1.4), shape: Shape.Stroke, stretch: 0.12, fadeIn: 0.25, drag: 0.2 });
+      }
+      // shooting stars streak down with real trails
+      for (let i = shooters.length - 1; i >= 0; i--) {
+        const sh = shooters[i];
+        sh.t += dt / 0.24;
+        const k = Math.min(1, sh.t);
+        const head = _v1.lerpVectors(sh.from, sh.to, k * k);
+        sh.trail?.push(head);
+        g.vfx.p({ x: head.x, y: head.y, z: head.z, r: STAR.r, g: STAR.g, b: STAR.b, size: 0.35, life: 0.06, shape: Shape.Star });
+        if (k >= 1) {
+          sh.trail?.stop();
+          g.vfx.burst(sh.to, new THREE.Color(3, 2.5, 0.9), 14, 5, 0.1, 0.4);
+          g.vfx.flare(sh.to, STAR, 2.2, 0.16, rand(-0.4, 0.4));
+          g.vfx.p({ x: sh.to.x, y: sh.to.y, z: sh.to.z, r: STAR.r, g: STAR.g, b: STAR.b, size: 0.3, grow: 4, life: 0.25, shape: Shape.Ring, aux: 0.15 });
+          for (let j = 0; j < 4; j++) g.vfx.p({ x: sh.to.x, y: sh.to.y, z: sh.to.z, vx: rand(-3, 3), vy: rand(1, 4), vz: rand(-3, 3), r: STAR.r, g: STAR.g, b: STAR.b, size: rand(0.15, 0.25), life: 0.6, gravity: 6, shape: Shape.Star, spin: rand(-5, 5) });
+          shooters.splice(i, 1);
+        }
+      }
       tick += dt; starT += dt;
       const doTick = tick >= 0.5;
       if (doTick) tick = 0;
@@ -284,20 +358,23 @@ function createStarryNight(g: Game, owner: Hero) {
       if (starT > 0.35 && enemies.length) {
         starT = 0;
         const e = pick(enemies);
-        const from = _v1.set(pos.x + rand(-6, 6), pos.y + 10, pos.z + rand(-6, 6));
+        const from = new THREE.Vector3(pos.x + rand(-6, 6), pos.y + 10, pos.z + rand(-6, 6));
         const to = e.chest;
-        const dir = to.clone().sub(from);
-        const len = dir.length();
-        dir.normalize();
-        for (let i = 0; i < 14; i++) {
-          const k = i / 14;
-          g.vfx.p({ x: from.x + dir.x * len * k, y: from.y + dir.y * len * k, z: from.z + dir.z * len * k, vx: dir.x * 3, vy: dir.y * 3, vz: dir.z * 3, r: 3.2, g: 2.6, b: 1.0, size: 0.16 - k * 0.06, life: 0.15 + k * 0.25, shape: Shape.Dot });
-        }
-        g.vfx.burst(to, new THREE.Color(3, 2.5, 0.9), 12, 4, 0.1, 0.4);
+        const trail = g.vfx.trail({ color: STAR, endColor: NIGHT, width: 0.16, life: 0.35, style: TrailStyle.Energy, minDist: 0.4 });
+        trail?.push(from);
+        shooters.push({ from, to, t: 0, trail });
         g.play('starFall', to, 0.75);
       }
     },
-    dispose() { g.scene.remove(group); dome.geometry.dispose(); floor.geometry.dispose(); sm.dispose(); fm.dispose(); },
+    dispose() {
+      for (const sh of shooters) sh.trail?.stop();
+      // the painting dissolves into stars
+      for (let i = 0; i < 40; i++) {
+        const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 11;
+        g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + rand(1, 9), z: pos.z + Math.sin(a) * r, vx: rand(-0.5, 0.5), vy: rand(0.5, 2), vz: rand(-0.5, 0.5), r: STAR.r, g: STAR.g, b: STAR.b, r2: NIGHT.r, g2: NIGHT.g, b2: NIGHT.b, size: rand(0.1, 0.25), life: rand(0.8, 1.5), shape: Shape.Star, spin: rand(-2, 2) });
+      }
+      g.scene.remove(group); dome.geometry.dispose(); floor.geometry.dispose(); sm.dispose(); fm.dispose();
+    },
   });
 }
 
@@ -312,6 +389,11 @@ class VanGoghKit implements HeroKit {
     const col = PAINTS[this.ci++ % PAINTS.length];
     g.play('paint', m, 0.7);
     for (let i = 0; i < 5; i++) g.vfx.pa({ x: m.x, y: m.y, z: m.z, vx: dir.x * 4 + rand(-1, 1), vy: dir.y * 4 + rand(0, 1.5), vz: dir.z * 4 + rand(-1, 1), r: col.r, g: col.g, b: col.b, size: rand(0.04, 0.08), life: 0.5, gravity: 9 });
+    // the flick of the brush: a quick stroke in the air and a glint of wet paint
+    g.vfx.pa({ x: m.x, y: m.y, z: m.z, vx: dir.x * 6, vy: dir.y * 6 + 1, vz: dir.z * 6, r: col.r, g: col.g, b: col.b, a: 0.9, size: 0.5, life: 0.18, shape: Shape.Stroke, stretch: 0.08, drag: 4 });
+    g.vfx.flare(m, new THREE.Color(col.r * 2 + 0.4, col.g * 2 + 0.4, col.b * 2 + 0.4), 0.7, 0.07);
+    const trail = g.vfx.trail({ color: col, endColor: col, width: 0.11, life: 0.2, style: TrailStyle.Brush, minDist: 0.3, alpha: 0.95 });
+    trail?.push(m);
     g.spawnProjectile({
       owner: h, kind: 'paint', pos: m.clone(), vel: dir.multiplyScalar(50).add(new THREE.Vector3(0, 1.0, 0)), gravity: 8, radius: 0.2, life: 1.6, damage: 30, color: col,
       render(p, g) {
@@ -320,15 +402,25 @@ class VanGoghKit implements HeroKit {
         _q1.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _v1.copy(p.vel).normalize());
         _m1.compose(p.pos, _q1, new THREE.Vector3(0.17 * (1 + w), 0.17 * (1 - w), 0.24));
         pool.add(_m1, p.color);
+        trail?.push(p.pos);
         if (Math.random() < 0.7) g.vfx.pa({ x: p.pos.x, y: p.pos.y, z: p.pos.z, vx: p.vel.x * 0.1 + rand(-0.4, 0.4), vy: rand(-0.5, 0.5), vz: p.vel.z * 0.1 + rand(-0.4, 0.4), r: p.color.r, g: p.color.g, b: p.color.b, size: rand(0.04, 0.08), life: 0.6, gravity: 12 });
       },
+      onExpire() { trail?.stop(); },
       onHit(p, g, hit, point) {
+        trail?.push(point); trail?.stop();
         if (hit) {
           const crit = point.y > hit.pos.y + 1.42;
-          g.damage(hit, p.damage, p.owner, { crit, at: point });
+          g.damage(hit, p.damage, p.owner, { crit, at: point, fx: false });
         }
-        for (const e of g.enemiesNear(p.owner.team, point, 2.2)) if (e !== hit) g.damage(e, 12, p.owner, { at: e.chest });
+        for (const e of g.enemiesNear(p.owner.team, point, 2.2)) if (e !== hit) g.damage(e, 12, p.owner, { at: e.chest, fx: false });
         g.play('splat', point, 0.9);
+        // strokes of paint fly out of the splash, plus a bright wet flash
+        for (let i = 0; i < 6; i++) {
+          const a = rand(0, TAU);
+          g.vfx.pa({ x: point.x, y: point.y, z: point.z, vx: Math.cos(a) * rand(3, 6), vy: rand(1, 4), vz: Math.sin(a) * rand(3, 6), r: p.color.r, g: p.color.g, b: p.color.b, a: 0.95, size: rand(0.35, 0.55), life: rand(0.25, 0.4), shape: Shape.Stroke, stretch: 0.1, drag: 3, gravity: 6 });
+        }
+        g.vfx.flare(point, new THREE.Color(p.color.r * 2.5 + 0.5, p.color.g * 2.5 + 0.5, p.color.b * 2.5 + 0.5), hit ? 1.4 : 1, 0.1);
+        if (hit) for (let i = 0; i < 6; i++) g.vfx.pa({ x: hit.pos.x + rand(-0.3, 0.3), y: point.y + rand(-0.3, 0.2), z: hit.pos.z + rand(-0.3, 0.3), vy: rand(-0.5, 0), r: p.color.r * 0.8, g: p.color.g * 0.8, b: p.color.b * 0.8, size: rand(0.05, 0.08), life: rand(0.6, 1), gravity: 5, hold: 0.5 });
         for (let i = 0; i < 16; i++) g.vfx.pa({ x: point.x, y: point.y, z: point.z, vx: rand(-4, 4), vy: rand(1, 5), vz: rand(-4, 4), r: p.color.r, g: p.color.g, b: p.color.b, size: rand(0.05, 0.12), life: rand(0.4, 0.8), gravity: 16, drag: 0.5 });
         g.vfx.p({ x: point.x, y: point.y, z: point.z, r: p.color.r * 2, g: p.color.g * 2, b: p.color.b * 2, size: 0.4, grow: 4, life: 0.2, shape: Shape.Ring, aux: 0.2 });
         const gy = g.world.heightAt(point.x, point.z);
@@ -343,14 +435,18 @@ class VanGoghKit implements HeroKit {
     const dir = h.aimDir(m);
     h.anim.attack = 1; h.anim.attackSide = 1; h.anim.attackKind = 'toss';
     g.play('seedToss', m, 0.7);
+    g.vfx.flare(m, SUN, 0.9, 0.1);
+    const trail = g.vfx.trail({ color: new THREE.Color(2.6, 1.9, 0.4), endColor: new THREE.Color(0.5, 1.4, 0.3), width: 0.06, life: 0.4, style: TrailStyle.Smooth, minDist: 0.25 });
     g.spawnProjectile({
       owner: h, kind: 'seed', pos: m.clone(), vel: dir.multiplyScalar(20).add(new THREE.Vector3(0, 4, 0)), gravity: 16, radius: 0.15, life: 2.5, damage: 0, color: SUN,
       render(p, g) {
         g.pool('seed', seedPool).add(_m1.compose(p.pos, _q1.identity(), new THREE.Vector3(0.1, 0.1, 0.1)));
         g.vfx.p({ x: p.pos.x, y: p.pos.y, z: p.pos.z, r: SUN.r, g: SUN.g, b: SUN.b, size: 0.12, life: 0.3, shape: Shape.Star });
+        trail?.push(p.pos);
+        if (Math.random() < 0.3) g.vfx.pa({ x: p.pos.x, y: p.pos.y, z: p.pos.z, vx: rand(-1, 1), vy: rand(-0.5, 0.5), vz: rand(-1, 1), r: 1, g: 0.7, b: 0.06, a: 1, size: 0.09, life: 0.8, gravity: 3, drag: 2, shape: Shape.Petal, spin: rand(-6, 6) });
       },
-      onHit(p, g, _hit, point) { bloomSunflower(g, p.owner, point); },
-      onExpire(p, g) { bloomSunflower(g, p.owner, p.pos); },
+      onHit(p, g, _hit, point) { trail?.stop(); bloomSunflower(g, p.owner, point); },
+      onExpire(p, g) { trail?.stop(); bloomSunflower(g, p.owner, p.pos); },
     } as Omit<Projectile, 'prev' | 'age' | 'dead' | 'seed'>);
     return true;
   }

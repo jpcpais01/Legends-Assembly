@@ -9,11 +9,17 @@ import { rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
 import { audio } from '../core/Audio';
+import { screenFx, type Lens } from '../vfx/ScreenFx';
+import { TrailStyle } from '../vfx/Trails';
 
 const PHOTON = new THREE.Color(1.6, 3.2, 4.2);
 const PHOTON_SOFT = new THREE.Color(0.5, 1.4, 2.6);
 const VIOLET = new THREE.Color(1.6, 0.5, 3.2);
 const GOLD = new THREE.Color(4, 2.8, 1.2);
+const WHITE_HOT = new THREE.Color(4, 4, 4.2);
+const DEEP_VIOLET = new THREE.Color(0.5, 0.12, 1.4);
+const VOID = new THREE.Color(0.06, 0.0, 0.12);
+const TRAIL_TAIL = new THREE.Color(0.6, 0.35, 2.2);
 const Z = new THREE.Vector3(0, 0, 1);
 
 function photonPool() {
@@ -91,7 +97,17 @@ function createGravityWell(g: Game, owner: Hero, at: THREE.Vector3) {
   g.play('gravity', pos);
   g.vfx.flash(pos, new THREE.Color(0.7, 0.3, 1.5), 25, 3.2, 14);
   g.shake(pos, 0.25);
+  // opening snap: flare, ring, and the ground marked by the singularity
+  g.vfx.flare(pos, VIOLET, 3, 0.25);
+  g.vfx.shockwave(pos, new THREE.Color(1.4, 0.6, 3), 3, 0.35, 0.12, false);
+  const floor = pos.clone(); floor.y = ground;
+  g.vfx.rune(floor, new THREE.Color(0.9, 0.35, 2.4), 6.5, 3.2, -0.8, 0.9);
+  g.vfx.rune(floor, new THREE.Color(0.5, 1.2, 2.4), 4.2, 3.2, 1.3, 0.7);
+  g.vfx.scorch(floor, 7, 3.4, 0.55, VOID);
+  screenFx.ripple(pos, 5, 0.6, 0.45);
+  const lens: Lens = screenFx.lens(pos, 4.8, 0);
   let tickT = 0;
+  let jetT = 0;
   const zone: Zone = {
     owner, team: owner.team, pos, radius: 6.5, t: 0, dur: 3.2, dead: false, kind: 'gravityWell',
     update(z, g, dt) {
@@ -103,6 +119,23 @@ function createGravityWell(g: Game, owner: Hero, at: THREE.Vector3) {
       (disk.material as THREE.ShaderMaterial).uniforms.uFade.value = close;
       (halo.material as THREE.ShaderMaterial).uniforms.uFade.value = close;
       core.scale.setScalar(1 + Math.sin(z.t * 18) * 0.04);
+      lens.strength = 0.32 * s * close;
+      // bipolar relativistic jets out of the poles (tilted with the disk)
+      jetT += dt;
+      while (jetT > 1 / 60) {
+        jetT -= 1 / 60;
+        for (const sgn of [1, -1]) {
+          const sp = rand(14, 22) * s;
+          g.vfx.p({
+            x: pos.x + rand(-0.08, 0.08), y: pos.y + sgn * 0.5, z: pos.z + rand(-0.08, 0.08),
+            vx: 0, vy: sgn * sp * 0.88, vz: sgn * sp * 0.48,
+            r: WHITE_HOT.r, g: WHITE_HOT.g, b: WHITE_HOT.b, r2: DEEP_VIOLET.r, g2: DEEP_VIOLET.g, b2: DEEP_VIOLET.b,
+            size: rand(0.16, 0.3) * s, life: rand(0.2, 0.34), shape: Shape.Spark, stretch: 0.045, drag: 1.2,
+          });
+        }
+      }
+      if (Math.random() < dt * 20) for (const sgn of [1, -1]) g.vfx.flare(_v1.set(pos.x, pos.y + sgn * 0.9 * s, pos.z + sgn * 0.5 * s), new THREE.Color(1.6, 1.2, 3.6), 1.6 * s, 0.08, Math.PI / 2 + rand(-0.2, 0.2));
+      if (Math.random() < dt * 6) g.vfx.flare(pos, new THREE.Color(1.2, 0.6, 2.6), 2.4 * s, 0.18, rand(-0.4, 0.4));
       // inward spiraling motes
       for (let i = 0; i < 5; i++) {
         const a = rand(0, TAU), r = rand(3, 6.5);
@@ -128,14 +161,37 @@ function createGravityWell(g: Game, owner: Hero, at: THREE.Vector3) {
           const pull = (8.5 * (1 - dist / z.radius) + 2.5) * dt;
           h.pos.addScaledVector(d, pull);
         }
+        // matter being torn off the victim and streaming into the core
+        if (Math.random() < dt * 22) {
+          const c = h.center;
+          const life = 0.35;
+          g.vfx.p({
+            x: c.x + rand(-0.3, 0.3), y: c.y + rand(-0.5, 0.6), z: c.z + rand(-0.3, 0.3),
+            vx: (pos.x - c.x) / life, vy: (pos.y - c.y) / life, vz: (pos.z - c.z) / life,
+            r: 1.4, g: 0.8, b: 3.4, r2: 3, g2: 3, b2: 4, size: rand(0.05, 0.1), life, shape: Shape.Spark, stretch: 0.03,
+          });
+        }
         h.applySlow(0.4, 0.35);
         if (tick) g.damage(h, 7, owner, { at: h.chest });
       }
     },
     dispose(z, g) {
-      // collapse pop
-      g.vfx.burst(pos, VIOLET, 50, 9, 0.14, 0.6);
+      lens.alive = false;
+      // collapse: everything snaps inward, then the singularity pops
+      g.vfx.burst(pos, VIOLET, 60, 11, 0.14, 0.6, { r2: 3, g2: 3, b2: 4 });
       g.vfx.shockwave(pos, new THREE.Color(1.2, 0.5, 2.6), 3.5, 0.4, 0.15, false);
+      g.vfx.shockwave(floor, new THREE.Color(1.6, 0.8, 3.2), 5, 0.45, 0.1);
+      g.vfx.flare(pos, WHITE_HOT, 5, 0.3);
+      g.vfx.sparks(pos, new THREE.Color(2, 1.4, 4), 30, 14);
+      for (let i = 0; i < 24; i++) {
+        const a = rand(0, TAU), r = rand(2.5, 5);
+        g.vfx.p({ x: pos.x + Math.cos(a) * r, y: pos.y + rand(-0.6, 0.8), z: pos.z + Math.sin(a) * r, vx: -Math.cos(a) * r * 5, vy: 0, vz: -Math.sin(a) * r * 5, r: 1.6, g: 0.9, b: 3.6, size: rand(0.06, 0.12), life: 0.2, shape: Shape.Spark, stretch: 0.03 });
+      }
+      g.vfx.flash(pos, new THREE.Color(0.9, 0.5, 1.8), 60, 0.5, 16);
+      g.vfx.scorch(floor, 3.5, 6, 0.6, VOID);
+      screenFx.ripple(pos, 7, 1.1, 0.55);
+      if (g.near(pos, 20) > 0) screenFx.punch(0.35 * g.near(pos, 20));
+      g.shake(pos, 0.35, 20);
       for (const h of g.enemiesNear(z.team, pos, 3)) g.damage(h, 25, owner);
       g.scene.remove(group);
       disk.geometry.dispose(); (disk.material as THREE.Material).dispose();
@@ -184,6 +240,24 @@ function createBlast(g: Game, owner: Hero, at: THREE.Vector3) {
   g.vfx.glyph('E = mc²', at.clone().setY(at.y + 2.5), { color: '#fff6dc', glow: '#ffb347', scale: 3.2, dur: 1.6, vy: 1.2 });
   g.shake(at, 1.0, 40);
   g.camRig.kick(owner.isLocal ? 10 : 0);
+  // the frame itself bends: white-out, a ring of warped air, a color split and a zoom punch
+  const prox = Math.max(g.near(at, 45), owner.isLocal ? 1 : 0);
+  screenFx.flashScreen(new THREE.Color(1.6, 1.4, 1.1), 0.7 * prox);
+  screenFx.ripple(at, 18, 1.6, 0.95);
+  screenFx.punch(0.9 * prox);
+  screenFx.zoomPunch(0.7 * prox);
+  if (prox > 0.3) g.hitStop(0.09);
+  g.vfx.flare(at, WHITE_HOT, 10, 0.4);
+  g.vfx.flare(at, GOLD, 9, 0.7, Math.PI / 2);
+  // scorched, cracked ground with a cooling glow and drifting embers
+  g.vfx.scorch(ground, 15, 10, 0.75);
+  g.vfx.crack(ground, 8, 8, 0.8);
+  g.vfx.groundGlow(ground, new THREE.Color(3, 1.4, 0.4), 10, 2.2, 0.15);
+  g.vfx.embers(ground, new THREE.Color(4, 2.4, 0.8), new THREE.Color(0.6, 0.1, 0.02), 60, 6, 3);
+  g.vfx.debris(ground, new THREE.Color(0.22, 0.18, 0.15), 26, 12, 0.22, 10);
+  g.vfx.dustRing(ground, 4, 28, 1.6, 0.45, new THREE.Color(0.55, 0.48, 0.4));
+  // rising mushroom column
+  for (let i = 0; i < 16; i++) g.vfx.pa({ x: at.x + rand(-1, 1), y: ground.y + rand(0, 1.5), z: at.z + rand(-1, 1), vx: rand(-0.6, 0.6), vy: rand(4, 8), vz: rand(-0.6, 0.6), r: 0.42, g: 0.36, b: 0.32, a: 0.5, size: rand(1.2, 2), grow: 2.8, life: rand(1.6, 2.4), drag: 1.4, shape: Shape.Smoke, spin: rand(-1, 1), fadeIn: 0.2 });
   g.play('emcBlast', at, 1.3);
   audio.duck(1.4, 0.85, 0.4);
   // light pillar
@@ -217,7 +291,15 @@ class EinsteinKit implements HeroKit {
     h.anim.attackSide = h.hand;
     h.anim.attackKind = 'flick';
     g.vfx.burst(m, PHOTON, 5, 3, 0.1, 0.15);
+    g.vfx.flare(m, PHOTON, 1.1, 0.07, rand(-0.3, 0.3));
+    g.vfx.p({ x: m.x, y: m.y, z: m.z, r: PHOTON.r, g: PHOTON.g, b: PHOTON.b, size: 0.12, grow: 3.2, life: 0.1, shape: Shape.Ring, aux: 0.25, fadeIn: 0.01 });
+    // every fifth photon is a bright quantum: a spinning sparkle so the stream has rhythm
+    h.kitState.shots = (h.kitState.shots ?? 0) + 1;
+    const quantum = h.kitState.shots % 5 === 0;
+    if (quantum) g.vfx.p({ x: m.x, y: m.y, z: m.z, r: 3, g: 3.6, b: 4.4, size: 0.5, grow: 0.3, life: 0.2, shape: Shape.Star, spin: 8 });
     g.play('photon', m, 0.55);
+    const trail = g.vfx.trail({ color: PHOTON, endColor: TRAIL_TAIL, width: quantum ? 0.075 : 0.05, life: 0.075, style: TrailStyle.Energy, minDist: 0.35 });
+    trail?.push(m);
     g.spawnProjectile({
       owner: h, kind: 'photon', pos: m.clone(), vel: dir.multiplyScalar(95), gravity: 0, radius: 0.12, life: 1.1, damage: 20, color: PHOTON,
       render(p, g) {
@@ -225,17 +307,24 @@ class EinsteinKit implements HeroKit {
         _q1.setFromUnitVectors(Z, _v1.copy(p.vel).normalize());
         _m1.compose(p.pos, _q1, new THREE.Vector3(0.09, 0.09, 0.9));
         pool.add(_m1);
-        g.vfx.p({ x: p.pos.x, y: p.pos.y, z: p.pos.z, vx: rand(-0.3, 0.3), vy: rand(-0.3, 0.3), vz: rand(-0.3, 0.3), r: PHOTON_SOFT.r, g: PHOTON_SOFT.g, b: PHOTON_SOFT.b, size: 0.09, life: 0.18, shape: Shape.Dot });
+        trail?.push(p.pos);
+        if (Math.random() < 0.5) g.vfx.p({ x: p.pos.x, y: p.pos.y, z: p.pos.z, vx: rand(-0.6, 0.6), vy: rand(-0.6, 0.6), vz: rand(-0.6, 0.6), r: PHOTON_SOFT.r, g: PHOTON_SOFT.g, b: PHOTON_SOFT.b, r2: 0.4, g2: 0.15, b2: 1.2, size: 0.07, life: 0.22, shape: Shape.Dot });
       },
+      onExpire() { trail?.stop(); },
       onHit(p, g, hit, point) {
+        trail?.push(point); trail?.stop();
         if (hit) {
           const crit = point.y > hit.pos.y + 1.42;
-          g.damage(hit, p.damage, p.owner, { crit, at: point });
+          g.damage(hit, p.damage, p.owner, { crit, at: point, fx: false });
         }
         g.play('photonHit', point, hit ? 0.7 : 0.45);
-        g.vfx.sparks(point, PHOTON, 10, 8);
+        const back = _v1.copy(p.vel).normalize().multiplyScalar(-1);
+        g.vfx.sparks(point, PHOTON, 12, 9, back);
         g.vfx.burst(point, PHOTON_SOFT, 6, 2, 0.16, 0.2);
+        g.vfx.flare(point, PHOTON, hit ? 1.6 : 1.1, 0.1, rand(-0.3, 0.3));
         g.vfx.p({ x: point.x, y: point.y, z: point.z, r: 2, g: 3.5, b: 4.5, size: 0.25, grow: 3.5, life: 0.18, shape: Shape.Ring, aux: 0.2 });
+        // a light-burn that lingers where the photon struck the world
+        if (!hit) g.vfx.p({ x: point.x, y: point.y, z: point.z, r: 0.8, g: 1.6, b: 2.6, size: 0.32, life: 0.7, hold: 0.25, shape: Shape.Dot, fadeIn: 0.01 });
       },
     } as Omit<Projectile, 'prev' | 'age' | 'dead' | 'seed'>);
   }
@@ -245,16 +334,23 @@ class EinsteinKit implements HeroKit {
     const dir = h.aimDir(m);
     h.anim.attack = 1; h.anim.attackSide = 1; h.anim.attackKind = 'throw';
     g.play('gravityThrow', m, 0.8);
+    g.vfx.flare(m, VIOLET, 1.6, 0.12);
+    g.vfx.burst(m, VIOLET, 14, 4, 0.1, 0.3);
+    const trail = g.vfx.trail({ color: new THREE.Color(1.4, 0.6, 3.4), endColor: new THREE.Color(0.3, 0.05, 0.8), width: 0.16, life: 0.32, style: TrailStyle.Energy, minDist: 0.2 });
     g.spawnProjectile({
       owner: h, kind: 'gravityOrb', pos: m.clone(), vel: dir.multiplyScalar(30).add(new THREE.Vector3(0, 2.5, 0)), gravity: 9, radius: 0.32, life: 1.0, damage: 0, color: VIOLET,
       render(p, g) {
         const pool = g.pool('gravityOrb', orbPool);
         _m1.compose(p.pos, _q1.identity(), new THREE.Vector3(0.32, 0.32, 0.32));
         pool.add(_m1);
+        trail?.push(p.pos);
         for (let i = 0; i < 2; i++) g.vfx.p({ x: p.pos.x + rand(-0.2, 0.2), y: p.pos.y + rand(-0.2, 0.2), z: p.pos.z + rand(-0.2, 0.2), r: 1, g: 0.4, b: 2.6, size: rand(0.08, 0.16), life: 0.35, shape: Shape.Dot, drag: 3 });
+        // little orbiting motes
+        const a = p.age * 22 + p.seed * 6;
+        g.vfx.p({ x: p.pos.x + Math.cos(a) * 0.5, y: p.pos.y + Math.sin(a * 0.7) * 0.25, z: p.pos.z + Math.sin(a) * 0.5, r: 2.4, g: 2.2, b: 4, size: 0.07, life: 0.16, shape: Shape.Star });
       },
-      onHit(p, g, _hit, point) { createGravityWell(g, p.owner, point); },
-      onExpire(p, g) { createGravityWell(g, p.owner, p.pos); },
+      onHit(p, g, _hit, point) { trail?.stop(); createGravityWell(g, p.owner, point); },
+      onExpire(p, g) { trail?.stop(); createGravityWell(g, p.owner, p.pos); },
     } as Omit<Projectile, 'prev' | 'age' | 'dead' | 'seed'>);
     return true;
   }
@@ -264,6 +360,9 @@ class EinsteinKit implements HeroKit {
     h.kitState.ultOn = true;
     h.channel = 1.15;
     g.play('emcCharge', h.pos, 1);
+    const feet = h.pos.clone(); feet.y = g.world.heightAt(feet.x, feet.z);
+    g.vfx.rune(feet, new THREE.Color(3, 2.2, 0.9), 5.5, 1.3, 2.4, 1, 0.75);
+    g.vfx.rune(feet, new THREE.Color(1.2, 2.6, 3.6), 3.4, 1.3, -3.2, 0.9, 0.7);
     g.vfx.glyph('E = mc²', h.center, { color: '#ffffff', glow: '#7fd3ff', scale: 1.4, dur: 1.15, follow: () => (h.alive ? _v1.copy(h.pos).setY(h.pos.y + 2.7) : null) });
     if (h.isLocal) g.events.onAnnounce('E = mc²', 'Mass becomes energy', 'gold');
     return true;
@@ -284,12 +383,25 @@ class EinsteinKit implements HeroKit {
         const r = 1.6 - st.ultT * 0.6;
         g.vfx.p({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a * 0.5) * 0.6, z: c.z + Math.sin(a) * r, r: 3, g: 2.6, b: 1.6, size: 0.14, life: 0.35, shape: Shape.Star });
       }
-      if (Math.random() < dt * 30) {
-        const a = rand(0, TAU), r = rand(3, 6);
-        g.vfx.p({ x: c.x + Math.cos(a) * r, y: c.y + rand(-1, 2), z: c.z + Math.sin(a) * r, vx: -Math.cos(a) * r * 2.5, vz: -Math.sin(a) * r * 2.5, r: 2.5, g: 3, b: 4, size: 0.08, life: 0.4, shape: Shape.Spark, stretch: 0.05 });
+      // energy converging from all around, faster as the charge peaks
+      const k = Math.min(1, st.ultT / 1.15);
+      const n = Math.random() < dt * (30 + k * 90) ? 1 + Math.floor(k * 2) : 0;
+      for (let i = 0; i < n; i++) {
+        const a = rand(0, TAU), r = rand(3, 7), yy = rand(-1, 3);
+        const life = 0.38;
+        g.vfx.p({ x: c.x + Math.cos(a) * r, y: c.y + yy, z: c.z + Math.sin(a) * r, vx: -Math.cos(a) * r / life, vy: -yy / life, vz: -Math.sin(a) * r / life, r: 2.5, g: 3, b: 4, r2: 4, g2: 3.2, b2: 1.6, size: 0.08, life, shape: Shape.Spark, stretch: 0.04 });
       }
+      // a growing sun in his hands
+      if (Math.random() < dt * 40) g.vfx.flare(c, WHITE_HOT, 0.8 + k * 3.5, 0.06, rand(-0.5, 0.5));
+      if (Math.random() < dt * 12) {
+        const feet = _v1.copy(h.pos); feet.y = g.world.heightAt(feet.x, feet.z);
+        g.vfx.groundGlow(feet, new THREE.Color(1.6 * k, 1.2 * k, 0.5 * k), 4 + k * 3, 0.25, 0.2);
+        g.vfx.pillar(feet, new THREE.Color(3, 2.6, 1.6), 5, 2, 1.2);
+      }
+      if (h.isLocal) screenFx.zoomHold = k * 0.22;
       if (st.ultT >= 1.15) {
         st.ultOn = false;
+        if (h.isLocal) screenFx.zoomHold = 0;
         h.overrideVel = null;
         h.anim.levitate = 0; h.anim.cast = 0;
         createBlast(g, h, h.center);
@@ -298,6 +410,7 @@ class EinsteinKit implements HeroKit {
   }
 
   onDeath(h: Hero) {
+    if (h.isLocal && h.kitState.ultOn) screenFx.zoomHold = 0;
     h.kitState.ultOn = false;
     h.anim.levitate = 0; h.anim.cast = 0;
   }

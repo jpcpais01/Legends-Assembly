@@ -49,7 +49,7 @@ export class CameraRig {
     this.pitch = clamp(this.pitch, -1.35, 1.25);
   }
 
-  shake(amount: number) { this.trauma = Math.min(1, this.trauma + amount); }
+  shake(amount: number) { if (settings.cameraShake) this.trauma = Math.min(1, this.trauma + amount); }
   kick(amount: number) { this.fovKick = Math.max(this.fovKick, amount); }
 
   forward(out = new THREE.Vector3()) {

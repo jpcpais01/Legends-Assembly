@@ -1,7 +1,25 @@
 import * as THREE from 'three';
 import { globalUniforms } from '../render/materials';
 
-export const enum Shape { Dot = 0, Spark = 1, Smoke = 2, Star = 3, Petal = 4, Ring = 5, Splat = 6, Glyph = 7 }
+export const enum Shape {
+  Dot = 0, Spark = 1, Smoke = 2, Star = 3, Petal = 4, Ring = 5, Splat = 6, Glyph = 7,
+  /** Hot core with an anamorphic streak and cross rays (muzzle flashes, impacts). */
+  Flare = 8,
+  /** Eighth note (Yeat). */
+  Note = 9,
+  /** Curved bristly brush stroke along the quad's x axis (Van Gogh). Pair with stretch or rot. */
+  Stroke = 10,
+  /** Dark burnt ground mark with a noisy edge (use the alpha system, flat). */
+  Scorch = 11,
+  /** Radial ground cracks around a dark crater (alpha system, flat). */
+  Crack = 12,
+  /** Faceted diamond chunk (debris, crystal shards). */
+  Shard = 13,
+  /** Healing cross. */
+  Plus = 14,
+  /** Rotating rune circle: rim, tick marks and an inner ring (target markers, cast circles). */
+  Rune = 15,
+}
 
 export interface ParticleOpts {
   x: number; y: number; z: number;
@@ -20,6 +38,8 @@ export interface ParticleOpts {
   aux?: number; // ring thickness / splat seed
   fadeIn?: number;
   hold?: number; // fraction of life at full opacity before fading
+  /** Optional end-of-life color (HDR); the color lerps toward it over the particle's life. */
+  r2?: number; g2?: number; b2?: number;
 }
 
 /**
@@ -38,6 +58,8 @@ export class ParticleSystem {
   private grav: Float32Array; private drag: Float32Array;
   private rot: Float32Array; private spin: Float32Array;
   private a0: Float32Array; private fadeIn: Float32Array; private hold: Float32Array;
+  /** start rgb, end rgb (or -1 in [3] when the color is constant) */
+  private cols: Float32Array;
   // GPU attributes
   private aPos: THREE.InstancedBufferAttribute;
   private aVel: THREE.InstancedBufferAttribute;
@@ -51,6 +73,7 @@ export class ParticleSystem {
     this.vx = F(); this.vy = F(); this.vz = F();
     this.life = F(); this.maxLife = F(); this.size0 = F(); this.grow = F();
     this.grav = F(); this.drag = F(); this.rot = F(); this.spin = F(); this.a0 = F(); this.fadeIn = F(); this.hold = F();
+    this.cols = F(6);
 
     const geo = new THREE.InstancedBufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
@@ -80,7 +103,8 @@ export class ParticleSystem {
           vec4 mv;
           if (iData.z > 0.5) {
             // flat on ground
-            vec3 wp = iPos.xyz + vec3(q.x, 0.0, q.y);
+            // z is flipped so the quad winds counter-clockwise seen from above (front face up)
+            vec3 wp = iPos.xyz + vec3(q.x, 0.0, -q.y);
             mv = modelViewMatrix * vec4(wp, 1.0);
           } else if (iVel.w > 0.0) {
             // velocity-stretched streak in view space
@@ -130,6 +154,62 @@ export class ParticleSystem {
             // droplets around the splat
             a = max(a, smoothstep(0.08, 0.0, length(d - vec2(cos(vAux * 30.0), sin(vAux * 30.0)) * 0.42)) );
             a *= 0.85 + n2 * 0.3;
+          } else if (sh == 8) {
+            // flare: hot core + anamorphic streak + a softer cross
+            float core = pow(max(0.0, 1.0 - r), 3.0);
+            float sx = exp(-abs(d.y) * 46.0) * max(0.0, 1.0 - abs(d.x) * 2.0);
+            float sy = exp(-abs(d.x) * 46.0) * max(0.0, 1.0 - abs(d.y) * 2.0);
+            a = core * 1.5 + sx * 1.1 + sy * 0.55;
+          } else if (sh == 9) {
+            // eighth note: tilted oval head, stem and a flag
+            vec2 p = d * 2.2;
+            vec2 hp = p - vec2(-0.28, -0.5);
+            hp = mat2(0.86, 0.5, -0.5, 0.86) * hp;
+            float head = length(hp * vec2(1.0, 1.55)) - 0.3;
+            float stem = max(abs(p.x - 0.0) - 0.055, abs(p.y - 0.2) - 0.7);
+            float fy = p.y - (0.85 - (p.x) * 0.9);
+            float flag = max(abs(fy) - 0.12, max(-p.x, p.x - 0.42));
+            float sd = min(head, min(stem, flag));
+            a = smoothstep(0.05, -0.02, sd) + smoothstep(0.45, 0.0, sd) * 0.35;
+          } else if (sh == 10) {
+            // brush stroke: curved band with bristle streaks and dry ends
+            float bend = sin(d.x * 5.0 + vAux * 20.0) * 0.06;
+            float n = texture2D(uNoise, vec2(vUv.x * 0.3 + vAux, vUv.y * 2.2 + vAux * 3.0)).r;
+            float band = smoothstep(0.24, 0.1, abs(d.y + bend));
+            float ends = smoothstep(0.5, 0.28, abs(d.x)) ;
+            float bristle = smoothstep(0.28, 0.62, n);
+            a = band * ends * (0.4 + bristle * 0.8);
+          } else if (sh == 11) {
+            // scorch mark
+            float n = texture2D(uNoise, vUv * 0.8 + vAux).r;
+            float n2 = texture2D(uNoise, vUv * 2.4 - vAux).g;
+            float edge = 0.78 + (n - 0.5) * 0.5;
+            a = smoothstep(edge, edge * 0.25, r) * (0.7 + n2 * 0.3);
+          } else if (sh == 12) {
+            // radial cracks around a crater
+            float ang = atan(d.y, d.x);
+            float wob = (texture2D(uNoise, vec2(r * 1.3 + vAux, vAux * 2.0 + ang * 0.15)).r - 0.5) * 0.9;
+            float f = fract((ang + wob) * (11.0 / 6.2831) + vAux * 7.0);
+            float dist = abs(f - 0.5) * (6.2831 / 11.0) * r;
+            float line = smoothstep(0.022, 0.004, dist) * smoothstep(1.0, 0.35, r) * smoothstep(0.1, 0.2, r);
+            float crater = smoothstep(0.32, 0.05, r) * 0.85;
+            a = max(line, crater);
+          } else if (sh == 13) {
+            // faceted shard with a lit edge
+            float dd = abs(d.x) * 1.7 + abs(d.y);
+            a = smoothstep(0.5, 0.44, dd) * (0.75 + 0.5 * step(0.0, d.x * d.y));
+          } else if (sh == 14) {
+            float c = min(max(abs(d.x) - 0.11, abs(d.y) - 0.36), max(abs(d.y) - 0.11, abs(d.x) - 0.36));
+            a = smoothstep(0.03, -0.02, c) + smoothstep(0.22, 0.0, c) * 0.4;
+          } else if (sh == 15) {
+            // rune circle
+            float th = max(vAux, 0.02);
+            float rim = smoothstep(th, 0.0, abs(r - (1.0 - th)));
+            float ang = atan(d.y, d.x);
+            float tk = step(0.55, fract(ang * (36.0 / 6.2831))) * smoothstep(0.035, 0.0, abs(r - 0.86) - 0.035);
+            float seg = step(0.3, fract(ang * (5.0 / 6.2831))) * smoothstep(th * 0.8, 0.0, abs(r - 0.72));
+            float inner = smoothstep(th * 0.7, 0.0, abs(r - 0.6)) * 0.8;
+            a = max(rim, max(tk * 0.9, max(seg, inner)));
           } else {
             a = 1.0 - r;
           }
@@ -158,6 +238,10 @@ export class ParticleSystem {
     this.a0[i] = o.a ?? 1; this.fadeIn[i] = o.fadeIn ?? 0.05; this.hold[i] = o.hold ?? 0;
     const c = this.aCol.array as Float32Array;
     c[i * 4] = o.r; c[i * 4 + 1] = o.g; c[i * 4 + 2] = o.b; c[i * 4 + 3] = o.a ?? 1;
+    const k = i * 6, cs = this.cols;
+    cs[k] = o.r; cs[k + 1] = o.g; cs[k + 2] = o.b;
+    if (o.r2 !== undefined) { cs[k + 3] = o.r2; cs[k + 4] = o.g2 ?? o.g; cs[k + 5] = o.b2 ?? o.b; }
+    else cs[k + 3] = -1;
     const d = this.aData.array as Float32Array;
     d[i * 4] = o.size; d[i * 4 + 1] = o.shape ?? 0; d[i * 4 + 2] = o.flat ? 1 : 0; d[i * 4 + 3] = o.aux ?? Math.random();
     const v = this.aVel.array as Float32Array;
@@ -173,6 +257,8 @@ export class ParticleSystem {
       const a = at.array as Float32Array;
       a[i * 4] = a[last * 4]; a[i * 4 + 1] = a[last * 4 + 1]; a[i * 4 + 2] = a[last * 4 + 2]; a[i * 4 + 3] = a[last * 4 + 3];
     }
+    const cs = this.cols;
+    for (let j = 0; j < 6; j++) cs[i * 6 + j] = cs[last * 6 + j];
   }
 
   update(dt: number) {
@@ -195,6 +281,12 @@ export class ParticleSystem {
       const fi = this.fadeIn[i] > 0 ? Math.min(1, t / this.fadeIn[i]) : 1;
       const h = this.hold[i];
       C[i * 4 + 3] = this.a0[i] * fi * (t < h ? 1 : 1 - (t - h) / (1 - h));
+      const k = i * 6, cs = this.cols;
+      if (cs[k + 3] >= 0) {
+        C[i * 4] = cs[k] + (cs[k + 3] - cs[k]) * t;
+        C[i * 4 + 1] = cs[k + 1] + (cs[k + 4] - cs[k + 1]) * t;
+        C[i * 4 + 2] = cs[k + 2] + (cs[k + 5] - cs[k + 2]) * t;
+      }
     }
     const geo = this.mesh.geometry as THREE.InstancedBufferGeometry;
     geo.instanceCount = this.n;

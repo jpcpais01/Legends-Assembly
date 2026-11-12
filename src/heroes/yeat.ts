@@ -9,11 +9,15 @@ import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
 import { propMesh, PROPS } from '../render/props';
 import { audio, type LoopHandle } from '../core/Audio';
+import { screenFx } from '../vfx/ScreenFx';
+import { TrailStyle, type Trail } from '../vfx/Trails';
 
 /** Bell Ring plays a riff: each shot is the next note (indices into BELL_SEMIS). */
 const RIFF = [0, 1, 3, 1, 4, 3, 1, 2];
 
 const GOLD = new THREE.Color(3.2, 2.2, 0.7);
+const PINK = new THREE.Color(3.2, 0.5, 1.3);
+const WHITE = new THREE.Color(3.5, 3.4, 3.2);
 const Z = new THREE.Vector3(0, 0, 1);
 
 function ringPool() {
@@ -36,14 +40,27 @@ class YeatKit implements HeroKit {
     st.riffT = g.time;
     g.play('bell', m, 0.8, { variant: RIFF[st.riff] });
     g.vfx.p({ x: m.x, y: m.y, z: m.z, r: col.r, g: col.g, b: col.b, size: 0.3, grow: 4, life: 0.2, shape: Shape.Ring, aux: 0.15 });
+    g.vfx.p({ x: m.x, y: m.y, z: m.z, r: col.r * 0.6, g: col.g * 0.6, b: col.b * 0.6, size: 0.5, grow: 5, life: 0.34, shape: Shape.Ring, aux: 0.06, fadeIn: 0.15 });
     g.vfx.burst(m, col, 8, 5, 0.1, 0.25);
+    g.vfx.flare(m, GOLD, 1.5, 0.08, rand(-0.25, 0.25));
+    // notes fly off the bell, one more on the riff's accent beats
+    const notes = st.riff % 4 === 0 ? 3 : 2;
+    for (let i = 0; i < notes; i++) {
+      const nc = Math.random() < 0.5 ? GOLD : PINK;
+      g.vfx.p({ x: m.x + rand(-0.15, 0.15), y: m.y + rand(0, 0.2), z: m.z + rand(-0.15, 0.15), vx: base.x * 2.5 + rand(-1, 1), vy: rand(1.2, 2.4), vz: base.z * 2.5 + rand(-1, 1), r: nc.r, g: nc.g, b: nc.b, size: rand(0.22, 0.32), life: rand(0.6, 0.9), drag: 1.6, shape: Shape.Note, rot: rand(-0.3, 0.3), spin: rand(-1.5, 1.5), fadeIn: 0.1 });
+    }
+    if (h.isLocal) { g.camRig.shake(0.06); g.camRig.kick(1.4); }
     const up = new THREE.Vector3(0, 1, 0);
     const side = new THREE.Vector3().crossVectors(base, up).normalize();
     const vup = new THREE.Vector3().crossVectors(side, base).normalize();
+    let trail: Trail | null = null;
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * TAU + rand(-0.3, 0.3);
       const s = i === 0 ? 0 : rand(0.03, 0.075);
       const dir = base.clone().addScaledVector(side, Math.cos(a) * s).addScaledVector(vup, Math.sin(a) * s).normalize();
+      // the center ring leaves a golden streak
+      const tr = i === 0 ? (trail = g.vfx.trail({ color: GOLD, endColor: PINK, width: 0.07, life: 0.12, style: TrailStyle.Energy, minDist: 0.3 })) : null;
+      tr?.push(m);
       g.spawnProjectile({
         owner: h, kind: 'bell', pos: m.clone(), vel: dir.multiplyScalar(62), gravity: 0, radius: 0.16, life: 0.36, damage: 10, color: col,
         render(p, g) {
@@ -53,19 +70,29 @@ class YeatKit implements HeroKit {
           _m1.compose(p.pos, _q1, new THREE.Vector3(sc, sc, sc));
           const fade = 1 - (p.age / p.life) * 0.6;
           pool.add(_m1, new THREE.Color(p.color.r * fade, p.color.g * fade, p.color.b * fade));
+          tr?.push(p.pos);
+        },
+        onExpire(p, g) {
+          tr?.stop();
+          // rings dissolve into a shimmer at the end of their reach
+          g.vfx.p({ x: p.pos.x, y: p.pos.y, z: p.pos.z, r: p.color.r * 0.5, g: p.color.g * 0.5, b: p.color.b * 0.5, size: 0.35, grow: 2, life: 0.15, shape: Shape.Ring, aux: 0.1 });
         },
         onHit(p, g, hit, point) {
+          tr?.push(point); tr?.stop();
           if (hit) g.play('bellHit', point, 0.7);
           if (hit) {
             const crit = point.y > hit.pos.y + 1.42;
             const falloff = p.age > 0.2 ? 0.6 : 1;
-            g.damage(hit, p.damage * falloff, p.owner, { crit, at: point, knock: _v1.copy(p.vel).setY(0).normalize().multiplyScalar(0.6) });
+            g.damage(hit, p.damage * falloff, p.owner, { crit, at: point, fx: false, knock: _v1.copy(p.vel).setY(0).normalize().multiplyScalar(0.6) });
+            if (Math.random() < 0.35) g.vfx.p({ x: point.x, y: point.y, z: point.z, vx: rand(-1, 1), vy: rand(1.5, 2.5), vz: rand(-1, 1), r: GOLD.r, g: GOLD.g, b: GOLD.b, size: 0.26, life: 0.6, drag: 1.5, shape: Shape.Note, spin: rand(-2, 2) });
           }
-          g.vfx.sparks(point, p.color, 4, 6);
+          g.vfx.sparks(point, p.color, hit ? 6 : 4, 7);
+          g.vfx.flare(point, p.color, hit ? 0.9 : 0.55, 0.08, rand(-0.3, 0.3));
           g.vfx.p({ x: point.x, y: point.y, z: point.z, r: p.color.r, g: p.color.g, b: p.color.b, size: 0.2, grow: 3, life: 0.15, shape: Shape.Ring, aux: 0.25 });
         },
       } as Omit<Projectile, 'prev' | 'age' | 'dead' | 'seed'>);
     }
+    void trail;
   }
 
   secondary(h: Hero, g: Game) {
@@ -105,6 +132,42 @@ interface TruckState {
   expect: number;
   roll: number;
   engine: LoopHandle | null;
+  /** Truck footprint in meters (from its bounding box). */
+  len: number;
+  wid: number;
+  tail: (Trail | null)[];
+  skidT: number;
+}
+
+/** Soft anamorphic glow sprite texture for headlights (built once). */
+let glowTex: THREE.Texture | null = null;
+function headlightTexture() {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d')!;
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,240,200,0.7)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const st = x.createLinearGradient(0, 0, 128, 0);
+  st.addColorStop(0, 'rgba(255,220,160,0)'); st.addColorStop(0.5, 'rgba(255,240,210,0.9)'); st.addColorStop(1, 'rgba(255,220,160,0)');
+  x.fillStyle = st; x.fillRect(0, 61, 128, 6);
+  glowTex = new THREE.CanvasTexture(c);
+  glowTex.colorSpace = THREE.SRGBColorSpace;
+  return glowTex;
+}
+function addHeadlights(group: THREE.Group) {
+  const bb = new THREE.Box3().setFromObject(group);
+  const size = bb.getSize(new THREE.Vector3());
+  const mat = new THREE.SpriteMaterial({ map: headlightTexture(), color: new THREE.Color(2.6, 2.3, 1.7), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  for (const sx of [-1, 1]) {
+    const sp = new THREE.Sprite(mat);
+    sp.position.set(sx * size.x * 0.3, bb.min.y + size.y * 0.38, bb.max.z + 0.05);
+    sp.scale.set(1.1, 0.55, 1);
+    sp.renderOrder = 25;
+    group.add(sp);
+  }
+  return size;
 }
 
 const _yAxis = new THREE.Vector3(0, 1, 0);
@@ -235,7 +298,9 @@ function startTonka(h: Hero, g: Game) {
   hidden.forEach(({ o }) => { o.visible = false; });
   h.model.root.add(group);
   const f = h.forward;
-  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null };
+  const size = addHeadlights(group);
+  const tail = [-1, 1].map(() => g.vfx.trail({ color: new THREE.Color(3.2, 0.25, 0.3), endColor: new THREE.Color(0.8, 0.05, 0.1), width: 0.06, life: 0.22, style: TrailStyle.Smooth, minDist: 0.35 }));
+  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
   h.kitState.truck = st;
   if (h.isLocal) g.camRig.vehicle = 1;
   g.play('tonka', h.pos, 1.1);
@@ -244,7 +309,11 @@ function startTonka(h: Hero, g: Game) {
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 14, 1.1, 0.9, 0.6);
   g.vfx.burst(c, YELLOW, 40, 9, 0.12, 0.5);
   g.vfx.shockwave(h.pos, YELLOW, 3.5, 0.35, 0.14);
-  if (h.isLocal) { g.camRig.kick(10); g.camRig.shake(0.25); g.events.onAnnounce('TONKA', 'Ram them', 'gold'); }
+  g.vfx.flare(c, WHITE, 3.5, 0.2);
+  g.vfx.dustRing(h.pos, 1.2, 16, 0.8, 0.45);
+  for (let i = 0; i < 10; i++) g.vfx.p({ x: c.x, y: c.y, z: c.z, vx: rand(-5, 5), vy: rand(1, 6), vz: rand(-5, 5), r: YELLOW.r, g: YELLOW.g, b: YELLOW.b, size: rand(0.18, 0.3), life: rand(0.4, 0.7), drag: 2.5, shape: Shape.Star, spin: rand(-6, 6) });
+  screenFx.ripple(c, 3.5, 0.6, 0.4);
+  if (h.isLocal) { g.camRig.kick(10); g.camRig.shake(0.25); screenFx.zoomPunch(0.5); g.events.onAnnounce('TONKA', 'Ram them', 'gold'); }
 }
 
 function updateTonka(h: Hero, g: Game, dt: number) {
@@ -269,8 +338,13 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   if (st.t > 0.15 && st.expect > 0.02 && moved < st.expect * 0.35) {
     if (st.speed > 12) {
       g.play('crash', h.pos, 0.8);
-      g.vfx.sparks(_v1.copy(h.pos).addScaledVector(dir, 1.6).setY(h.pos.y + 0.8), new THREE.Color(3, 2.4, 1), 26, 10);
+      const hitAt = _v1.copy(h.pos).addScaledVector(dir, st.len * 0.55).setY(h.pos.y + 0.8);
+      g.vfx.sparks(hitAt, new THREE.Color(3, 2.4, 1), 26, 10);
+      g.vfx.flare(hitAt, new THREE.Color(3, 2.4, 1.2), 2.4, 0.15);
+      g.vfx.debris(hitAt, new THREE.Color(0.95, 0.7, 0.1), 8, 5, 0.12, 5);
+      g.vfx.dust(hitAt.setY(h.pos.y), 6, 0.7, 0.4, 2);
       g.shake(h.pos, 0.4);
+      if (h.isLocal) screenFx.punch(0.35);
     }
     st.speed *= 0.2;
   }
@@ -294,6 +368,17 @@ function updateTonka(h: Hero, g: Game, dt: number) {
       g.vfx.shockwave(nose, YELLOW, 6, 0.4, 0.12);
       g.vfx.flash(nose.clone().setY(h.pos.y + 1), new THREE.Color(1, 0.7, 0.2), 60, 0.4, 14);
       g.shake(h.pos, 0.8);
+      // comic-book smash: white flare, stars, toy-plastic shrapnel and a wall of dust
+      const hitC = nose.clone().setY(h.pos.y + 1);
+      g.vfx.flare(hitC, WHITE, 6, 0.25);
+      g.vfx.flare(hitC, YELLOW, 4, 0.4, Math.PI / 2);
+      for (let i = 0; i < 14; i++) g.vfx.p({ x: hitC.x, y: hitC.y, z: hitC.z, vx: dir.x * 6 + rand(-6, 6), vy: rand(2, 8), vz: dir.z * 6 + rand(-6, 6), r: YELLOW.r, g: YELLOW.g, b: YELLOW.b, r2: 3, g2: 0.6, b2: 0.2, size: rand(0.25, 0.45), life: rand(0.45, 0.8), drag: 2.4, gravity: 6, shape: Shape.Star, spin: rand(-8, 8) });
+      g.vfx.debris(hitC, new THREE.Color(0.95, 0.72, 0.1), 12, 9, 0.16, 7);
+      g.vfx.debris(hitC, new THREE.Color(0.1, 0.32, 0.12), 8, 8, 0.14, 6);
+      g.vfx.dustRing(nose.setY(h.pos.y), 1.6, 20, 1, 0.5);
+      screenFx.ripple(hitC, 6, 1.1, 0.5);
+      const involved = h.isLocal || victims.some((v) => v.isLocal);
+      if (involved) { g.hitStop(0.1); screenFx.punch(0.7); screenFx.zoomPunch(0.4); }
       endTonka(h, g, true);
       return;
     }
@@ -303,6 +388,27 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   st.group.rotation.set(0, st.heading - h.bodyYaw, st.roll);
   st.group.position.y = Math.sin(st.t * 30) * 0.015 * (st.speed / TONKA_MAX);
   for (const w of st.wheels) w.rotation.x += (st.speed / (w.userData.radius ?? 0.48)) * dt;
+  // tail-light streaks, skid marks in hard turns, rushing air at speed
+  const rightV = new THREE.Vector3(-dir.z, 0, dir.x);
+  for (let i = 0; i < 2; i++) {
+    const sx = i === 0 ? -1 : 1;
+    st.tail[i]?.push(new THREE.Vector3(h.pos.x - dir.x * st.len * 0.48 + rightV.x * sx * st.wid * 0.38, h.pos.y + 0.75, h.pos.z - dir.z * st.len * 0.48 + rightV.z * sx * st.wid * 0.38));
+  }
+  const turning = Math.abs(turn) / Math.max(dt, 1e-4);
+  st.skidT -= dt;
+  if (turning > 0.8 && st.speed > 9 && st.skidT <= 0) {
+    st.skidT = 0.035;
+    const ang = Math.atan2(-dir.z, dir.x); // flat quads map rot to (cos, -sin) on x/z
+    for (const sx of [-1, 1]) {
+      g.vfx.pa({ x: h.pos.x - dir.x * st.len * 0.32 + rightV.x * sx * st.wid * 0.42, y: h.pos.y + 0.03, z: h.pos.z - dir.z * st.len * 0.32 + rightV.z * sx * st.wid * 0.42, r: 0.04, g: 0.035, b: 0.03, a: 0.45, size: 0.8, life: 3.5, hold: 0.6, shape: Shape.Stroke, flat: true, rot: ang, aux: Math.random(), fadeIn: 0.02 });
+    }
+    if (Math.random() < 0.5) g.vfx.dust(_v1.copy(h.pos).addScaledVector(dir, -st.len * 0.35), 1, 0.6, 0.3, 1.2);
+  }
+  if (st.speed > 14 && Math.random() < dt * 50 * (st.speed / TONKA_MAX)) {
+    const a = rand(0, TAU), r = rand(1.2, 2.2);
+    g.vfx.p({ x: h.pos.x + Math.cos(a) * r + dir.x * 2, y: h.pos.y + rand(0.3, 2), z: h.pos.z + Math.sin(a) * r + dir.z * 2, vx: -dir.x * st.speed * 0.7, vy: 0, vz: -dir.z * st.speed * 0.7, r: 1.3, g: 1.3, b: 1.4, size: 0.03, life: 0.16, shape: Shape.Spark, stretch: 0.03 });
+  }
+  if (h.isLocal) screenFx.zoomHold = (st.speed / TONKA_MAX) * 0.5;
   // engine pitch follows speed (fades in under the transform sound)
   const sk = st.speed / TONKA_MAX;
   st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
@@ -319,7 +425,8 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   if (!st) return;
   h.kitState.truck = null;
   st.engine?.stop(crashed ? 0.08 : 0.35);
-  if (h.isLocal) g.camRig.vehicle = 0;
+  for (const t of st.tail) t?.stop();
+  if (h.isLocal) { g.camRig.vehicle = 0; screenFx.zoomHold = 0; }
   h.model.root.remove(st.group);
   st.hidden.forEach(({ o, v }) => { o.visible = v; });
   const dir = new THREE.Vector3(-Math.sin(st.heading), 0, -Math.cos(st.heading));
@@ -329,6 +436,7 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   const c = h.center;
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 16, 1.2, 1, 0.6);
   g.vfx.burst(c, YELLOW, 30, 8, 0.1, 0.45);
+  g.vfx.flare(c, WHITE, 2.6, 0.18);
 }
 
 // ───────────────────────── The Bell ─────────────────────────
@@ -394,8 +502,11 @@ function dropTheBell(h: Hero, g: Game) {
   if (h.isLocal) g.events.onAnnounce('THE BELL', 'It tolls for them', 'red');
   else if (g.local && g.local.team !== h.team && follow === g.local) g.events.onAnnounce('THE BELL TOLLS', 'Move!', 'red');
   let phase: 'descend' | 'swing' | 'fall' | 'landed' = 'descend';
-  let vy = 0, rang = false, landT = 0;
+  let vy = 0, rang = false, landT = 0, runeT = 0, gust = false;
   const groundAt = pos.clone();
+  const rims: (Trail | null)[] = [null, null];
+  const mouthAt = (out: THREE.Vector3) => { pivot.updateMatrixWorld(); return pivot.localToWorld(out.set(0, -4.6, 0)); };
+  g.vfx.flash(pos.clone().setY(pos.y + 8), new THREE.Color(0.4, 1.6, 0.5), 40, 3, 30);
   const zone: Zone = {
     owner: h, team: h.team, pos: groundAt, radius: 6, t: 0, dur: 6.5, dead: false, kind: 'theBell',
     update(z, g, dt) {
@@ -411,6 +522,19 @@ function dropTheBell(h: Hero, g: Game) {
       // warning circle
       if (phase !== 'landed' && Math.random() < dt * 10) {
         g.vfx.add.spawn({ x: groundAt.x, y: groundAt.y + 0.06, z: groundAt.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 6.2 * 0.2, grow: 10, life: 0.5, shape: Shape.Ring, flat: true, aux: 0.05, fadeIn: 0.05, rot: 0 });
+      }
+      // rune lock-on that follows the victim and tightens as the bell commits
+      runeT -= dt;
+      if (phase !== 'landed' && runeT <= 0) {
+        runeT = 0.16;
+        const tight = phase === 'fall' ? 1 : Math.min(1, z.t / 1.75);
+        g.vfx.rune(groundAt, new THREE.Color(DOOM.r * 0.8, DOOM.g * 0.8, DOOM.b * 0.8), 12.4 - tight * 2, 0.34, 1.2 + tight * 3, 0.55 + tight * 0.45);
+      }
+      // the bell's sickly glow and the embers it sheds
+      if (phase !== 'landed') {
+        const mouth = mouthAt(_v1);
+        if (Math.random() < dt * 20) g.vfx.flare(mouth, new THREE.Color(0.8, 3, 1.1), 3.5, 0.12, rand(-0.3, 0.3));
+        if (Math.random() < dt * 25) g.vfx.p({ x: mouth.x + rand(-2.4, 2.4), y: mouth.y + rand(0, 3), z: mouth.z + rand(-2.4, 2.4), vx: rand(-0.4, 0.4), vy: rand(-3, -1), vz: rand(-0.4, 0.4), r: 1.2, g: 3.6, b: 1.3, r2: 0.1, g2: 0.5, b2: 0.15, size: rand(0.06, 0.13), life: rand(0.8, 1.4), shape: Shape.Dot });
       }
       if (phase === 'descend') {
         const k = Math.min(1, z.t / 0.75);
@@ -429,24 +553,46 @@ function dropTheBell(h: Hero, g: Game) {
           g.vfx.flash(mouth, new THREE.Color(0.5, 1.6, 0.6), 120, 1.2, 40);
           for (let i = 0; i < 3; i++) g.vfx.add.spawn({ x: mouth.x, y: mouth.y, z: mouth.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 1.2 + i, grow: 12, life: 0.9 + i * 0.25, shape: Shape.Ring, aux: 0.04, fadeIn: 0.01, rot: 0 });
           g.shake(groundAt, 0.5, 60);
+          // the toll itself: air ripples outward, notes scatter, dust flattens under it
+          screenFx.ripple(mouth, 22, 1.4, 1.3);
+          screenFx.punch(0.6 * g.near(groundAt, 60));
+          g.vfx.flare(mouth, new THREE.Color(1.6, 4, 1.8), 10, 0.4);
+          for (let i = 0; i < 16; i++) {
+            const a = (i / 16) * TAU;
+            g.vfx.p({ x: mouth.x, y: mouth.y, z: mouth.z, vx: Math.cos(a) * rand(6, 10), vy: rand(-1, 3), vz: Math.sin(a) * rand(6, 10), r: DOOM.r, g: DOOM.g, b: DOOM.b, size: rand(0.5, 0.8), life: rand(0.9, 1.3), drag: 1.8, shape: Shape.Note, spin: rand(-2, 2), fadeIn: 0.05 });
+          }
+          g.vfx.dustRing(groundAt, 3, 26, 1.3, 0.35);
         }
-        if (s >= 1) { phase = 'fall'; pivot.rotation.z = 0; g.play('bellWhistle', groundAt, 1.3); }
+        if (s >= 1) {
+          phase = 'fall'; pivot.rotation.z = 0; g.play('bellWhistle', groundAt, 1.3);
+          for (let i = 0; i < 2; i++) rims[i] = g.vfx.trail({ color: new THREE.Color(1.2, 3.6, 1.4), endColor: new THREE.Color(0.1, 0.6, 0.2), width: 0.35, life: 0.3, style: TrailStyle.Energy, minDist: 0.5 });
+        }
       } else if (phase === 'fall') {
         vy += 70 * dt;
         pivot.position.y -= vy * dt;
+        pivot.updateMatrixWorld();
+        rims[0]?.push(pivot.localToWorld(_v1.set(-2.7, -5.2, 0)));
+        rims[1]?.push(pivot.localToWorld(_v1.set(2.7, -5.2, 0)));
+        // the air under it gets shoved out just before it lands
+        if (!gust && pivot.position.y - 5.4 - groundAt.y < 5) { gust = true; g.vfx.dustRing(groundAt, 2.5, 22, 1.1, 0.35); }
         if (pivot.position.y - 5.4 <= groundAt.y) {
           pivot.position.y = groundAt.y + 5.4 - 0.25;
           phase = 'landed';
           landT = 0;
+          for (const r of rims) r?.stop();
           impact(h, g, groundAt);
         }
       } else {
         landT += dt;
-        if (landT > 2.2) pivot.position.y -= dt * 2.5; // sink into the earth
+        if (landT > 2.2) {
+          pivot.position.y -= dt * 2.5; // sink into the earth
+          if (Math.random() < dt * 16) g.vfx.dust(groundAt.clone().add(new THREE.Vector3(rand(-2.6, 2.6), 0, rand(-2.6, 2.6))), 1, 0.8, 0.35, 0.8);
+        }
+        if (landT < 1.6 && Math.random() < dt * 30) g.vfx.embers(groundAt, new THREE.Color(1.2, 4, 1.4), new THREE.Color(0.05, 0.4, 0.1), 1, 4, 2);
         if (landT > 3.2) z.t = z.dur;
       }
     },
-    dispose(_z, g) { g.scene.remove(pivot); },
+    dispose(_z, g) { g.scene.remove(pivot); for (const r of rims) r?.stop(); },
   };
   g.addZone(zone);
 }
@@ -469,6 +615,21 @@ function impact(h: Hero, g: Game, at: THREE.Vector3) {
   g.vfx.sparks(at.clone().setY(at.y + 0.3), new THREE.Color(3, 2.5, 1), 50, 16);
   g.vfx.flash(at.clone().setY(at.y + 2), new THREE.Color(1, 1.3, 0.6), 140, 0.8, 30);
   g.shake(at, 1, 45);
+  // crater, shrapnel and a shock that bends the whole frame
+  g.vfx.crack(at, 11, 9, 0.9);
+  g.vfx.scorch(at, 14, 10, 0.55);
+  g.vfx.groundGlow(at, new THREE.Color(0.5, 2.4, 0.7), 9, 1.6, 0.2);
+  g.vfx.debris(at.clone().setY(at.y + 0.3), new THREE.Color(0.26, 0.22, 0.18), 34, 13, 0.24, 11);
+  g.vfx.debris(at.clone().setY(at.y + 0.3), new THREE.Color(0.35, 1.0, 0.4), 10, 10, 0.16, 9);
+  g.vfx.dustRing(at, 4.5, 34, 2, 0.55, new THREE.Color(0.5, 0.46, 0.38));
+  g.vfx.flare(at.clone().setY(at.y + 1.5), new THREE.Color(2.6, 4, 2.2), 14, 0.4);
+  g.vfx.embers(at, new THREE.Color(1.4, 4, 1.4), new THREE.Color(0.05, 0.4, 0.1), 40, 5, 3);
+  screenFx.ripple(at.clone().setY(at.y + 1), 16, 1.7, 0.9);
+  const prox = Math.max(g.near(at, 40), h.isLocal ? 0.6 : 0);
+  screenFx.punch(0.9 * prox);
+  screenFx.zoomPunch(0.6 * prox);
+  screenFx.flashScreen(new THREE.Color(0.8, 1.4, 0.8), 0.35 * prox);
+  if (prox > 0.4) g.hitStop(0.1);
 }
 
 function buildYeat(r: RigBuilder) {
