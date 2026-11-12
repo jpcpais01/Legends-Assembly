@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeHeroFxUniforms, patchRigMaterial, type HeroFxUniforms } from './materials';
-import { clamp, damp, lerp } from '../core/math';
+import { RigAnimator } from './RigAnimator';
+
+export { RigAnimator };
 
 export interface AnimState {
   speed: number;
@@ -16,6 +18,12 @@ export interface AnimState {
   dash: number; // 0..1
   dead: boolean;
   time: number;
+  /** Body yaw (world), so the animator can bank into turns and keep feet planted while turning in place. */
+  yaw?: number;
+  /** Vertical velocity (jump rise vs fall poses, landing impact). */
+  vy?: number;
+  /** 0..1 pulse when damaged (flinch). */
+  hit?: number;
 }
 
 export interface HeroModel {
@@ -212,102 +220,6 @@ export interface RigBones {
 }
 
 export const RIG_BONE_NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'handL', 'handR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'footL', 'footR'] as const;
-
-/** Procedural locomotion / aim / attack / cast / levitate / death animation. Sets bone rotations absolutely. */
-export class RigAnimator {
-  private phase = 0;
-  private deadT = 0;
-  private lean = 0;
-  private sideLean = 0;
-  private air = 0;
-  private hipsY: number;
-  /** Extra outward shoulder angle so bulky sleeves (puffer jackets) clear the torso. */
-  private armOut: number;
-  constructor(private r: RigBones, opts: { armOut?: number } = {}) {
-    this.hipsY = r.hips.position.y;
-    this.armOut = opts.armOut ?? 0;
-  }
-
-  update(dt: number, s: AnimState) {
-    const r = this.r;
-    const t = s.time;
-    const amp = clamp(s.speed / 6, 0, 1.3);
-    this.phase += dt * (2.2 + s.speed * 1.45);
-    const ph = this.phase;
-    const fwdSign = s.fwd < -0.5 ? -1 : 1;
-    const sideAmt = clamp(Math.abs(s.side) / Math.max(1, s.speed), 0, 1);
-    this.air = damp(this.air, s.grounded ? 0 : 1, 10, dt);
-    this.lean = damp(this.lean, clamp(s.fwd / 8, -0.4, 0.6) * 0.25 + s.dash * 0.45, 8, dt);
-    this.sideLean = damp(this.sideLean, clamp(-s.side / 8, -1, 1) * 0.12, 8, dt);
-
-    // dead: crumple + dissolve handled by game
-    if (s.dead) {
-      this.deadT = Math.min(1, this.deadT + dt * 2.2);
-      r.body.rotation.x = lerp(r.body.rotation.x, -Math.PI / 2 * 0.95, this.deadT * 0.25);
-      r.body.position.y = lerp(r.body.position.y, -0.75, this.deadT * 0.2);
-      return;
-    }
-    this.deadT = 0;
-    r.body.rotation.x = 0;
-    r.body.position.y = 0;
-
-    const walk = amp * (1 - this.air);
-    const swing = Math.sin(ph) * 0.7 * walk * fwdSign;
-    // legs
-    r.hipL.rotation.x = -swing * (1 - sideAmt * 0.6) - this.air * 0.7 + s.levitate * 0.25;
-    r.hipR.rotation.x = swing * (1 - sideAmt * 0.6) - this.air * 0.3 + s.levitate * 0.35;
-    r.hipL.rotation.z = Math.sin(ph) * 0.25 * walk * sideAmt + s.levitate * 0.12;
-    r.hipR.rotation.z = -Math.sin(ph) * 0.25 * walk * sideAmt - s.levitate * 0.12;
-    r.kneeL.rotation.x = Math.max(0, Math.sin(ph + 1.6)) * 1.0 * walk + this.air * 1.1 + s.levitate * 0.5;
-    r.kneeR.rotation.x = Math.max(0, Math.sin(ph + 1.6 + Math.PI)) * 1.0 * walk + this.air * 0.6 + s.levitate * 0.7;
-    r.footL.rotation.x = -0.2 * walk;
-    r.footR.rotation.x = -0.2 * walk;
-    // body
-    const bob = Math.abs(Math.sin(ph)) * 0.045 * walk;
-    const breathe = Math.sin(t * 2.1) * 0.006;
-    r.hips.position.y = this.hipsY + bob - 0.02 * walk + breathe;
-    r.hips.rotation.y = Math.sin(ph) * 0.12 * walk;
-    r.spine.rotation.y = -Math.sin(ph) * 0.18 * walk;
-    r.spine.rotation.x = this.lean - s.pitch * 0.35;
-    r.spine.rotation.z = this.sideLean;
-    r.chest.scale.setScalar(1 + Math.sin(t * 2.1) * 0.008);
-    r.head.rotation.x = -s.pitch * 0.45 - this.lean * 0.5;
-    r.head.rotation.y = Math.sin(t * 0.7) * 0.05;
-
-    // arms: base swing + idle + attack/cast overrides
-    const armSwing = Math.sin(ph) * 0.55 * walk * fwdSign;
-    let lx = armSwing + 0.05, rx = -armSwing + 0.05;
-    let lz = 0.12 + this.armOut + Math.sin(t * 1.3) * 0.02, rz = -0.12 - this.armOut - Math.sin(t * 1.3) * 0.02;
-    let le = -0.25 - walk * 0.25, re = -0.25 - walk * 0.25;
-    // aim-ready pose blends in so the hero looks combat-ready
-    const aimPose = 0.35;
-    rx = lerp(rx, -1.0 - s.pitch * 0.6, aimPose);
-    re = lerp(re, -0.7, aimPose);
-    // attack punch (alternating hands)
-    if (s.attack > 0) {
-      const k = Math.sin(Math.min(1, s.attack) * Math.PI * 0.5);
-      if (s.attackSide >= 0) { rx = lerp(rx, -1.55 - s.pitch, k); re = lerp(re, -0.05, k); rz = lerp(rz, 0.05, k); }
-      else { lx = lerp(lx, -1.55 - s.pitch, k); le = lerp(le, -0.05, k); lz = lerp(lz, -0.05, k); }
-    }
-    // cast: both arms reach up/out
-    if (s.cast > 0) {
-      lx = lerp(lx, -2.7, s.cast); rx = lerp(rx, -2.7, s.cast);
-      lz = lerp(lz, 0.35, s.cast); rz = lerp(rz, -0.35, s.cast);
-      le = lerp(le, -0.15, s.cast); re = lerp(re, -0.15, s.cast);
-    }
-    if (s.levitate > 0) {
-      lz = lerp(lz, 1.25, s.levitate); rz = lerp(rz, -1.25, s.levitate);
-      lx = lerp(lx, -0.3, s.levitate); rx = lerp(rx, -0.3, s.levitate);
-    }
-    if (s.dash > 0) { lx = lerp(lx, 0.9, s.dash); rx = lerp(rx, 0.9, s.dash); }
-    if (this.air > 0.01) { lz += this.air * 0.4; rz -= this.air * 0.4; }
-    r.shoulderL.rotation.set(lx, 0, lz);
-    r.shoulderR.rotation.set(rx, 0, rz);
-    r.elbowL.rotation.x = le;
-    r.elbowR.rotation.x = re;
-  }
-
-}
 
 export class ProceduralHeroModel implements HeroModel {
   root: THREE.Group;

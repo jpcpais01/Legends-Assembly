@@ -8,6 +8,33 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.3.0',
+    date: '2026-11-12',
+    title: 'Living Motion',
+    sections: [
+      {
+        heading: 'Movement feel',
+        items: [
+          'All-new character motion. Feet now plant on the ground and stride with your real speed, so legends no longer skate.',
+          'Running looks like running: arms pump, the pelvis and shoulders counter-twist, and the body bobs and leans with your pace.',
+          'Strafing and backpedaling turn the hips toward where you are going while the chest keeps aiming at your target.',
+          'Legends lean into acceleration, bank into turns and rock forward when they stop suddenly.',
+          'Turning on the spot keeps your feet planted, then takes a quick step to catch up.',
+        ],
+      },
+      {
+        heading: 'Weight and impact',
+        items: [
+          'Jumps have a real arc: a tucked knee on the way up, legs reaching for the ground on the way down, and a squash when you land. Bigger falls land harder.',
+          'Taking a hit makes your legend flinch.',
+          'Attacks drive from the chest, so shots and punches have more snap.',
+          'Defeated legends now buckle at the knees and topple under gravity instead of tipping over stiffly.',
+          'Idle legends hold a combat stance, shift their weight and breathe.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-11-12',
     title: 'Legends Take Shape',

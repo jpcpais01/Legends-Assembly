@@ -166,9 +166,12 @@ export class Hero {
     a.grounded = this.grounded;
     a.pitch = clamp(this.pitch, -0.9, 0.9);
     a.attack = Math.max(0, a.attack - dt * 4.5);
+    a.hit = Math.max(0, (a.hit ?? 0) - dt * 5);
     a.dead = !this.alive;
     a.time = time;
+    a.vy = this.vel.y;
     this.bodyYaw = dampAngle(this.bodyYaw, this.yaw, 18, dt);
+    a.yaw = this.bodyYaw;
     this.model.root.position.copy(this.pos);
     this.model.root.rotation.y = this.bodyYaw + Math.PI;
     this.model.update(dt, a);
