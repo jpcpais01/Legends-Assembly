@@ -8,6 +8,63 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.8.0',
+    date: '2026-11-12',
+    title: 'Feel Every Hit',
+    sections: [
+      {
+        heading: 'Every hit lands',
+        items: [
+          'Big hits now freeze the action for a split second, so heavy blows, rams and eliminations land with real weight.',
+          'Every hit throws a bright impact flare and sparks in the attacker’s color, and headshots burst with a golden star.',
+          'Huge moments bend the screen itself: shockwaves ripple through the air, colors split and the view punches in on blasts, slams and eliminations.',
+          'Damage numbers from rapid hits on the same target now stack into one growing number, and big hits show bigger numbers.',
+          'Your crosshair blooms when you fire, the hitmarker grows with the damage you deal, and eliminations flash the edges of the screen.',
+          'Taking a heavy hit flashes the screen red and knocks the colors out of alignment for a moment.',
+        ],
+      },
+      {
+        heading: 'Albert Einstein',
+        items: [
+          'Photon Burst fires flickering light tracers with a muzzle flare, and every fifth photon is a bright quantum.',
+          'Gravity Well now warps space around it: the world bends into a ring around the singularity, twin jets blast out of its poles, enemies caught in it are torn into streaks of light, and it implodes with a flash.',
+          'E = mc² draws two rune circles under Einstein, pulls in energy from all around and grows a small sun in his hands before it goes off.',
+          'The blast whites out the screen, sends a shockwave through the air and leaves cracked, scorched ground with drifting embers and a rising smoke column.',
+        ],
+      },
+      {
+        heading: 'Yeat',
+        items: [
+          'Bell Ring throws music notes off the bell with every shot, and the center ring leaves a golden streak.',
+          'The Tonka has glowing headlights and red tail-light streaks, leaves skid marks in hard turns, and the screen blurs with speed as it accelerates.',
+          'Ramming someone is now a comic-book smash, with stars, flying toy plastic and a wall of dust.',
+          'The Bell locks a rune circle onto its target that tightens as it commits, sheds green embers, and its toll ripples through the air.',
+          'When it lands it cracks the ground into a crater and throws rock and dust everywhere.',
+        ],
+      },
+      {
+        heading: 'Vincent van Gogh',
+        items: [
+          'Impasto Shot leaves a real brushstroke trail through the air and splashes into flying strokes of paint.',
+          'The Sunflower Field is painted onto the ground in thick brushstrokes, the flower glows like a small sun, and golden motes drift to every ally it heals.',
+          'The Starry Night paints a swirl of strokes across the floor, brushstrokes ride the wind inside the dome, and shooting stars now streak down with real trails.',
+        ],
+      },
+      {
+        heading: 'Everywhere else',
+        items: [
+          'Eliminations release a rising column of light, a rune circle and the legend’s light drifting away as stars.',
+          'Respawns arrive in a beam of light, and health packs lift you up in a column of healing crosses.',
+          'Healing shows rising green crosses, slowed legends shed frosty sparkles, and a legend with a ready special glows at their feet.',
+          'Footsteps, jumps and landings kick up dust, and big falls send out a dust ring.',
+          'Each special starts with a flare, a rune circle and a pillar of light in the legend’s color.',
+          'Fixed: shockwave rings, paint stains and other effects on the floor were invisible from above. They now show up everywhere they should.',
+          'New settings under Interface: Screen effects and Camera shake can each be turned off.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-11-12',
     title: 'Fighting Form',

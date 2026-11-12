@@ -10,7 +10,7 @@ const RING = 2 * Math.PI * 44; // ult ring circumference (r = 44 in a 100 viewBo
 const DEATH_RING = 2 * Math.PI * 26;
 const NUM_POOL = 28;
 
-interface DmgNum { el: HTMLDivElement; pos: THREE.Vector3; t: number; vx: number; live: boolean }
+interface DmgNum { el: HTMLDivElement; pos: THREE.Vector3; t: number; vx: number; live: boolean; key: number; total: number; crit: boolean; size: number }
 interface Plate { el: HTMLDivElement; bar: HTMLElement; hero: Hero; shown: boolean; frac: number }
 interface Chip { el: HTMLElement; t: HTMLElement; hero: Hero }
 
@@ -37,6 +37,9 @@ export class Hud {
   private deathTotal = 5;
   private vig = 0;
   private healFlashT = 0;
+  /** Crosshair bloom: grows when you fire or land hits, settles back. */
+  private xKick = 0;
+  private lastPrimaryCd = 0;
 
   constructor(parent: HTMLElement, g: Game) {
     this.g = g;
@@ -44,6 +47,8 @@ export class Hud {
     root.className = 'hud hidden';
     root.innerHTML = `
       <div class="vignette"></div>
+      <div class="killflash"></div>
+      <div class="hurtflash"></div>
       <div class="ult-edge"></div>
       <div class="dmgdir">${'<i></i>'.repeat(6)}</div>
       <div class="fps"></div>
@@ -95,7 +100,7 @@ export class Hud {
     this.root = root;
     const q = (s: string) => root.querySelector(s) as HTMLElement;
     const map: Record<string, string> = {
-      vignette: '.vignette', ultEdge: '.ult-edge', fps: '.fps', feed: '.feed', crosshair: '.crosshair', hitmarker: '.hitmarker',
+      vignette: '.vignette', killflash: '.killflash', hurtflash: '.hurtflash', ultEdge: '.ult-edge', fps: '.fps', feed: '.feed', crosshair: '.crosshair', hitmarker: '.hitmarker',
       elims: '.elims', announce: '.announce', intro: '.intro', countdown: '.countdown', cdNum: '.countdown span',
       death: '.death', dtAv: '.dt-av img', dtN: '.dt-n', dtH: '.dt-h', dtS: '.dt-s', dtRc: '.dt-rc', dtCard: '.dt-card', dtK: '.dt-k',
       vitals: '.vitals', vAv: '.v-av img', vRole: '.v-role', hname: '.hname', hpv: '.hpv', hpm: '.hpm', hpbar: '.hpbar',
@@ -112,7 +117,7 @@ export class Hud {
       el.className = 'dmgnum';
       el.style.opacity = '0';
       this.els.nums.appendChild(el);
-      this.nums.push({ el, pos: new THREE.Vector3(), t: 0, vx: 0, live: false });
+      this.nums.push({ el, pos: new THREE.Vector3(), t: 0, vx: 0, live: false, key: -1, total: 0, crit: false, size: 1 });
     }
     window.addEventListener('keydown', (e) => { if (e.code === 'Tab' && this.g.state !== 'menu') { e.preventDefault(); this.scoreboardOn = true; this.sbT = 0; } });
     window.addEventListener('keyup', (e) => { if (e.code === 'Tab') this.scoreboardOn = false; });
@@ -200,23 +205,43 @@ export class Hud {
     el.className = `${base} ${extra}`;
   }
 
-  damageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean) {
+  damageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean, key = -1) {
     if (!settings.damageNumbers) return;
-    let n = this.nums.find((x) => !x.live);
-    if (!n) n = this.nums.reduce((a, b) => (a.t > b.t ? a : b));
-    n.live = true;
-    n.t = 0;
-    n.pos.copy(pos);
-    n.vx = (Math.random() - 0.5) * 60;
-    n.el.className = 'dmgnum' + (crit ? ' crit' : '') + (heal ? ' heal' : '');
-    n.el.textContent = (heal ? '+' : '') + Math.round(amount);
+    // rapid hits on the same target stack into one growing number instead of a cloud of digits
+    let n = !heal && key >= 0 ? this.nums.find((x) => x.live && x.key === key && x.t < 0.45 && !x.el.classList.contains('heal')) : undefined;
+    if (n) {
+      n.total += amount;
+      n.crit = n.crit || crit;
+      n.t = 0.04;
+      n.pos.lerp(pos, 0.5);
+    } else {
+      n = this.nums.find((x) => !x.live);
+      if (!n) n = this.nums.reduce((a, b) => (a.t > b.t ? a : b));
+      n.live = true;
+      n.t = 0;
+      n.pos.copy(pos);
+      n.vx = (Math.random() - 0.5) * 60;
+      n.key = heal ? -1 : key;
+      n.total = amount;
+      n.crit = crit;
+    }
+    n.size = Math.min(1.7, 0.85 + Math.sqrt(n.total) * 0.045);
+    n.el.className = 'dmgnum' + (n.crit ? ' crit' : '') + (heal ? ' heal' : '') + (n.total >= 100 ? ' big' : '');
+    n.el.textContent = (heal ? '+' : '') + Math.round(n.total);
   }
 
-  hitmarker(crit: boolean, kill: boolean) {
+  hitmarker(crit: boolean, kill: boolean, amount = 0) {
+    this.els.hitmarker.style.setProperty('--hk', String(Math.min(1.8, 1 + amount / 160)));
     this.restart(this.els.hitmarker, 'hitmarker', 'on' + (kill ? ' kill' : crit ? ' crit' : ''));
+    if (kill) this.restart(this.els.killflash, 'killflash', 'on');
+    this.xKick = Math.min(1, this.xKick + (kill ? 1 : 0.35));
   }
 
-  hurt(from: THREE.Vector3 | null) {
+  hurt(from: THREE.Vector3 | null, amount = 0) {
+    if (amount >= 12) {
+      this.els.hurtflash.style.setProperty('--hk', Math.min(1, amount / 90).toFixed(2));
+      this.restart(this.els.hurtflash, 'hurtflash', 'on');
+    }
     if (!from) return;
     let best = this.dirs[0];
     for (const d of this.dirs) if (d.t < best.t) best = d;
@@ -307,6 +332,10 @@ export class Hud {
     if (this.rmbWasCd && !rmbCd) this.restart(E.rmb, 'slot s-rmb', 'flash');
     this.rmbWasCd = rmbCd;
     c.cls('lmba', E.lmb, 'active', h.alive && h.input.primary);
+    if (h.primaryCd > this.lastPrimaryCd + 0.01) this.xKick = Math.min(1, this.xKick + 0.5);
+    this.lastPrimaryCd = h.primaryCd;
+    this.xKick = Math.max(0, this.xKick - dt * 5);
+    c.style('xk', E.crosshair, 'transform', `scale(${(1 + this.xKick * 0.35).toFixed(3)})`);
     c.style('ult', E.ultRing, 'strokeDashoffset', (RING * (1 - h.ult)).toFixed(1));
     c.text('ultp', E.ultPct, `${Math.floor(h.ult * 100)}%`);
     const ready = h.ult >= 1;
@@ -362,7 +391,7 @@ export class Hud {
       if (this.v.z > 1) { n.el.style.opacity = '0'; continue; }
       const x = (this.v.x * 0.5 + 0.5) * W + n.vx * n.t;
       const y = (-this.v.y * 0.5 + 0.5) * H - n.t * 70;
-      const s = n.t < 0.1 ? 1.6 - n.t * 6 : 1;
+      const s = (n.t < 0.1 ? 1.6 - n.t * 6 : 1) * n.size;
       n.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${s.toFixed(2)})`;
       n.el.style.opacity = String(Math.min(1, (0.9 - n.t) * 4).toFixed(2));
     }

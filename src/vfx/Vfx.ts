@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ParticleSystem, Shape, type ParticleOpts } from './Particles';
+import { TrailSystem, TrailStyle, type Trail, type TrailOpts } from './Trails';
 import { QUALITY, settings } from '../core/settings';
 import { rand, TAU } from '../core/math';
 import { makeTextTexture } from '../render/textures';
@@ -28,12 +29,17 @@ export class InstancedPool {
   }
 }
 
+const DUST = new THREE.Color(0.62, 0.56, 0.48);
+
 interface Flash { light: THREE.PointLight; t: number; dur: number; peak: number }
 interface Glyph { sprite: THREE.Sprite; t: number; dur: number; follow?: () => THREE.Vector3 | null; vy: number; scale: number }
 
 export class Vfx {
   add: ParticleSystem;
   alpha: ParticleSystem;
+  /** Glowing ribbons (additive) and paint ribbons (alpha). */
+  trailsAdd: TrailSystem;
+  trailsAlpha: TrailSystem;
   scene: THREE.Scene;
   private flashes: Flash[] = [];
   private glyphs: Glyph[] = [];
@@ -44,7 +50,9 @@ export class Vfx {
     const q = QUALITY[settings.quality];
     this.add = new ParticleSystem(q.particles, true);
     this.alpha = new ParticleSystem(Math.floor(q.particles * 0.5), false);
-    scene.add(this.add.mesh, this.alpha.mesh);
+    this.trailsAdd = new TrailSystem(q.particles >= 5000 ? 112 : 72, true);
+    this.trailsAlpha = new TrailSystem(40, false);
+    scene.add(this.add.mesh, this.alpha.mesh, this.trailsAdd.mesh, this.trailsAlpha.mesh);
     // two always-present flash lights (constant light count = no shader recompiles)
     for (let i = 0; i < 2; i++) {
       const light = new THREE.PointLight(0xffffff, 0, 18, 2);
@@ -113,6 +121,107 @@ export class Vfx {
     }
   }
 
+  /** Start a ribbon trail; push() its head every frame and stop() it when the emitter dies. */
+  trail(o: TrailOpts): Trail | null {
+    return (o.style === TrailStyle.Brush ? this.trailsAlpha : this.trailsAdd).create(o);
+  }
+
+  /** Anamorphic lens flare sprite (cheap stand-in for a light on small events). */
+  flare(pos: THREE.Vector3, color: THREE.Color, size: number, life = 0.12, rot = 0) {
+    this.add.spawn({ x: pos.x, y: pos.y, z: pos.z, r: color.r, g: color.g, b: color.b, size, grow: 1.4, life, shape: Shape.Flare, rot, fadeIn: 0.01 });
+  }
+
+  /** Generic impact: flare + expanding ring + sparks, scaled by `k` (1 = a normal hit). */
+  impact(pos: THREE.Vector3, color: THREE.Color, k = 1, dir?: THREE.Vector3) {
+    this.flare(pos, color, 0.9 * k, 0.1 + 0.04 * k, rand(-0.15, 0.15));
+    this.add.spawn({ x: pos.x, y: pos.y, z: pos.z, r: color.r, g: color.g, b: color.b, size: 0.2 * k, grow: 5, life: 0.16 + 0.05 * k, shape: Shape.Ring, aux: 0.12, fadeIn: 0.01 });
+    this.sparks(pos, color, Math.round(5 + 5 * k), 6 + 4 * k, dir);
+  }
+
+  /** Burnt mark on the ground (alpha). */
+  scorch(pos: THREE.Vector3, size: number, life = 9, a = 0.7, color = new THREE.Color(0.03, 0.025, 0.02)) {
+    this.alpha.spawn({ x: pos.x, y: pos.y + 0.03, z: pos.z, r: color.r, g: color.g, b: color.b, a, size, life, shape: Shape.Scorch, flat: true, aux: Math.random(), hold: 0.75, fadeIn: 0.02 });
+  }
+
+  /** Cracked crater decal (alpha). */
+  crack(pos: THREE.Vector3, size: number, life = 7, a = 0.85) {
+    this.alpha.spawn({ x: pos.x, y: pos.y + 0.032, z: pos.z, r: 0.02, g: 0.018, b: 0.015, a, size, life, shape: Shape.Crack, flat: true, aux: Math.random(), hold: 0.7, fadeIn: 0.01 });
+  }
+
+  /** Glowing flat disc on the ground (additive), e.g. residual heat. */
+  groundGlow(pos: THREE.Vector3, color: THREE.Color, size: number, life = 1.2, hold = 0.2) {
+    this.add.spawn({ x: pos.x, y: pos.y + 0.05, z: pos.z, r: color.r, g: color.g, b: color.b, size, life, shape: Shape.Dot, flat: true, hold, fadeIn: 0.02 });
+  }
+
+  /** Spinning rune circle on the ground. */
+  rune(pos: THREE.Vector3, color: THREE.Color, size: number, life = 1, spin = 1.5, a = 1, grow = 1) {
+    this.add.spawn({ x: pos.x, y: pos.y + 0.06, z: pos.z, r: color.r, g: color.g, b: color.b, a, size, life, grow, shape: Shape.Rune, flat: true, aux: 0.035, spin, rot: rand(0, TAU), hold: 0.6, fadeIn: 0.08 });
+  }
+
+  /** Tumbling chunks (alpha, lit-looking via the shard shading). */
+  debris(pos: THREE.Vector3, color: THREE.Color, count: number, speed = 8, size = 0.14, up = 6) {
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, TAU), sp = speed * rand(0.35, 1);
+      this.alpha.spawn({
+        x: pos.x + rand(-0.2, 0.2), y: pos.y + rand(0, 0.2), z: pos.z + rand(-0.2, 0.2),
+        vx: Math.cos(a) * sp, vy: up * rand(0.5, 1.3), vz: Math.sin(a) * sp,
+        r: color.r * rand(0.7, 1.1), g: color.g * rand(0.7, 1.1), b: color.b * rand(0.7, 1.1), a: 1,
+        size: size * rand(0.6, 1.4), life: rand(0.7, 1.3), gravity: 22, drag: 0.4, shape: Shape.Shard, spin: rand(-12, 12), hold: 0.7,
+      });
+    }
+  }
+
+  /** Low dust puff kicked up along the ground. */
+  dust(pos: THREE.Vector3, count: number, size = 0.5, a = 0.35, spread = 1.6, color = DUST) {
+    for (let i = 0; i < count; i++) {
+      const ang = rand(0, TAU), sp = spread * rand(0.4, 1);
+      this.alpha.spawn({
+        x: pos.x + Math.cos(ang) * 0.15, y: pos.y + 0.08, z: pos.z + Math.sin(ang) * 0.15,
+        vx: Math.cos(ang) * sp, vy: rand(0.2, 0.7), vz: Math.sin(ang) * sp,
+        r: color.r, g: color.g, b: color.b, a,
+        size: size * rand(0.7, 1.2), grow: 2.4, life: rand(0.45, 0.8), drag: 3, shape: Shape.Smoke, spin: rand(-1, 1), fadeIn: 0.08,
+      });
+    }
+  }
+
+  /** Ring of dust rolling outward (landings, slams). */
+  dustRing(pos: THREE.Vector3, radius: number, count = 18, size = 0.7, a = 0.4, color = DUST) {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * TAU + rand(-0.1, 0.1), sp = radius * rand(2.2, 3.2);
+      this.alpha.spawn({
+        x: pos.x + Math.cos(ang) * 0.3, y: pos.y + 0.12, z: pos.z + Math.sin(ang) * 0.3,
+        vx: Math.cos(ang) * sp, vy: rand(0.3, 1.2), vz: Math.sin(ang) * sp,
+        r: color.r, g: color.g, b: color.b, a,
+        size: size * rand(0.7, 1.3), grow: 2.8, life: rand(0.6, 1.1), drag: 3.2, shape: Shape.Smoke, spin: rand(-1, 1), fadeIn: 0.05,
+      });
+    }
+  }
+
+  /** Vertical beam of rising light streaks (respawns, casts). */
+  pillar(pos: THREE.Vector3, color: THREE.Color, height = 6, count = 30, radius = 0.5) {
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, TAU), r = Math.sqrt(Math.random()) * radius;
+      const life = rand(0.35, 0.8);
+      this.add.spawn({
+        x: pos.x + Math.cos(a) * r, y: pos.y + rand(0, 0.6), z: pos.z + Math.sin(a) * r,
+        vy: height / life * rand(0.6, 1), r: color.r, g: color.g, b: color.b,
+        size: rand(0.06, 0.16), life, shape: Shape.Spark, stretch: 0.05, drag: 1.2,
+      });
+    }
+  }
+
+  /** Embers that rise, flicker from hot to dark and drift. */
+  embers(pos: THREE.Vector3, hot: THREE.Color, cool: THREE.Color, count: number, spread = 1, up = 2.5) {
+    for (let i = 0; i < count; i++) {
+      this.add.spawn({
+        x: pos.x + rand(-spread, spread), y: pos.y + rand(0, 0.6), z: pos.z + rand(-spread, spread),
+        vx: rand(-0.8, 0.8), vy: up * rand(0.4, 1.2), vz: rand(-0.8, 0.8),
+        r: hot.r, g: hot.g, b: hot.b, r2: cool.r, g2: cool.g, b2: cool.b,
+        size: rand(0.04, 0.1), life: rand(0.8, 1.8), drag: 0.8, shape: Shape.Dot, fadeIn: 0.05,
+      });
+    }
+  }
+
   flash(pos: THREE.Vector3, color: THREE.Color, intensity: number, dur: number, distance = 18) {
     // reuse the light with the least remaining energy
     let best = this.flashes[0];
@@ -142,6 +251,8 @@ export class Vfx {
   update(dt: number) {
     this.add.update(dt);
     this.alpha.update(dt);
+    this.trailsAdd.update(dt);
+    this.trailsAlpha.update(dt);
     for (const f of this.flashes) {
       f.t += dt;
       const k = Math.max(0, 1 - f.t / f.dur);
@@ -168,6 +279,7 @@ export class Vfx {
 
   clear() {
     this.add.clear(); this.alpha.clear();
+    this.trailsAdd.clear(); this.trailsAlpha.clear();
     for (const g of this.glyphs) { this.scene.remove(g.sprite); g.sprite.material.dispose(); }
     this.glyphs.length = 0;
     for (const f of this.flashes) { f.peak = 0; f.light.intensity = 0; }

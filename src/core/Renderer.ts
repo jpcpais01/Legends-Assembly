@@ -4,6 +4,7 @@ import {
   VignetteEffect, SMAAEffect, SMAAPreset, FXAAEffect, HueSaturationEffect, BrightnessContrastEffect,
 } from 'postprocessing';
 import { QUALITY, settings, type QualityPreset } from './settings';
+import { ImpactEffect, screenFx } from '../vfx/ScreenFx';
 
 /**
  * Renderer + post stack.
@@ -15,6 +16,10 @@ export class Renderer {
   readonly composer: EffectComposer;
   readonly bloom: BloomEffect;
   private renderPass: RenderPass;
+  /** Screen-space impact layer (ripples, lensing, aberration). Enabled only while something is active. */
+  private impact = new ImpactEffect();
+  private impactPass: EffectPass;
+  private warm = true;
   private gradePass!: EffectPass;
   private aaPass: EffectPass | null = null;
   private vignette: VignetteEffect;
@@ -57,6 +62,9 @@ export class Renderer {
     this.composer = new EffectComposer(gl, { frameBufferType: THREE.HalfFloatType, multisampling: 0 });
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
+    this.impactPass = new EffectPass(camera, this.impact);
+    this.impactPass.enabled = false;
+    this.composer.addPass(this.impactPass);
 
     this.bloom = new BloomEffect({
       mipmapBlur: true,
@@ -104,6 +112,7 @@ export class Renderer {
   setCamera(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
     this.renderPass.mainCamera = camera;
+    this.impactPass.mainCamera = camera;
     this.gradePass.mainCamera = camera;
     if (this.aaPass) this.aaPass.mainCamera = camera;
   }
@@ -166,6 +175,10 @@ export class Renderer {
   render(dt: number, frameMs: number) {
     this.updateDynamicRes(frameMs, dt);
     this.gl.info.reset();
+    screenFx.update(dt);
+    // the first frame (boot warmup) runs the impact pass once so its shader compiles during loading
+    this.impactPass.enabled = this.warm || (settings.screenFx && screenFx.active && this.impact.sync(this.camera));
+    this.warm = false;
     this.composer.render(dt);
   }
 }

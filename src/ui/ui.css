@@ -610,11 +610,20 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .hitmarker::before { transform: rotate(45deg); }
 .hitmarker::after { transform: rotate(-45deg); }
 .hitmarker.on { animation: hit .24s ease-out; }
+.hitmarker { --hk: 1; }
 .hitmarker.crit::before, .hitmarker.crit::after { background: linear-gradient(90deg, #ffcf5a 0 34%, transparent 34% 66%, #ffcf5a 66%); }
 .hitmarker.kill::before, .hitmarker.kill::after { background: linear-gradient(90deg, #ff3d5a 0 34%, transparent 34% 66%, #ff3d5a 66%); height: 3.5px; }
 .hitmarker.kill.on { animation: hitKill .4s ease-out; }
-@keyframes hit { 0% { opacity: 1; transform: scale(1.35); } 100% { opacity: 0; transform: scale(1); } }
-@keyframes hitKill { 0% { opacity: 1; transform: scale(1.7) rotate(8deg); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes hit { 0% { opacity: 1; transform: scale(calc(1.35 * var(--hk))); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes hitKill { 0% { opacity: 1; transform: scale(calc(1.9 * var(--hk))) rotate(12deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.1) rotate(0deg); } }
+.crosshair { will-change: transform; }
+.killflash, .hurtflash { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.killflash { background: radial-gradient(ellipse at center, transparent 55%, rgba(255, 70, 90, .28) 85%, rgba(255, 200, 120, .35) 100%); }
+.killflash.on { animation: killFlash .55s ease-out; }
+@keyframes killFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.hurtflash { --hk: .5; background: radial-gradient(ellipse at center, transparent 35%, rgba(255, 30, 40, .5) 100%); }
+.hurtflash.on { animation: hurtFlash .4s ease-out; }
+@keyframes hurtFlash { 0% { opacity: var(--hk); } 100% { opacity: 0; } }
 .elims { position: absolute; left: 50%; top: calc(50% + 70px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .elims .el { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; font-style: italic; letter-spacing: .06em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .8); animation: elimIn .3s var(--spring), feedOut .4s ease-in 2.1s forwards; }
 .elims .el span { color: #ff6d80; }
@@ -626,6 +635,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .dmgnum { position: absolute; left: 0; top: 0; font-weight: 800; font-style: italic; font-size: 24px; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, .9), 0 0 1px #000; white-space: nowrap; will-change: transform, opacity; }
 .dmgnum.crit { color: var(--gold); font-size: 30px; }
 .dmgnum.heal { color: var(--green); }
+.dmgnum.big { color: #ffe9b0; text-shadow: 0 2px 8px rgba(0, 0, 0, .9), 0 0 14px rgba(255, 160, 60, .55); }
+.dmgnum.crit.big { color: #ffd24a; }
 .plate { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; text-align: center; will-change: transform; }
 .plate .n { font-size: 14px; font-weight: 700; letter-spacing: .06em; text-shadow: 0 1px 4px #000, 0 0 2px #000; white-space: nowrap; }
 .plate .n small { font-size: 11px; font-weight: 600; margin-left: 6px; opacity: .7; letter-spacing: .1em; text-transform: uppercase; }
