@@ -19,6 +19,7 @@ export class Renderer {
   /** Screen-space impact layer (ripples, lensing, aberration). Enabled only while something is active. */
   private impact = new ImpactEffect();
   private impactPass: EffectPass;
+  private warm = true;
   private gradePass!: EffectPass;
   private aaPass: EffectPass | null = null;
   private vignette: VignetteEffect;
@@ -175,7 +176,9 @@ export class Renderer {
     this.updateDynamicRes(frameMs, dt);
     this.gl.info.reset();
     screenFx.update(dt);
-    this.impactPass.enabled = settings.screenFx && screenFx.active && this.impact.sync(this.camera);
+    // the first frame (boot warmup) runs the impact pass once so its shader compiles during loading
+    this.impactPass.enabled = this.warm || (settings.screenFx && screenFx.active && this.impact.sync(this.camera));
+    this.warm = false;
     this.composer.render(dt);
   }
 }

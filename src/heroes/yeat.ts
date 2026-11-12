@@ -163,10 +163,11 @@ function addHeadlights(group: THREE.Group) {
   for (const sx of [-1, 1]) {
     const sp = new THREE.Sprite(mat);
     sp.position.set(sx * size.x * 0.3, bb.min.y + size.y * 0.38, bb.max.z + 0.05);
-    sp.scale.set(1.1, 0.55, 1);
+    sp.scale.set(0.8, 0.4, 1);
     sp.renderOrder = 25;
     group.add(sp);
   }
+  group.userData.headlights = mat;
   return size;
 }
 
@@ -408,7 +409,13 @@ function updateTonka(h: Hero, g: Game, dt: number) {
     const a = rand(0, TAU), r = rand(1.2, 2.2);
     g.vfx.p({ x: h.pos.x + Math.cos(a) * r + dir.x * 2, y: h.pos.y + rand(0.3, 2), z: h.pos.z + Math.sin(a) * r + dir.z * 2, vx: -dir.x * st.speed * 0.7, vy: 0, vz: -dir.z * st.speed * 0.7, r: 1.3, g: 1.3, b: 1.4, size: 0.03, life: 0.16, shape: Shape.Spark, stretch: 0.03 });
   }
-  if (h.isLocal) screenFx.zoomHold = (st.speed / TONKA_MAX) * 0.5;
+  if (h.isLocal) screenFx.zoomHold = (st.speed / TONKA_MAX) * 0.3;
+  // headlights only glare when the truck is coming at the camera
+  const hl = st.group.userData.headlights as THREE.SpriteMaterial | undefined;
+  if (hl) {
+    const cf = g.camRig.forward(_v1);
+    hl.opacity = Math.min(1, Math.max(0.12, -(cf.x * dir.x + cf.z * dir.z) * 1.4 + 0.1));
+  }
   // engine pitch follows speed (fades in under the transform sound)
   const sk = st.speed / TONKA_MAX;
   st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
@@ -695,5 +702,7 @@ export const YEAT: HeroDef = {
 
 export function warmupYeat(g: Game): THREE.Object3D[] {
   g.pool('bellRing', ringPool);
-  return [buildTruck(), buildBell()];
+  const truck = buildTruck();
+  addHeadlights(truck);
+  return [truck, buildBell()];
 }
