@@ -8,6 +8,41 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.5.0',
+    date: '2026-11-12',
+    title: 'Legends Find Their Voice',
+    sections: [
+      {
+        heading: 'All-new sound',
+        items: [
+          'Every sound in the game has been redesigned from scratch with richer, layered audio: punchier hits, deeper explosions and real space around every sound.',
+          'Sounds now live in the arena: distant fights get softer, more muffled and more echoey, and everything pans with your camera.',
+          'Footsteps for every legend, paced by their real speed, plus jump and landing sounds. Bigger falls land harder.',
+          'The music sinks under a dark, muffled filter while The Bell darkens the sky, and the mix ducks around big moments so they hit harder.',
+          'Pausing now hushes the battlefield.',
+        ],
+      },
+      {
+        heading: 'Ability sounds',
+        items: [
+          'Einstein: Photon Burst zaps and crackles on impact, Gravity Well inhales, spins up, swallows sparks and collapses with a boom, and E = mc² screams up to a blast with a golden ringing tail.',
+          'Yeat: Bell Ring is now a rage bell with a distorted 808, and firing in a row plays a dark riff. Tonka ratchets, clanks, honks its air horn, and its engine revs higher the faster you drive. Ramming lands with a metal crunch and a huge 808.',
+          'Yeat: The Bell rolls in with thunder, wind and a backwards toll, rings out with a colossal bronze toll, whistles as it falls, and lands with a cracked clang and an earthquake rumble.',
+          'Van Gogh: Impasto Shot flicks wet paint that splats and drips, the sunflower bursts from the earth with a harp glissando, and The Starry Night swirls around you with twinkling glass. Shooting stars now whoosh and chime when they strike.',
+        ],
+      },
+      {
+        heading: 'Voice lines',
+        items: [
+          'Legends now talk: match openers, ability callouts, eliminations, multi-kills, low-health calls, respawns, victory and defeat.',
+          'Ult callouts: hear an enemy Yeat shout "The Bell tolls for you!" and you know to move.',
+          'Rival banter: when two legends meet at the start of a match, they trade lines.',
+          'New subtitles show who is talking, colored for you, allies and enemies, plus a Voice lines volume slider and a Subtitles toggle in Settings.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-11-12',
     title: 'Center Stage',

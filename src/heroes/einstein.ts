@@ -8,6 +8,7 @@ import { globalUniforms } from '../render/materials';
 import { rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
+import { audio } from '../core/Audio';
 
 const PHOTON = new THREE.Color(1.6, 3.2, 4.2);
 const PHOTON_SOFT = new THREE.Color(0.5, 1.4, 2.6);
@@ -183,7 +184,8 @@ function createBlast(g: Game, owner: Hero, at: THREE.Vector3) {
   g.vfx.glyph('E = mc²', at.clone().setY(at.y + 2.5), { color: '#fff6dc', glow: '#ffb347', scale: 3.2, dur: 1.6, vy: 1.2 });
   g.shake(at, 1.0, 40);
   g.camRig.kick(owner.isLocal ? 10 : 0);
-  g.play('boom', at, 1.2);
+  g.play('emcBlast', at, 1.3);
+  audio.duck(1.4, 0.85, 0.4);
   // light pillar
   for (let i = 0; i < 40; i++) g.vfx.p({ x: at.x + rand(-0.5, 0.5), y: ground.y + rand(0, 2), z: at.z + rand(-0.5, 0.5), vy: rand(10, 26), r: 4, g: 3.2, b: 2, size: rand(0.2, 0.5), life: rand(0.4, 0.8), shape: Shape.Spark, stretch: 0.05, drag: 1.5 });
   for (const h of g.enemiesNear(owner.team, at, 11)) {
@@ -229,6 +231,7 @@ class EinsteinKit implements HeroKit {
           const crit = point.y > hit.pos.y + 1.42;
           g.damage(hit, p.damage, p.owner, { crit, at: point });
         }
+        g.play('photonHit', point, hit ? 0.7 : 0.45);
         g.vfx.sparks(point, PHOTON, 10, 8);
         g.vfx.burst(point, PHOTON_SOFT, 6, 2, 0.16, 0.2);
         g.vfx.p({ x: point.x, y: point.y, z: point.z, r: 2, g: 3.5, b: 4.5, size: 0.25, grow: 3.5, life: 0.18, shape: Shape.Ring, aux: 0.2 });
@@ -240,7 +243,7 @@ class EinsteinKit implements HeroKit {
     const m = h.muzzle('R');
     const dir = h.aimDir(m);
     h.anim.attack = 1; h.anim.attackSide = 1;
-    g.play('photon', m, 0.4);
+    g.play('gravityThrow', m, 0.8);
     g.spawnProjectile({
       owner: h, kind: 'gravityOrb', pos: m.clone(), vel: dir.multiplyScalar(30).add(new THREE.Vector3(0, 2.5, 0)), gravity: 9, radius: 0.32, life: 1.0, damage: 0, color: VIOLET,
       render(p, g) {

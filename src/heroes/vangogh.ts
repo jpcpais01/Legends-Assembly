@@ -294,6 +294,7 @@ function createStarryNight(g: Game, owner: Hero) {
           g.vfx.p({ x: from.x + dir.x * len * k, y: from.y + dir.y * len * k, z: from.z + dir.z * len * k, vx: dir.x * 3, vy: dir.y * 3, vz: dir.z * 3, r: 3.2, g: 2.6, b: 1.0, size: 0.16 - k * 0.06, life: 0.15 + k * 0.25, shape: Shape.Dot });
         }
         g.vfx.burst(to, new THREE.Color(3, 2.5, 0.9), 12, 4, 0.1, 0.4);
+        g.play('starFall', to, 0.75);
       }
     },
     dispose() { g.scene.remove(group); dome.geometry.dispose(); floor.geometry.dispose(); sm.dispose(); fm.dispose(); },
@@ -341,6 +342,7 @@ class VanGoghKit implements HeroKit {
     const m = h.muzzle('L');
     const dir = h.aimDir(m);
     h.anim.attack = 1; h.anim.attackSide = -1;
+    g.play('seedToss', m, 0.7);
     g.spawnProjectile({
       owner: h, kind: 'seed', pos: m.clone(), vel: dir.multiplyScalar(20).add(new THREE.Vector3(0, 4, 0)), gravity: 16, radius: 0.15, life: 2.5, damage: 0, color: SUN,
       render(p, g) {
