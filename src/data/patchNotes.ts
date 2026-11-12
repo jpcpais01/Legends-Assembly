@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.1.1',
+    date: '2026-11-12',
+    title: 'Sculpted Legends Prep',
+    sections: [
+      {
+        heading: 'Under the hood',
+        items: [
+          'Groundwork for the fully sculpted hero models: legends can now wear detailed, textured bodies that use the same walk, aim, cast and ultimate animations as today.',
+          'Hero models are trimmed and compressed for fast downloads and smooth frame rates, even with ten legends on screen in Assembly War.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.0',
     date: '2026-11-12',
     title: 'The Assembly Begins',

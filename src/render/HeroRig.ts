@@ -203,23 +203,29 @@ export class RigBuilder {
   }
 }
 
-export class ProceduralHeroModel implements HeroModel {
-  root: THREE.Group;
-  fx: HeroFxUniforms;
-  private r: RigBuilder;
+/** The 17 bones (+ body root) the procedural animator drives. Procedural rigs and auto-rigged Meshy GLBs share it. */
+export interface RigBones {
+  body: THREE.Object3D;
+  hips: THREE.Object3D; spine: THREE.Object3D; chest: THREE.Object3D; neck: THREE.Object3D; head: THREE.Object3D;
+  shoulderL: THREE.Object3D; shoulderR: THREE.Object3D; elbowL: THREE.Object3D; elbowR: THREE.Object3D; handL: THREE.Object3D; handR: THREE.Object3D;
+  hipL: THREE.Object3D; hipR: THREE.Object3D; kneeL: THREE.Object3D; kneeR: THREE.Object3D; footL: THREE.Object3D; footR: THREE.Object3D;
+}
+
+export const RIG_BONE_NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'handL', 'handR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'footL', 'footR'] as const;
+
+/** Procedural locomotion / aim / attack / cast / levitate / death animation. Sets bone rotations absolutely. */
+export class RigAnimator {
   private phase = 0;
   private deadT = 0;
   private lean = 0;
   private sideLean = 0;
   private air = 0;
-  private _v = new THREE.Vector3();
-
-  constructor(look: RigLook, rim: THREE.Color) {
-    this.r = new RigBuilder(rim);
-    look.build(this.r);
-    this.r.finalize();
-    this.root = this.r.root;
-    this.fx = this.r.fx;
+  private hipsY: number;
+  /** Extra outward shoulder angle so bulky sleeves (puffer jackets) clear the torso. */
+  private armOut: number;
+  constructor(private r: RigBones, opts: { armOut?: number } = {}) {
+    this.hipsY = r.hips.position.y;
+    this.armOut = opts.armOut ?? 0;
   }
 
   update(dt: number, s: AnimState) {
@@ -259,7 +265,7 @@ export class ProceduralHeroModel implements HeroModel {
     // body
     const bob = Math.abs(Math.sin(ph)) * 0.045 * walk;
     const breathe = Math.sin(t * 2.1) * 0.006;
-    r.hips.position.y = 0.95 + bob - 0.02 * walk + breathe;
+    r.hips.position.y = this.hipsY + bob - 0.02 * walk + breathe;
     r.hips.rotation.y = Math.sin(ph) * 0.12 * walk;
     r.spine.rotation.y = -Math.sin(ph) * 0.18 * walk;
     r.spine.rotation.x = this.lean - s.pitch * 0.35;
@@ -271,7 +277,7 @@ export class ProceduralHeroModel implements HeroModel {
     // arms: base swing + idle + attack/cast overrides
     const armSwing = Math.sin(ph) * 0.55 * walk * fwdSign;
     let lx = armSwing + 0.05, rx = -armSwing + 0.05;
-    let lz = 0.12 + Math.sin(t * 1.3) * 0.02, rz = -0.12 - Math.sin(t * 1.3) * 0.02;
+    let lz = 0.12 + this.armOut + Math.sin(t * 1.3) * 0.02, rz = -0.12 - this.armOut - Math.sin(t * 1.3) * 0.02;
     let le = -0.25 - walk * 0.25, re = -0.25 - walk * 0.25;
     // aim-ready pose blends in so the hero looks combat-ready
     const aimPose = 0.35;
@@ -301,6 +307,25 @@ export class ProceduralHeroModel implements HeroModel {
     r.elbowR.rotation.x = re;
   }
 
+}
+
+export class ProceduralHeroModel implements HeroModel {
+  root: THREE.Group;
+  fx: HeroFxUniforms;
+  private r: RigBuilder;
+  private anim: RigAnimator;
+
+  constructor(look: RigLook, rim: THREE.Color) {
+    this.r = new RigBuilder(rim);
+    look.build(this.r);
+    this.r.finalize();
+    this.root = this.r.root;
+    this.fx = this.r.fx;
+    this.anim = new RigAnimator(this.r);
+  }
+
+  update(dt: number, s: AnimState) { this.anim.update(dt, s); }
+
   handWorld(side: 'L' | 'R', out: THREE.Vector3) {
     const h = side === 'L' ? this.r.handL : this.r.handR;
     return h.getWorldPosition(out);
@@ -308,5 +333,5 @@ export class ProceduralHeroModel implements HeroModel {
 
   headWorld(out: THREE.Vector3) { return this.r.head.getWorldPosition(out); }
 
-  dispose() { this.r.disposeAll(); void this._v; }
+  dispose() { this.r.disposeAll(); }
 }

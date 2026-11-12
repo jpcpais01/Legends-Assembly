@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { ProceduralHeroModel, type AnimState, type HeroModel } from './HeroRig';
+import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import type { HeroDef } from '../game/types';
 
@@ -38,6 +38,8 @@ export class GltfHeroModel implements HeroModel {
   private handL: THREE.Object3D | null = null;
   private head: THREE.Object3D | null = null;
   private inner = new THREE.Group();
+  /** Set when the GLB was auto-rigged onto the game skeleton (scripts/autorig.mjs): procedural animation drives it. */
+  private animator: RigAnimator | null = null;
   private disposed = false;
 
   constructor(def: HeroDef, rim: THREE.Color) {
@@ -48,12 +50,16 @@ export class GltfHeroModel implements HeroModel {
     load(def.modelUrl!).then((res) => {
       if (!res || this.disposed) return;
       const obj = SkeletonUtils.clone(res.scene);
-      const box = new THREE.Box3().setFromObject(obj);
-      const size = box.getSize(new THREE.Vector3());
-      const s = 1.8 / Math.max(0.01, size.y);
-      obj.scale.setScalar(s);
-      const c = box.getCenter(new THREE.Vector3());
-      obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+      const laRig = obj.getObjectByName('la_hips');
+      if (!laRig) {
+        // foreign rig: normalize to 1.8 m, feet on the ground (auto-rigged models are baked that way already)
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const s = 1.8 / Math.max(0.01, size.y);
+        obj.scale.setScalar(s);
+        const c = box.getCenter(new THREE.Vector3());
+        obj.position.set(-c.x * s, -box.min.y * s, -c.z * s);
+      }
       obj.traverse((o) => {
         const m = o as THREE.Mesh;
         if (m.isMesh) {
@@ -71,7 +77,13 @@ export class GltfHeroModel implements HeroModel {
       });
       this.inner.add(obj);
       this.obj = obj;
-      if (res.animations.length) {
+      if (laRig) {
+        const bones = { body: this.inner } as Record<string, THREE.Object3D>;
+        for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
+        const armOut = Number(obj.getObjectByName('la_armature')?.userData?.armOut ?? 0);
+        this.animator = new RigAnimator(bones as unknown as RigBones, { armOut });
+        this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
+      } else if (res.animations.length) {
         this.mixer = new THREE.AnimationMixer(obj);
         const find = (re: RegExp) => res.animations.find((a) => re.test(a.name));
         const map: Record<string, THREE.AnimationClip | undefined> = {
@@ -98,6 +110,7 @@ export class GltfHeroModel implements HeroModel {
 
   update(dt: number, s: AnimState) {
     if (!this.obj) { this.fallback.update(dt, s); return; }
+    if (this.animator) { this.animator.update(dt, s); return; }
     if (this.mixer) {
       if (s.dead) { /* freeze */ }
       else if (!s.grounded && this.actions.jump) this.play('jump');
