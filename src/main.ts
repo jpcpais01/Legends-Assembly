@@ -19,6 +19,7 @@ import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
 import { Menu } from './ui/Menu';
+import { Subtitles } from './ui/Subtitles';
 import { renderPortraits } from './ui/portraits';
 import { warmupEinstein, warmupYeat, warmupVanGogh, HERO_LIST } from './heroes';
 import { warmupHeroModels } from './render/GltfHeroModel';
@@ -71,6 +72,9 @@ async function boot() {
     },
   });
   hud = new Hud(uiRoot, game);
+  const subs = new Subtitles(uiRoot);
+  const REL_COLOR = { ally: '#7cc4ff', enemy: '#ff5a6e' } as const;
+  game.voice.onLine = (l) => subs.show(l.name, l.rel === 'self' ? l.hero.def.color : REL_COLOR[l.rel], l.text, l.dur);
   (window as unknown as { __legends: unknown }).__legends = { game, renderer, settings };
 
   await progress(70, 'Painting the legends');
@@ -109,6 +113,8 @@ async function boot() {
     game.setShowcase(null);
     menu.show(false);
     menu.pause(false);
+    subs.clear();
+    audio.setWorldPaused(false);
     game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty });
     hud.setup();
     hud.show(true);
@@ -119,6 +125,8 @@ async function boot() {
   }
 
   function toMenu() {
+    subs.clear();
+    audio.setWorldPaused(false);
     game.clearMatch();
     game.paused = false;
     hud.show(false);
@@ -139,6 +147,7 @@ async function boot() {
   input.onLockChange = (locked) => {
     if (game.state === 'menu' || game.state === 'ended') return;
     game.paused = !locked;
+    audio.setWorldPaused(game.paused);
     menu.pause(!locked);
   };
   // clicking the canvas during a match re-locks the mouse
@@ -151,6 +160,7 @@ async function boot() {
   const enter = () => {
     audio.unlock();
     audio.setVolume(settings.volume);
+    audio.setVoice(settings.voice);
     audio.startMusic();
     bootEl.classList.add('fade');
     setTimeout(() => bootEl.remove(), 900);
@@ -203,6 +213,7 @@ async function boot() {
     sat = damp(sat, want, 5, dt);
     renderer.setSaturation(sat);
     arena.setDoom(game.doom);
+    audio.setDoom(game.doom);
     arena.update(globalUniforms.uTime.value, camera);
     renderer.render(dt, ms);
     if (game.state !== 'menu') hud.update(dt, camera, renderer.fps, renderer.gl.info.render.calls);

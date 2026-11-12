@@ -9,7 +9,8 @@ import { Bot } from './Bot';
 import type { HeroDef, HeroId, Projectile, Zone } from './types';
 import { HEROES, HERO_LIST } from '../heroes';
 import { Input } from '../core/Input';
-import { audio, type Sfx } from '../core/Audio';
+import { audio, type Sfx, type PlayOpts } from '../core/Audio';
+import { VoiceDirector } from '../audio/VoiceDirector';
 import { globalUniforms } from '../render/materials';
 import { clamp, pick, rand, segmentVsCapsule, shuffle } from '../core/math';
 import { settings } from '../core/settings';
@@ -66,7 +67,10 @@ export class Game {
   config: MatchConfig | null = null;
   events: GameEvents;
   showcase: Hero | null = null;
+  voice: VoiceDirector;
   private lastCount = 4;
+  private steps = new Map<number, number>();
+  private healSfxT = 0;
   private _v = new THREE.Vector3();
   private _v2 = new THREE.Vector3();
 
@@ -77,6 +81,7 @@ export class Game {
     this.camRig = new CameraRig(camera);
     this.input = input;
     this.events = events;
+    this.voice = new VoiceDirector(this);
     this.buildPickups();
   }
 
@@ -88,7 +93,8 @@ export class Game {
     return p;
   }
 
-  play(name: Sfx, pos?: THREE.Vector3, vol = 1) { audio.play(name, pos, vol); }
+  play(name: Sfx, pos?: THREE.Vector3 | null, vol = 1, opts?: PlayOpts) { audio.play(name, pos, vol, opts); }
+  loop(name: Sfx, pos?: THREE.Vector3 | null, vol = 1) { return audio.loop(name, pos, vol); }
 
   /** Camera trauma scaled by distance to the local hero. */
   shake(pos: THREE.Vector3, amount: number, radius = 25) {
@@ -134,6 +140,9 @@ export class Game {
       }
     }
     this.camRig.mode = 'play'; this.camRig.vehicle = 0;
+    this.voice.reset();
+    this.voice.preload([...new Set(this.heroes.map((h) => h.def.id))]);
+    this.steps.clear();
     this.state = 'intro';
     this.introT = 0;
     this.lastCount = 4;
@@ -153,10 +162,11 @@ export class Game {
 
   clearMatch() {
     this.doom = 0;
+    this.voice.reset();
     for (const z of this.zones) z.dispose(z, this);
     this.zones = [];
     this.projectiles = [];
-    for (const h of this.heroes) { this.scene.remove(h.model.root); h.dispose(); }
+    for (const h of this.heroes) { if (h.alive) h.kit.onDeath?.(h, this); this.scene.remove(h.model.root); h.dispose(); }
     this.heroes = [];
     this.bots = [];
     this.vfx.clear();
@@ -197,6 +207,7 @@ export class Game {
     let dmg = amount * source.dmgMult * target.dmgTakenMult * (opts.crit ? 1.5 : 1);
     dmg = Math.min(dmg, target.hp);
     if (dmg <= 0) return 0;
+    const wasHealthy = target.hp / target.maxHp >= 0.3;
     target.hp -= dmg;
     target.flashT = Math.min(1, target.flashT + (opts.crit ? 1 : 0.7));
     target.anim.hit = 1;
@@ -217,6 +228,7 @@ export class Game {
       if (!opts.silent) this.play('hurt', undefined, 0.5);
     }
     if (killed) this.kill(target, source);
+    else if (target.isLocal && wasHealthy && target.hp / target.maxHp < 0.3) this.voice.say(target, 'lowHp');
     return dmg;
   }
 
@@ -227,6 +239,7 @@ export class Game {
     source.stats.healing += h;
     if (target !== source || h > 0) this.chargeUlt(source, h * 0.8);
     target.healGlowT = 1;
+    if (target.isLocal && h > 4 && this.time - this.healSfxT > 0.9) { this.healSfxT = this.time; this.play('heal'); }
     return h;
   }
 
@@ -237,6 +250,7 @@ export class Game {
       h.ultReadyNotified = true;
       this.play('ultReady', undefined, 0.8);
       this.events.onAnnounce('SPECIAL READY', `Press SHIFT — ${h.def.abilities.ult.name}`, 'gold');
+      this.voice.after(0.5, () => { if (h.alive && h.ult >= 1) this.voice.say(h, 'ultReady'); });
     }
   }
 
@@ -277,8 +291,13 @@ export class Game {
     const p = victim.center;
     this.vfx.burst(p, new THREE.Color(c.r * 4, c.g * 4, c.b * 4), 40, 6, 0.18, 1.0, { gravity: -1 });
     this.vfx.shockwave(victim.pos, new THREE.Color(c.r * 3, c.g * 3, c.b * 3), 4, 0.6, 0.08);
-    this.play('boom', p, 0.25);
+    this.play('death', p, 0.8);
     this.events.onKill(killer, victim, assists);
+    if (killer && killer !== victim) {
+      const multi = killer.stats.streak >= 2;
+      this.voice.after(0.35, () => { if (!this.voice.say(killer, multi ? 'multiKill' : 'kill') && multi) this.voice.say(killer, 'kill'); });
+    }
+    if (victim.isLocal) this.voice.after(0.2, () => this.voice.say(victim, 'death'));
     if (this.score[0] >= this.target || this.score[1] >= this.target) this.endMatch(this.score[0] >= this.target ? 0 : 1);
     else if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
   }
@@ -290,6 +309,9 @@ export class Game {
     this.endT = 0;
     this.timeScale = 0.25;
     this.play(winner === 0 ? 'victory' : 'defeat');
+    audio.duck(2.5, 0.6, 0.3);
+    const me = this.local;
+    if (me) this.voice.after(1.1, () => this.voice.say(me, winner === me.team ? 'victory' : 'defeat', true));
     this.events.onMatchEnd(winner);
   }
 
@@ -408,6 +430,7 @@ export class Game {
       return;
     }
     if (this.paused) return;
+    this.voice.update(rawDt);
 
     // intro countdown
     if (this.state === 'intro') {
@@ -417,6 +440,7 @@ export class Game {
         this.lastCount = n;
         this.events.onCountdown(n);
         this.play(n === 0 ? 'go' : 'countdown');
+        if (n === 0) this.voice.after(0.8, () => this.voice.matchStart());
       }
       if (this.introT >= 3) this.state = 'playing';
     }
@@ -445,7 +469,7 @@ export class Game {
     if (this.local) {
       if (this.local.alive && this.camRig.mode === 'dead') this.camRig.mode = 'play';
       this.camRig.update(rawDt, this.local, this.world);
-      audio.setListener(this.camRig.camera.position, this.camRig.camera);
+      audio.setListener(this.camRig.camera.position, this.camRig.camera, this.local.alive ? this.local.center : undefined);
     }
   }
 
@@ -489,6 +513,7 @@ export class Game {
       if (h.respawnT <= 0 && this.state !== 'ended') {
         this.spawn(h);
         this.play('respawn', h.pos, 0.6);
+        this.voice.say(h, 'respawn');
         this.vfx.burst(h.center, TEAM_COLORS[h.team].clone().multiplyScalar(3), 30, 4, 0.12, 0.9, { vy: 2 });
         this.vfx.shockwave(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(2.5), 3, 0.5);
       }
@@ -511,20 +536,34 @@ export class Game {
     h.speedMult = 1; h.dmgMult = 1; h.dmgTakenMult = 1;
     h.kit.update(h, this, dt);
     if (!frozen && h.channel <= 0 && h.alive) {
-      if (h.input.primary && h.primaryCd <= 0) { h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); }
+      if (h.input.primary && h.primaryCd <= 0) { h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); this.voice.say(h, 'primary'); }
       if (h.input.secondary && h.secondaryCd <= 0) {
-        if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); }
+        if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.say(h, 'secondary'); }
       } else if (h.isLocal && this.input.rmbPressed && h.secondaryCd > 0) this.play('denied', undefined, 0.4);
       if (h.input.ult && h.ult >= 1) {
-        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); }
+        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.ult(h); }
       } else if (h.isLocal && this.input.shiftPressed && h.ult < 1) this.play('denied', undefined, 0.4);
     }
     if (h.moveLock > 0) h.moveLock -= dt;
     if (h.channel > 0) h.channel -= dt;
     const wasGrounded = h.grounded;
+    const preVy = h.vel.y;
     h.physics(dt, this.world);
     if (wasGrounded && !h.grounded && h.vel.y > 5) this.play('jump', h.pos, 0.5);
+    else if (!wasGrounded && h.grounded && preVy < -6) this.play('land', h.pos, clamp(-preVy / 14, 0.4, 1));
+    this.footsteps(h, dt, wasGrounded);
     h.updateAnim(dt, this.time);
+  }
+
+  /** Footsteps: one per stride, paced by real ground speed. */
+  private footsteps(h: Hero, dt: number, wasGrounded: boolean) {
+    if (!h.grounded || !wasGrounded || h.overrideVel || h.kitState.truck) return;
+    const sp = Math.hypot(h.vel.x, h.vel.z);
+    if (sp < 1.2) { this.steps.set(h.id, 0.6); return; }
+    let acc = (this.steps.get(h.id) ?? 0) + sp * dt;
+    const stride = 0.9 + sp * 0.17;
+    if (acc >= stride) { acc -= stride; this.play('step', h.pos, h.isLocal ? 0.55 : 0.85); }
+    this.steps.set(h.id, acc);
   }
 
   /** Bot helper: pick a hero def. */
