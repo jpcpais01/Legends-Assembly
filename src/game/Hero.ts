@@ -145,7 +145,7 @@ export class Hero {
     this.impulse.z = damp(this.impulse.z, 0, fr, dt);
 
     world.resolve(this.pos, HERO_RADIUS, this.pos.y);
-    const h = world.heightAt(this.pos.x, this.pos.z);
+    const h = world.heightAt(this.pos.x, this.pos.z, this.pos.y);
     if (this.pos.y <= h) {
       this.pos.y = h;
       if (this.vel.y < 0) this.vel.y = 0;

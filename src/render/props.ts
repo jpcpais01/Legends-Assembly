@@ -16,8 +16,8 @@ export interface PropTemplate {
   size: THREE.Vector3;
 }
 
-export type PropName = 'cauldron' | 'palette' | 'ruins' | 'statue' | 'sunflower' | 'tonka_truck' | 'giant_bell';
-export const PROP_NAMES: PropName[] = ['cauldron', 'palette', 'ruins', 'statue', 'sunflower', 'tonka_truck', 'giant_bell'];
+export type PropName = 'cauldron' | 'palette' | 'ruins' | 'statue' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell';
+export const PROP_NAMES: PropName[] = ['cauldron', 'palette', 'ruins', 'statue', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell'];
 export const PROPS: Partial<Record<PropName, PropTemplate>> = {};
 
 const loader = new GLTFLoader();
@@ -36,8 +36,14 @@ function dequantize(g: THREE.BufferGeometry) {
 }
 
 async function loadOne(name: PropName): Promise<void> {
+  const t = await loadTemplate(`/models/props/${name}.glb`);
+  if (t) PROPS[name] = t;
+}
+
+/** Load any static GLB as one baked geometry + material (feet on y=0, centered on x/z, 1 m tall). Null if missing. */
+export async function loadTemplate(url: string): Promise<PropTemplate | null> {
   try {
-    const gltf = await loader.loadAsync(`/models/props/${name}.glb`);
+    const gltf = await loader.loadAsync(url);
     gltf.scene.updateMatrixWorld(true);
     const geos: THREE.BufferGeometry[] = [];
     let material: THREE.Material | null = null;
@@ -50,7 +56,7 @@ async function loadOne(name: PropName): Promise<void> {
       geos.push(g);
       material ??= m.material as THREE.Material;
     });
-    if (!geos.length || !material) return;
+    if (!geos.length || !material) return null;
     const geometry = geos.length === 1 ? geos[0] : mergeGeometries(geos, false)!;
     geometry.computeBoundingBox();
     const bb = geometry.boundingBox!;
@@ -61,9 +67,9 @@ async function loadOne(name: PropName): Promise<void> {
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     const size = geometry.boundingBox!.getSize(new THREE.Vector3());
-    PROPS[name] = { geometry, material, size };
+    return { geometry, material, size };
   } catch {
-    // not delivered yet: procedural fallback stays
+    return null; // not delivered yet: procedural fallback stays
   }
 }
 

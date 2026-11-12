@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Arena, TEAM_COLORS } from '../world/Arena';
-import { SPAWNS } from '../world/collision';
+import { TEAM_COLORS } from '../world/Arena';
+import type { ArenaLike } from '../world/types';
 import { Vfx, InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
 import { Hero, HERO_RADIUS } from './Hero';
@@ -41,7 +41,7 @@ interface Pickup { pos: THREE.Vector3; ready: boolean; t: number; mesh: THREE.Gr
 
 export class Game {
   scene: THREE.Scene;
-  arena: Arena;
+  arena: ArenaLike;
   vfx: Vfx;
   camRig: CameraRig;
   input: Input;
@@ -74,7 +74,7 @@ export class Game {
   private _v = new THREE.Vector3();
   private _v2 = new THREE.Vector3();
 
-  constructor(scene: THREE.Scene, arena: Arena, camera: THREE.PerspectiveCamera, input: Input, events: GameEvents) {
+  constructor(scene: THREE.Scene, arena: ArenaLike, camera: THREE.PerspectiveCamera, input: Input, events: GameEvents) {
     this.scene = scene;
     this.arena = arena;
     this.vfx = new Vfx(scene);
@@ -149,11 +149,13 @@ export class Game {
   }
 
   private spawn(h: Hero, slot = Math.floor(Math.random() * 5), size = 5) {
-    const s = SPAWNS[h.team];
+    const s = this.world.spawns[h.team];
     const spread = size > 1 ? (slot / (size - 1) - 0.5) * 5 : 0;
-    const p = this._v.set(s.x + rand(-0.6, 0.6), 0, s.z + spread + rand(-0.4, 0.4));
+    // line up across the direction to the arena center, facing it
+    const cl = Math.hypot(s.x, s.z) || 1, dx = -s.x / cl, dz = -s.z / cl;
+    const p = this._v.set(s.x + rand(-0.6, 0.6) - dz * spread, 0, s.z + rand(-0.4, 0.4) + dx * spread);
     p.y = this.world.heightAt(p.x, p.z);
-    const yaw = h.team === 0 ? -Math.PI / 2 : Math.PI / 2; // face the center
+    const yaw = Math.atan2(-dx, -dz); // face the center
     h.respawnAt(p, yaw);
     if (h.isLocal) { this.camRig.yaw = yaw; this.camRig.pitch = -0.08; }
   }
@@ -178,7 +180,7 @@ export class Game {
     if (this.showcase) { this.scene.remove(this.showcase.model.root); this.showcase.dispose(); this.showcase = null; }
     if (!id) return;
     const h = new Hero(HEROES[id], 0, 'showcase', false, new THREE.Color(HEROES[id].color));
-    h.respawnAt(new THREE.Vector3(0, 1.0, 0), 0);
+    h.respawnAt(this.arena.showcasePos.clone(), 0);
     h.spawnT = 0;
     this.scene.add(h.model.root);
     this.showcase = h;
@@ -424,7 +426,7 @@ export class Game {
         s.updateAnim(rawDt, t);
       }
       this.vfx.update(rawDt);
-      this.arena.grass.setPushers(this.showcase ? [this.showcase.pos] : []);
+      this.arena.grass?.setPushers(this.showcase ? [this.showcase.pos] : []);
       return;
     }
     if (this.paused) return;
@@ -462,7 +464,7 @@ export class Game {
     this.zones = this.zones.filter((z) => !z.dead);
     this.updatePickups(dt);
     this.vfx.update(dt);
-    this.arena.grass.setPushers(this.heroes.filter((h) => h.alive).map((h) => h.pos));
+    this.arena.grass?.setPushers(this.heroes.filter((h) => h.alive).map((h) => h.pos));
 
     if (this.local) {
       if (this.local.alive && this.camRig.mode === 'dead') this.camRig.mode = 'play';

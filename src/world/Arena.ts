@@ -8,6 +8,7 @@ import { getMarble, getRock, getBark, getNoiseTexture, sampleNoise } from '../re
 import { globalUniforms, addFoliageWind } from '../render/materials';
 import { mulberry32, smoothstep, TAU } from '../core/math';
 import { QUALITY, settings } from '../core/settings';
+import type { ArenaLike } from './types';
 
 export const TEAM_COLORS = [new THREE.Color('#3fb4ff'), new THREE.Color('#ff3d5a')];
 const WATER_Y = -2.2;
@@ -176,7 +177,7 @@ function trunkGeometry() {
   return g2;
 }
 
-export class Arena {
+export class Arena implements ArenaLike {
   scene: THREE.Scene;
   world = new World();
   sky = new Sky();
@@ -187,6 +188,7 @@ export class Arena {
   private beacons: THREE.Mesh[] = [];
   private statics: THREE.Mesh[] = [];
   private brazier: { bowls: THREE.InstancedMesh; fire: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
+  readonly showcasePos = new THREE.Vector3(0, 1, 0);
   readonly healthPadPositions = [new THREE.Vector3(-10, 0, 21), new THREE.Vector3(10, 0, -21), new THREE.Vector3(10, 0, 21), new THREE.Vector3(-10, 0, -21)];
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {

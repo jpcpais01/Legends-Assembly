@@ -7,7 +7,7 @@ import { Shape } from '../vfx/Particles';
 import { rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
-import { propMesh } from '../render/props';
+import { propMesh, PROPS } from '../render/props';
 import { audio, type LoopHandle } from '../core/Audio';
 
 /** Bell Ring plays a riff: each shot is the next note (indices into BELL_SEMIS). */
@@ -107,10 +107,83 @@ interface TruckState {
   engine: LoopHandle | null;
 }
 
+const _yAxis = new THREE.Vector3(0, 1, 0);
 let truckTemplate: { group: THREE.Group; wheelNames: string[] } | null = null;
 /** Chunky toy dump truck (faces +z). Replaced by the Meshy `tonka_truck` prop when it's delivered. */
-function buildTruck(): THREE.Group {
+const TRUCK_H = 2.0;
+/** The Meshy truck faces -x with axles along z: turn it to face +z. */
+const TRUCK_YAW = Math.PI / 2;
+let meshyTruck: { body: THREE.BufferGeometry; wheels: { geo: THREE.BufferGeometry; c: THREE.Vector3; r: number }[]; mat: THREE.Material } | null = null;
+
+/**
+ * Splits the single-mesh Meshy truck into body + 4 wheels from its geometry: the tyres are the
+ * triangles in the outer z slabs that fall inside a disc around each wheel hub.
+ */
+function splitMeshyTruck() {
+  const t = PROPS.tonka_truck;
+  if (!t) return null;
+  if (meshyTruck) return meshyTruck;
+  const g = t.geometry;
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  const n = pos.count;
+  const idx = g.index ? (g.index.array as ArrayLike<number>) : Array.from({ length: n }, (_, i) => i);
+  let maxZ = 0;
+  for (let i = 0; i < n; i++) maxZ = Math.max(maxZ, Math.abs(pos.getZ(i)));
+  const zIn = maxZ * 0.49;
+  // hub centers: the bounding box of low, outer vertices in each quadrant
+  const wheels: { c: THREE.Vector3; r: number; tris: number[] }[] = [];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const bb = new THREE.Box3();
+    for (let i = 0; i < n; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      if (Math.sign(x) === sx && Math.sign(z) === sz && Math.abs(z) > zIn && y < 0.47 && Math.abs(x) > 0.08) bb.expandByPoint(new THREE.Vector3(x, y, z));
+    }
+    if (bb.isEmpty()) return null;
+    const r = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) / 2;
+    wheels.push({ c: new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y + r, sz * maxZ * 0.5), r, tris: [] });
+  }
+  const body: number[] = [];
+  const inWheel = (i: number, w: (typeof wheels)[number]) => {
+    const z = pos.getZ(i);
+    return Math.sign(z) === Math.sign(w.c.z) && Math.abs(z) > zIn * 0.96 && Math.hypot(pos.getX(i) - w.c.x, pos.getY(i) - w.c.y) < w.r * 1.04;
+  };
+  for (let k = 0; k < idx.length; k += 3) {
+    const a = idx[k], b = idx[k + 1], c = idx[k + 2];
+    const w = wheels.find((w) => inWheel(a, w) && inWheel(b, w) && inWheel(c, w));
+    (w ? w.tris : body).push(a, b, c);
+  }
+  const sub = (tris: number[], off?: THREE.Vector3) => {
+    const geo = g.clone();
+    geo.setIndex(tris);
+    if (off) geo.translate(-off.x, -off.y, -off.z);
+    geo.computeBoundingSphere();
+    return geo;
+  };
+  meshyTruck = { body: sub(body), wheels: wheels.map((w) => ({ geo: sub(w.tris, w.c), c: w.c, r: w.r })), mat: t.material };
+  return meshyTruck;
+}
+
+/** Chunky toy dump truck (faces +z). Uses the Meshy `tonka_truck` with its wheels split off so they spin. */
+export function buildTruck(): THREE.Group {
   const g = new THREE.Group();
+  const mt = splitMeshyTruck();
+  if (mt) {
+    const body = new THREE.Mesh(mt.body, mt.mat);
+    body.scale.setScalar(TRUCK_H); body.rotation.y = TRUCK_YAW; body.castShadow = true;
+    g.add(body);
+    mt.wheels.forEach((w, i) => {
+      // pivot axes: after the yaw the axle (local z) lies along x, so rotation.x rolls the wheel
+      const pivot = new THREE.Group();
+      pivot.position.copy(w.c).applyAxisAngle(_yAxis, TRUCK_YAW).multiplyScalar(TRUCK_H);
+      pivot.name = `wheel${i}`;
+      pivot.userData.radius = w.r * TRUCK_H;
+      const m = new THREE.Mesh(w.geo, mt.mat);
+      m.scale.setScalar(TRUCK_H); m.rotation.y = TRUCK_YAW; m.castShadow = true;
+      pivot.add(m);
+      g.add(pivot);
+    });
+    return g;
+  }
   const meshy = propMesh('tonka_truck', 1.9);
   if (meshy) { g.add(meshy); return g; }
   if (!truckTemplate) {
@@ -229,7 +302,7 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   // visuals: the model root follows the hero's body yaw, so counter-rotate to the truck heading
   st.group.rotation.set(0, st.heading - h.bodyYaw, st.roll);
   st.group.position.y = Math.sin(st.t * 30) * 0.015 * (st.speed / TONKA_MAX);
-  for (const w of st.wheels) w.rotation.x += (st.speed / 0.48) * dt;
+  for (const w of st.wheels) w.rotation.x += (st.speed / (w.userData.radius ?? 0.48)) * dt;
   // engine pitch follows speed (fades in under the transform sound)
   const sk = st.speed / TONKA_MAX;
   st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
@@ -443,6 +516,7 @@ export const YEAT: HeroDef = {
   accent: '#ffcf5a',
   maxHp: 350,
   modelUrl: '/models/heroes/yeat.glb',
+  held: { prop: 'golden_bell', hand: 'R', size: 0.15, pos: [0, -0.1, 0.03], rot: [0, 0, 0], ring: true },
   speed: 6.3,
   secondaryCd: 9,
   ultCost: 1350,

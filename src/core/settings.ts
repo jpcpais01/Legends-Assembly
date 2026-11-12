@@ -32,6 +32,7 @@ export interface Settings {
   invertY: boolean;
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
+  arena: 'study' | 'ruins';
   /** HUD size multiplier (0.8 to 1.25). */
   hudScale: number;
   damageNumbers: boolean;
@@ -73,6 +74,7 @@ function defaults(): Settings {
     invertY: false,
     playerName: 'Player',
     botDifficulty: 'normal',
+    arena: 'study',
     hudScale: 1,
     damageNumbers: true,
     crosshairColor: '#ffffff',

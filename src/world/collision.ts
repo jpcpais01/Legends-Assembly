@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { smoothstep } from '../core/math';
+import type { HeightGrid } from './HeightGrid';
 
 export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top: number }
 export interface BoxCollider { kind: 'box'; x: number; z: number; hx: number; hz: number; rot: number; top: number; cos: number; sin: number }
@@ -8,8 +9,32 @@ export type Collider = CircleCollider | BoxCollider;
 export const ARENA_RADIUS = 40;
 export const SPAWNS: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(-33, 0, 0), new THREE.Vector3(33, 0, 0)];
 
+export type Bounds = { kind: 'circle'; r: number } | { kind: 'rect'; hx: number; hz: number };
+
 export class World {
   colliders: Collider[] = [];
+  /** Team spawn points (team 0, team 1). */
+  spawns: [THREE.Vector3, THREE.Vector3] = [SPAWNS[0].clone(), SPAWNS[1].clone()];
+  bounds: Bounds = { kind: 'circle', r: ARENA_RADIUS };
+  /** Mesh-derived collision (Giant's Study). */
+  grid: HeightGrid | null = null;
+  /** Base ground height: the Sunset Ruins use an analytic meadow, other arenas a flat floor. */
+  ground: (x: number, z: number) => number = ruinsHeight;
+
+  /** Random point inside the bounds (walkable, when the arena has a nav grid). */
+  randomPoint(out: THREE.Vector3, spread = 0.45) {
+    for (let i = 0; i < 20; i++) {
+      if (this.bounds.kind === 'circle') { const a = Math.random() * Math.PI * 2, r = Math.random() * this.bounds.r * spread; out.set(Math.cos(a) * r, 0, Math.sin(a) * r); }
+      else out.set((Math.random() * 2 - 1) * this.bounds.hx * spread * 1.6, 0, (Math.random() * 2 - 1) * this.bounds.hz * spread * 1.6);
+      if (!this.grid || this.grid.walkable(out.x, out.z)) break;
+    }
+    return out;
+  }
+
+  inBounds(x: number, z: number, margin = 0) {
+    const b = this.bounds;
+    return b.kind === 'circle' ? Math.hypot(x, z) <= b.r - margin : Math.abs(x) <= b.hx - margin && Math.abs(z) <= b.hz - margin;
+  }
 
   addCircle(x: number, z: number, r: number, top = 8) {
     this.colliders.push({ kind: 'circle', x, z, r, top });
@@ -18,23 +43,13 @@ export class World {
     this.colliders.push({ kind: 'box', x, z, hx, hz, rot, top, cos: Math.cos(rot), sin: Math.sin(rot) });
   }
 
-  /** Analytic terrain height. Shared by terrain mesh, grass placement, and character physics. */
-  heightAt(x: number, z: number) {
-    const r = Math.sqrt(x * x + z * z);
-    let h = 0;
-    // rolling meadow undulation, flat in the center
-    const und = (Math.sin(x * 0.11 + 1.3) * Math.cos(z * 0.09 - 0.4) + Math.sin((x + z) * 0.05) * 0.8) * 0.28;
-    h += und * smoothstep(9, 22, r);
-    // central dais
-    h = Math.max(h, 1.0 * (1 - smoothstep(6.2, 8.6, r)));
-    // spawn platforms
-    for (const s of SPAWNS) {
-      const d = Math.hypot(x - s.x, z - s.z);
-      h = Math.max(h, 0.45 * (1 - smoothstep(4.2, 5.8, d)));
-    }
-    // island rim falls away into the lake
-    h -= smoothstep(45, 52, r) * 7.5;
-    return h;
+  /**
+   * Ground height under (x, z). `refY` is the feet height of whoever asks: with mesh collision it decides
+   * whether a tall column is something to stand on or an overhang to walk under.
+   */
+  heightAt(x: number, z: number, refY = 0.5) {
+    const h = this.ground(x, z);
+    return this.grid ? Math.max(h, this.grid.surface(x, z, refY)) : h;
   }
 
   /** Push a vertical capsule (xz circle) out of colliders. Mutates pos. Returns true if collided. */
@@ -78,10 +93,18 @@ export class World {
         }
       }
     }
+    if (this.grid && this.grid.resolve(pos, radius, feetY)) hit = true;
     // arena boundary
-    const r = Math.hypot(pos.x, pos.z);
-    const lim = ARENA_RADIUS - radius;
-    if (r > lim) { pos.x *= lim / r; pos.z *= lim / r; hit = true; }
+    const b = this.bounds;
+    if (b.kind === 'circle') {
+      const r = Math.hypot(pos.x, pos.z);
+      const lim = b.r - radius;
+      if (r > lim) { pos.x *= lim / r; pos.z *= lim / r; hit = true; }
+    } else {
+      const lx = b.hx - radius, lz = b.hz - radius;
+      if (Math.abs(pos.x) > lx) { pos.x = Math.sign(pos.x) * lx; hit = true; }
+      if (Math.abs(pos.z) > lz) { pos.z = Math.sign(pos.z) * lz; hit = true; }
+    }
     return hit;
   }
 
@@ -131,16 +154,17 @@ export class World {
         if (y < c.top + pad) best = t;
       }
     }
+    if (this.grid) best = Math.min(best, this.grid.raycast(a, b, pad));
     // terrain: march coarse steps
     const len = Math.hypot(dx, dy, dz);
     const steps = Math.min(48, Math.max(2, Math.ceil(len / 1.5)));
-    let prevAbove = a.y - this.heightAt(a.x, a.z);
+    let prevAbove = a.y - this.ground(a.x, a.z);
     if (prevAbove >= 0) {
       for (let i = 1; i <= steps; i++) {
         const t = i / steps;
         if (t >= best) break;
         const x = a.x + dx * t, y = a.y + dy * t, z = a.z + dz * t;
-        const above = y - this.heightAt(x, z);
+        const above = y - this.ground(x, z);
         if (above < 0) {
           const tt = (i - 1 + prevAbove / (prevAbove - above)) / steps;
           best = Math.min(best, tt);
@@ -151,4 +175,23 @@ export class World {
     }
     return best <= 1 ? best : -1;
   }
+}
+
+/** Analytic Sunset Ruins terrain. */
+export function ruinsHeight(x: number, z: number) {
+  const r = Math.sqrt(x * x + z * z);
+  let h = 0;
+  // rolling meadow undulation, flat in the center
+  const und = (Math.sin(x * 0.11 + 1.3) * Math.cos(z * 0.09 - 0.4) + Math.sin((x + z) * 0.05) * 0.8) * 0.28;
+  h += und * smoothstep(9, 22, r);
+  // central dais
+  h = Math.max(h, 1.0 * (1 - smoothstep(6.2, 8.6, r)));
+  // spawn platforms
+  for (const s of SPAWNS) {
+    const d = Math.hypot(x - s.x, z - s.z);
+    h = Math.max(h, 0.45 * (1 - smoothstep(4.2, 5.8, d)));
+  }
+  // island rim falls away into the lake
+  h -= smoothstep(45, 52, r) * 7.5;
+  return h;
 }

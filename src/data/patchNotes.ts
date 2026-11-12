@@ -8,6 +8,35 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.6.0',
+    date: '2026-11-12',
+    title: "The Giant's Study",
+    sections: [
+      {
+        heading: 'New arena',
+        items: [
+          "The Giant's Study: fight on top of a scholar's desk the size of a field, shrunk to the height of a pencil.",
+          'Climb around towering book stacks, duck behind a coffee mug, a chess set and a chunky eraser, and fight over open pages and scattered paper.',
+          'The study is alive: the pocket watch ticks, the globe turns, the metronome swings and the chandelier sways overhead.',
+          'Sunset pours in through a tall arched window while the fireplace flickers on the far wall.',
+          "Pick your arena on the home screen, next to Bot skill. The Giant's Study is the new default and the Sunset Ruins are still there.",
+        ],
+      },
+      {
+        heading: 'Yeat',
+        items: [
+          'The Tonka is now a green-and-gold monster truck whose wheels actually roll.',
+          'Yeat carries a golden hand bell that swings and rings with every shot.',
+          'The Bell got its new futuristic look.',
+        ],
+      },
+      {
+        heading: 'Bots',
+        items: ['Bots find their way around obstacles instead of walking into walls.'],
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-11-12',
     title: 'Legends Find Their Voice',

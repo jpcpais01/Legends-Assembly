@@ -29,6 +29,8 @@ const CAMS: Record<'home' | 'select' | 'page', MenuCam> = {
   page: { dist: 8.2, side: 2.75, look: 1.9, height: 2.3 },
 };
 
+const ARENAS = [['study', "Giant's Study"], ['ruins', 'Sunset Ruins']] as const;
+
 type Page = 'home' | 'legends' | 'learn' | 'news' | 'settings' | 'select';
 const TABS: { id: Page; label: string }[] = [
   { id: 'home', label: 'Home' },
@@ -333,10 +335,20 @@ export class Menu {
         <div class="diff-wrap"><small>${icon(UI.bot)}Bot skill</small>
           <div class="seg">${DIFFS.map((d) => `<button data-d="${d}" class="${settings.botDifficulty === d ? 'on' : ''}">${d}</button>`).join('')}</div>
         </div>
+        <div class="diff-wrap"><small>${icon(UI.book)}Arena</small>
+          <div class="seg">${ARENAS.map(([k, n]) => `<button data-arena="${k}" class="${settings.arena === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+        </div>
       </div>`;
     main.classList.remove('swap'); void main.offsetWidth; main.classList.add('swap');
     main.querySelector('.btn-play')!.addEventListener('click', () => { audio.play('ui'); this.go('select'); });
     this.bindDiff(main);
+    main.querySelectorAll<HTMLButtonElement>('[data-arena]').forEach((b) => b.addEventListener('click', () => {
+      if (settings.arena === b.dataset.arena) return;
+      audio.play('ui');
+      settings.arena = b.dataset.arena as typeof settings.arena;
+      saveSettings(settings);
+      location.reload(); // arenas are built at boot
+    }));
   }
 
   private bindDiff(scope: HTMLElement) {

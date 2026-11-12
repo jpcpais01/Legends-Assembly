@@ -13,6 +13,8 @@ import { audio } from './core/Audio';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
+import { StudyArena } from './world/StudyArena';
+import type { ArenaLike } from './world/types';
 import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
@@ -43,10 +45,11 @@ async function boot() {
   const renderer = new Renderer(container, scene, camera);
   initGlobals();
 
-  await progress(20, 'Raising the ruins');
-  const arena = new Arena(scene, renderer.gl);
-  await progress(45, 'Growing the meadow');
-  await loadProps();
+  const study = settings.arena !== 'ruins';
+  await progress(20, study ? 'Opening the study' : 'Raising the ruins');
+  const arena: ArenaLike = study ? new StudyArena(scene, renderer.gl) : new Arena(scene, renderer.gl);
+  await progress(45, study ? 'Dusting the desk' : 'Growing the meadow');
+  await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
   await progress(58, 'Placing the relics');
 
@@ -183,7 +186,7 @@ async function boot() {
     last = now;
     const dt = Math.min(0.1, ms / 1000);
     game.update(dt);
-    if (game.state === 'menu') {
+    if (game.state === 'menu' && !(window as unknown as { __freeCam?: boolean }).__freeCam) {
       menuT += dt;
       // ease toward the framing the current menu page asks for (closer on hero select)
       const want = menu.cam;
@@ -194,11 +197,13 @@ async function boot() {
       // slow cinematic drift around the showcase hero on the dais
       const a = Math.sin(menuT * 0.09) * 0.45 - 0.15;
       const R = mc.dist + Math.sin(menuT * 0.13) * 0.6 * (mc.dist / 7.2);
-      camTarget.set(Math.sin(a) * R, mc.height + Math.sin(menuT * 0.17) * 0.25, -Math.cos(a) * R);
+      // the menu framing is tuned for a showcase standing at y = 1 (the ruins dais)
+      const sp = arena.showcasePos, dy = sp.y - 1;
+      camTarget.set(sp.x + Math.sin(a) * R, dy + mc.height + Math.sin(menuT * 0.17) * 0.25, sp.z - Math.cos(a) * R);
       camera.position.lerp(camTarget, 1 - Math.exp(-2 * dt));
       // frame the hero off-center so the UI owns the left side
-      camRight.set(-camera.position.x, -camera.position.y, -camera.position.z).cross(UP).normalize();
-      lookTarget.set(0, mc.look, 0).addScaledVector(camRight, -mc.side);
+      camRight.subVectors(sp, camera.position).cross(UP).normalize();
+      lookTarget.set(sp.x, dy + mc.look, sp.z).addScaledVector(camRight, -mc.side);
       camera.lookAt(lookTarget);
       if (camera.fov !== 42) { camera.fov = 42; camera.updateProjectionMatrix(); }
     }
