@@ -1,0 +1,5 @@
+.subs { position: fixed; left: 50%; bottom: 138px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 30; width: min(760px, 88vw); font-family: var(--display); }
+.sub { background: rgba(6, 8, 16, .62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .08); border-left: 3px solid var(--c); padding: 7px 15px 8px; border-radius: 10px; font-size: 16px; line-height: 1.35; color: #f3f3f7; letter-spacing: .015em; text-align: center; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); animation: subIn .28s cubic-bezier(.2, .9, .3, 1) both; transition: opacity .4s ease, transform .4s ease; }
+.sub b { color: var(--c); margin-right: 9px; text-transform: uppercase; letter-spacing: .14em; font-size: 12.5px; font-weight: 700; text-shadow: 0 0 14px var(--c); }
+.sub.out { opacity: 0; transform: translateY(-6px); }
+@keyframes subIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }

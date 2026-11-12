@@ -1,31 +1,64 @@
 import * as THREE from 'three';
 import { settings } from './settings';
+import { RECIPES, BAKE_ORDER, renderRecipe, type Sfx, type Recipe } from '../audio/bank';
+import { impulseResponse } from '../audio/synth';
+
+export type { Sfx };
 
 /**
- * Fully procedural audio: every sound is synthesized with WebAudio at play time.
- * Zero downloads, tiny bundle, and every hero gets a signature sonic identity.
+ * Audio engine. Every sound is designed procedurally in audio/bank.ts and baked into
+ * buffers once when audio unlocks, so firing one at runtime is just a buffer source,
+ * a gain and a panner. The mix: SFX / UI / voice / music buses, a shared convolution
+ * reverb whose send grows with distance, air absorption on far sounds, ducking under
+ * voice lines and big moments, and a "doom" filter on the music for The Bell.
  */
-export type Sfx =
-  | 'photon' | 'gravity' | 'emcCharge' | 'boom'
-  | 'bell' | 'dash' | 'bass808' | 'mode2093' | 'tonka' | 'crash' | 'bigBell' | 'bellDrop'
-  | 'paint' | 'splat' | 'bloom' | 'starry'
-  | 'hit' | 'crit' | 'kill' | 'hurt' | 'jump' | 'heal' | 'ui' | 'uiHover' | 'respawn' | 'victory' | 'defeat'
-  | 'denied' | 'ultReady' | 'pickup' | 'countdown' | 'go'
-  | 'uiTab' | 'uiBack' | 'lockIn';
 
-const PENTA = [0, 2, 4, 7, 9, 12, 14];
+export interface PlayOpts { variant?: number; rate?: number }
+
+export interface LoopHandle {
+  set(pos: THREE.Vector3 | null, rate: number, vol: number): void;
+  stop(fade?: number): void;
+}
+
+export interface VoiceChain {
+  /** high-pass Hz */ hp: number;
+  /** low-pass Hz */ lp: number;
+  /** 0..1 saturation */ drive: number;
+  /** slapback delay seconds (0 = off) */ slap: number;
+  slapMix: number;
+  reverb: number;
+  /** playback rate (pitch) */ rate: number;
+  gain: number;
+}
+
+interface Voice { src: AudioBufferSourceNode; gain: GainNode; nodes: AudioNode[]; name: Sfx }
+
+const semi = (n: number) => Math.pow(2, n / 12);
+const MAX_VOICES = 72;
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
   private master!: GainNode;
   private sfxBus!: GainNode;
+  private uiBus!: GainNode;
+  private voiceBus!: GainNode;
   private musicBus!: GainNode;
-  private noise!: AudioBuffer;
-  private dist!: WaveShaperNode;
-  private listenerPos = new THREE.Vector3();
-  private listenerRight = new THREE.Vector3(1, 0, 0);
-  private lastPlayed = new Map<string, number>();
-  private voices = 0;
+  private sfxDuck!: GainNode;
+  private musicDuck!: GainNode;
+  private musicFilter!: BiquadFilterNode;
+  private reverbIn!: GainNode;
+  private bank = new Map<Sfx, AudioBuffer[]>();
+  private lastVariant = new Map<Sfx, number>();
+  private lastPlayed = new Map<Sfx, number>();
+  private active = new Map<Sfx, Voice[]>();
+  private total = 0;
+  private hearPos = new THREE.Vector3(0, 0, 0);
+  private panPos = new THREE.Vector3(0, 0, 0);
+  private right = new THREE.Vector3(1, 0, 0);
+  private doomLevel = 0;
+  private chains = new Map<string, GainNode>();
+  private voiceCache = new Map<string, Promise<AudioBuffer | null>>();
+  private voiceReady = new Map<string, AudioBuffer | null>();
   private musicNodes: AudioNode[] = [];
   private musicTimer: number | null = null;
 
@@ -34,360 +67,305 @@ export class AudioEngine {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const ctx = new AudioContext({ latencyHint: 'interactive' });
     this.ctx = ctx;
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 4;
-    comp.attack.value = 0.003; comp.release.value = 0.18;
-    this.master = ctx.createGain();
-    this.master.gain.value = settings.volume;
-    this.sfxBus = ctx.createGain();
-    this.musicBus = ctx.createGain();
-    this.musicBus.gain.value = settings.music * 0.35;
-    this.sfxBus.connect(comp);
-    this.musicBus.connect(comp);
-    comp.connect(this.master).connect(ctx.destination);
+    const g = (v = 1) => { const n = ctx.createGain(); n.gain.value = v; return n; };
 
-    const len = ctx.sampleRate * 2;
-    this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = this.noise.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    // master chain: glue compressor → brickwall-ish limiter → master volume
+    const pre = g();
+    const glue = ctx.createDynamicsCompressor();
+    glue.threshold.value = -18; glue.knee.value = 10; glue.ratio.value = 3; glue.attack.value = 0.005; glue.release.value = 0.2;
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -2.5; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.001; limit.release.value = 0.08;
+    this.master = g(settings.volume);
+    pre.connect(glue).connect(limit).connect(this.master).connect(ctx.destination);
 
-    this.dist = ctx.createWaveShaper();
-    const curve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(x * 3.5); }
-    this.dist.curve = curve;
-    this.dist.connect(this.sfxBus);
+    this.sfxBus = g(); this.sfxDuck = g();
+    this.sfxBus.connect(this.sfxDuck).connect(pre);
+    this.uiBus = g(); this.uiBus.connect(pre);
+    this.voiceBus = g(settings.voice ?? 0.9); this.voiceBus.connect(pre);
+    this.musicBus = g(settings.music * 0.35);
+    this.musicFilter = ctx.createBiquadFilter(); this.musicFilter.type = 'lowpass'; this.musicFilter.frequency.value = 18000; this.musicFilter.Q.value = 0.9;
+    this.musicDuck = g();
+    this.musicBus.connect(this.musicFilter).connect(this.musicDuck).connect(pre);
+
+    // shared reverb: one convolver for the whole world
+    this.reverbIn = g();
+    const conv = ctx.createConvolver();
+    conv.normalize = false;
+    conv.buffer = impulseResponse(ctx.sampleRate, 2.4, 3.2, 0.5, 21);
+    const ret = g(0.42);
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
+    this.reverbIn.connect(hp).connect(conv).connect(ret).connect(pre);
+
+    void this.bake();
+  }
+
+  private async bake() {
+    const sr = this.ctx!.sampleRate;
+    const t0 = performance.now();
+    for (const name of BAKE_ORDER) {
+      const r: Recipe = RECIPES[name];
+      const n = r.variants ?? 1;
+      const out: AudioBuffer[] = [];
+      for (let v = 0; v < n; v++) {
+        try { out.push(await renderRecipe(name, v, sr)); } catch (e) { console.warn('[audio] bake failed', name, e); }
+      }
+      if (out.length) this.bank.set(name, out);
+    }
+    console.info(`[audio] ${this.bank.size} sounds baked in ${Math.round(performance.now() - t0)} ms`);
   }
 
   setVolume(v: number) { if (this.ctx) this.master.gain.value = v; }
   setMusic(v: number) { if (this.ctx) this.musicBus.gain.value = v * 0.35; }
+  setVoice(v: number) { if (this.ctx) this.voiceBus.gain.value = v; }
 
-  setListener(pos: THREE.Vector3, camera: THREE.Camera) {
-    this.listenerPos.copy(pos);
-    this.listenerRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  /** Mute the world (not the UI) while the game is paused. */
+  setWorldPaused(p: boolean) {
+    if (!this.ctx) return;
+    this.sfxBus.gain.setTargetAtTime(p ? 0 : 1, this.ctx.currentTime, 0.05);
   }
 
-  private out(pos?: THREE.Vector3, vol = 1): AudioNode | null {
-    const ctx = this.ctx!;
-    const g = ctx.createGain();
-    let gain = vol;
-    if (pos) {
-      const dx = pos.x - this.listenerPos.x, dy = pos.y - this.listenerPos.y, dz = pos.z - this.listenerPos.z;
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      gain *= 1 / (1 + dist * 0.09);
-      if (gain < 0.025) return null;
-      const p = ctx.createStereoPanner();
-      const inv = dist > 0.001 ? 1 / dist : 0;
-      p.pan.value = Math.max(-0.85, Math.min(0.85, (dx * this.listenerRight.x + dz * this.listenerRight.z) * inv));
-      g.connect(p).connect(this.sfxBus);
-    } else {
-      g.connect(this.sfxBus);
+  /** Pan from the camera, attenuate from `hear` (the local hero), like third-person games do. */
+  setListener(camPos: THREE.Vector3, camera: THREE.Camera, hear?: THREE.Vector3) {
+    this.panPos.copy(camPos);
+    this.hearPos.copy(hear ?? camPos);
+    this.right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    this.right.y = 0;
+    if (this.right.lengthSq() < 1e-6) this.right.set(1, 0, 0);
+    this.right.normalize();
+  }
+
+  /** 0..1: The Bell's doom sky muffles the music. */
+  setDoom(d: number) {
+    if (!this.ctx || Math.abs(d - this.doomLevel) < 0.01) return;
+    this.doomLevel = d;
+    this.musicFilter.frequency.setTargetAtTime(18000 * Math.pow(380 / 18000, d), this.ctx.currentTime, 0.08);
+  }
+
+  /** Briefly pull the SFX and music down (voice lines, huge moments). */
+  duck(dur: number, sfx = 0.72, music = 0.5) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (const [node, v] of [[this.sfxDuck, sfx], [this.musicDuck, music]] as [GainNode, number][]) {
+      node.gain.cancelScheduledValues(now);
+      node.gain.setTargetAtTime(v, now, 0.04);
+      node.gain.setTargetAtTime(1, now + dur, 0.3);
     }
-    g.gain.value = gain;
-    return g;
   }
 
-  private env(param: AudioParam, t: number, a: number, peak: number, d: number, end = 0.0001) {
-    param.cancelScheduledValues(t);
-    param.setValueAtTime(0.0001, t);
-    param.exponentialRampToValueAtTime(peak, t + a);
-    param.exponentialRampToValueAtTime(end, t + a + d);
+  private spatial(pos: THREE.Vector3 | null | undefined) {
+    if (!pos) return { gain: 1, pan: 0, lp: 22000, wet: 1 };
+    const h = this.hearPos;
+    const d = Math.hypot(pos.x - h.x, pos.y - h.y, pos.z - h.z);
+    const gain = 1 / (1 + Math.max(0, d - 2) * 0.075);
+    const px = pos.x - this.panPos.x, pz = pos.z - this.panPos.z;
+    const pl = Math.hypot(px, pz);
+    const pan = pl > 0.5 ? Math.max(-0.85, Math.min(0.85, ((px * this.right.x + pz * this.right.z) / pl) * 0.9)) : 0;
+    const lp = d > 8 ? Math.max(1400, 22000 * Math.exp(-(d - 8) / 22)) : 22000;
+    const wet = 0.6 + Math.min(1, d / 35) * 1.2;
+    return { gain, pan, lp, wet };
   }
 
-  private osc(type: OscillatorType, f: number, t: number, dur: number, dest: AudioNode) {
-    const o = this.ctx!.createOscillator();
-    o.type = type; o.frequency.setValueAtTime(f, t);
-    o.connect(dest); o.start(t); o.stop(t + dur + 0.05);
-    return o;
+  private release(v: Voice) {
+    const list = this.active.get(v.name);
+    if (list) { const i = list.indexOf(v); if (i >= 0) { list.splice(i, 1); this.total--; } }
+    for (const n of v.nodes) n.disconnect();
   }
 
-  private noiseSrc(t: number, dur: number, dest: AudioNode) {
-    const s = this.ctx!.createBufferSource();
-    s.buffer = this.noise;
-    s.loop = true;
-    s.loopStart = Math.random();
-    s.connect(dest); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
-    return s;
+  private steal(v: Voice) {
+    const now = this.ctx!.currentTime;
+    v.gain.gain.cancelScheduledValues(now);
+    v.gain.gain.setTargetAtTime(0, now, 0.012);
+    try { v.src.stop(now + 0.05); } catch { /* already stopped */ }
+    const list = this.active.get(v.name);
+    if (list) { const i = list.indexOf(v); if (i >= 0) { list.splice(i, 1); this.total--; } }
   }
 
-  play(name: Sfx, pos?: THREE.Vector3, vol = 1) {
+  play(name: Sfx, pos?: THREE.Vector3 | null, vol = 1, opts: PlayOpts = {}) {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running') return;
+    const bufs = this.bank.get(name);
+    if (!bufs) return;
+    const r: Recipe = RECIPES[name];
     const now = ctx.currentTime;
-    const key = name;
-    const last = this.lastPlayed.get(key) ?? -1;
-    if (now - last < 0.025) return; // dedupe stacked identical sounds
-    this.lastPlayed.set(key, now);
-    if (this.voices > 40) return;
-    const out = this.out(pos, vol);
-    if (!out) return;
-    this.voices++;
-    const t = now + 0.005;
-    let life = 1;
-    switch (name) {
-      case 'photon': {
-        const g = ctx.createGain(); g.connect(out);
-        this.env(g.gain, t, 0.004, 0.32, 0.12);
-        const o = this.osc('square', 2200, t, 0.14, g);
-        o.frequency.exponentialRampToValueAtTime(420, t + 0.12);
-        const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3000;
-        const ng = ctx.createGain(); this.env(ng.gain, t, 0.002, 0.25, 0.04);
-        f.connect(ng).connect(out); this.noiseSrc(t, 0.06, f);
-        const s = this.osc('sine', 3400, t, 0.18, g); s.frequency.exponentialRampToValueAtTime(1800, t + 0.15);
-        life = 0.25; break;
-      }
-      case 'gravity': {
-        const g = ctx.createGain(); g.connect(out);
-        this.env(g.gain, t, 0.1, 0.6, 2.6);
-        const o = this.osc('sine', 140, t, 2.8, g); o.frequency.exponentialRampToValueAtTime(38, t + 2.6);
-        const lfo = ctx.createOscillator(); lfo.frequency.value = 9;
-        const lg = ctx.createGain(); lg.gain.value = 18; lfo.connect(lg).connect(o.frequency); lfo.start(t); lfo.stop(t + 2.9);
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3;
-        f.frequency.setValueAtTime(2400, t); f.frequency.exponentialRampToValueAtTime(200, t + 1.5);
-        const ng = ctx.createGain(); this.env(ng.gain, t, 0.3, 0.35, 1.6);
-        f.connect(ng).connect(out); this.noiseSrc(t, 2, f);
-        life = 3; break;
-      }
-      case 'emcCharge': {
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 8;
-        f.frequency.setValueAtTime(200, t); f.frequency.exponentialRampToValueAtTime(6000, t + 1.3);
-        const g = ctx.createGain(); g.connect(out);
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 1.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.45);
-        f.connect(g);
-        for (const det of [-12, 0, 7, 12]) {
-          const o = this.osc('sawtooth', 110 * Math.pow(2, det / 12), t, 1.5, f);
-          o.frequency.exponentialRampToValueAtTime(440 * Math.pow(2, det / 12), t + 1.3);
-        }
-        life = 1.6; break;
-      }
-      case 'boom': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.005, 1.0, 1.4);
-        const o = this.osc('sine', 120, t, 1.5, g); o.frequency.exponentialRampToValueAtTime(28, t + 1.2);
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(5000, t); f.frequency.exponentialRampToValueAtTime(120, t + 1.2);
-        const ng = ctx.createGain(); this.env(ng.gain, t, 0.003, 0.9, 1.3); f.connect(ng).connect(out); this.noiseSrc(t, 1.5, f);
-        const sh = ctx.createGain(); this.env(sh.gain, t + 0.02, 0.01, 0.18, 2.2); sh.connect(out);
-        for (const n of [0, 4, 7, 11]) this.osc('sine', 880 * Math.pow(2, n / 12), t, 2.4, sh);
-        life = 2.5; break;
-      }
-      case 'bell': {
-        // FM bell — Yeat's signature
-        const note = 523.25 * Math.pow(2, PENTA[Math.floor(Math.random() * PENTA.length)] / 12);
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.42, 1.3);
-        const car = this.osc('sine', note, t, 1.4, g);
-        const mod = ctx.createOscillator(); mod.frequency.value = note * 3.5;
-        const mg = ctx.createGain(); mg.gain.setValueAtTime(note * 5, t); mg.gain.exponentialRampToValueAtTime(note * 0.2, t + 1.1);
-        mod.connect(mg).connect(car.frequency); mod.start(t); mod.stop(t + 1.45);
-        const g2 = ctx.createGain(); g2.connect(out); this.env(g2.gain, t, 0.002, 0.15, 0.6);
-        this.osc('sine', note * 2.01, t, 0.7, g2);
-        life = 1.5; break;
-      }
-      case 'dash': {
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.5;
-        f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3200, t + 0.28);
-        const g = ctx.createGain(); this.env(g.gain, t, 0.03, 0.7, 0.35); f.connect(g).connect(out); this.noiseSrc(t, 0.45, f);
-        const s = ctx.createGain(); this.env(s.gain, t, 0.005, 0.5, 0.3); s.connect(this.dist);
-        const o = this.osc('sine', 90, t, 0.35, s); o.frequency.exponentialRampToValueAtTime(40, t + 0.3);
-        life = 0.5; break;
-      }
-      case 'bass808': {
-        const g = ctx.createGain(); this.env(g.gain, t, 0.004, 0.55 * (pos ? 1 : 1), 0.8); g.connect(this.dist);
-        const o = this.osc('sine', 150, t, 0.9, g); o.frequency.exponentialRampToValueAtTime(42, t + 0.35);
-        const c = ctx.createGain(); this.env(c.gain, t, 0.001, 0.4, 0.05); c.connect(out);
-        const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2000; f.connect(c); this.noiseSrc(t, 0.06, f);
-        life = 1; break;
-      }
-      case 'mode2093': {
-        const g = ctx.createGain(); this.env(g.gain, t, 0.01, 0.8, 1.8); g.connect(this.dist);
-        const o = this.osc('sine', 220, t, 2, g); o.frequency.exponentialRampToValueAtTime(36, t + 1.2);
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 12;
-        f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(8000, t + 0.6); f.frequency.exponentialRampToValueAtTime(400, t + 2);
-        const sg = ctx.createGain(); this.env(sg.gain, t, 0.05, 0.3, 1.8); f.connect(sg).connect(out);
-        for (const d of [0, 0.07, -0.05]) this.osc('sawtooth', 55 * (1 + d), t, 2, f);
-        const bg = ctx.createGain(); this.env(bg.gain, t + 0.15, 0.002, 0.3, 1.5); bg.connect(out);
-        for (const n of [0, 3, 7, 10]) this.osc('sine', 622 * Math.pow(2, n / 12), t + 0.15, 1.6, bg);
-        life = 2.2; break;
-      }
-      case 'tonka': {
-        // diesel rev + two-tone horn
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 6;
-        f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1400, t + 0.6); f.frequency.exponentialRampToValueAtTime(500, t + 1.4);
-        const g = ctx.createGain(); this.env(g.gain, t, 0.05, 0.55, 1.2); f.connect(g).connect(this.dist);
-        for (const d of [0, 0.04]) { const o = this.osc('sawtooth', 48 * (1 + d), t, 1.5, f); o.frequency.exponentialRampToValueAtTime(110, t + 0.7); o.frequency.exponentialRampToValueAtTime(70, t + 1.4); }
-        const hg = ctx.createGain(); this.env(hg.gain, t + 0.05, 0.01, 0.16, 0.35); hg.connect(out);
-        this.osc('square', 392, t + 0.05, 0.4, hg); this.osc('square', 494, t + 0.05, 0.4, hg);
-        life = 1.6; break;
-      }
-      case 'crash': {
-        const g = ctx.createGain(); this.env(g.gain, t, 0.002, 0.9, 0.9); g.connect(this.dist);
-        const o = this.osc('sine', 120, t, 1, g); o.frequency.exponentialRampToValueAtTime(30, t + 0.5);
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.7;
-        const ng = ctx.createGain(); this.env(ng.gain, t, 0.001, 0.7, 0.5); f.connect(ng).connect(out); this.noiseSrc(t, 0.6, f);
-        const mg = ctx.createGain(); this.env(mg.gain, t, 0.001, 0.25, 0.7); mg.connect(out);
-        for (const fr of [523, 787, 1131]) this.osc('square', fr, t, 0.7, mg);
-        life = 1.1; break;
-      }
-      case 'bigBell': {
-        // colossal church bell: inharmonic partials with a long decay
-        const base = 82;
-        const partials: [number, number, number][] = [[0.5, 0.5, 7], [1, 0.9, 6], [1.2, 0.35, 4.5], [1.5, 0.3, 4], [2, 0.45, 3.5], [2.74, 0.22, 2.5], [3.76, 0.14, 2], [5.4, 0.08, 1.4]];
-        for (const [r, a, d] of partials) {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.004, a * 0.75, d);
-          const o = this.osc('sine', base * r, t, d + 0.1, g); o.detune.value = (Math.random() - 0.5) * 8;
-        }
-        const s = ctx.createGain(); this.env(s.gain, t, 0.002, 0.6, 1.4); s.connect(this.dist);
-        const o = this.osc('sine', 70, t, 1.5, s); o.frequency.exponentialRampToValueAtTime(38, t + 1.2);
-        life = 7.2; break;
-      }
-      case 'bellDrop': {
-        const g = ctx.createGain(); this.env(g.gain, t, 0.002, 1, 1.6); g.connect(this.dist);
-        const o = this.osc('sine', 95, t, 1.7, g); o.frequency.exponentialRampToValueAtTime(26, t + 1.2);
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + 1.2);
-        const ng = ctx.createGain(); this.env(ng.gain, t, 0.002, 0.8, 1.2); f.connect(ng).connect(out); this.noiseSrc(t, 1.3, f);
-        const rg = ctx.createGain(); this.env(rg.gain, t, 0.003, 0.35, 2.5); rg.connect(out);
-        for (const fr of [164, 197, 328]) this.osc('sine', fr, t, 2.6, rg);
-        life = 2.8; break;
-      }
-      case 'paint': {
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;
-        const g = ctx.createGain(); this.env(g.gain, t, 0.005, 0.4, 0.12); f.connect(g).connect(out); this.noiseSrc(t, 0.15, f);
-        const p = ctx.createGain(); this.env(p.gain, t, 0.002, 0.2, 0.15); p.connect(out);
-        const o = this.osc('triangle', 660, t, 0.18, p); o.frequency.exponentialRampToValueAtTime(990, t + 0.1);
-        life = 0.3; break;
-      }
-      case 'splat': {
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(1600, t); f.frequency.exponentialRampToValueAtTime(300, t + 0.2);
-        const g = ctx.createGain(); this.env(g.gain, t, 0.003, 0.55, 0.22); f.connect(g).connect(out); this.noiseSrc(t, 0.3, f);
-        const th = ctx.createGain(); this.env(th.gain, t, 0.002, 0.4, 0.14); th.connect(out);
-        const o = this.osc('sine', 180, t, 0.2, th); o.frequency.exponentialRampToValueAtTime(70, t + 0.15);
-        life = 0.4; break;
-      }
-      case 'bloom': {
-        const notes = [0, 4, 7, 12, 16];
-        notes.forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out);
-          this.env(g.gain, t + i * 0.07, 0.01, 0.22, 0.9);
-          this.osc('sine', 587.33 * Math.pow(2, n / 12), t + i * 0.07, 1.0, g);
-          this.osc('triangle', 587.33 * 2 * Math.pow(2, n / 12), t + i * 0.07, 0.5, g);
-        });
-        life = 1.5; break;
-      }
-      case 'starry': {
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 1;
-        f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3000, t + 1.5); f.frequency.exponentialRampToValueAtTime(600, t + 7);
-        const g = ctx.createGain(); g.connect(out);
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 1.2); g.gain.setValueAtTime(0.35, t + 5.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 7.5);
-        f.connect(g);
-        for (const n of [0, 7, 12, 16, 19, 23]) for (const d of [-0.004, 0.004]) this.osc('sawtooth', 130.81 * Math.pow(2, n / 12) * (1 + d), t, 7.5, f);
-        const sh = ctx.createGain(); sh.connect(out);
-        sh.gain.setValueAtTime(0.0001, t); sh.gain.exponentialRampToValueAtTime(0.08, t + 2); sh.gain.exponentialRampToValueAtTime(0.0001, t + 7.4);
-        for (let i = 0; i < 8; i++) { const o = this.osc('sine', 1046.5 * Math.pow(2, PENTA[i % 7] / 12), t + i * 0.6, 1.2, sh); o.detune.value = Math.random() * 10; }
-        life = 7.6; break;
-      }
-      case 'hit': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.001, 0.25, 0.05);
-        this.osc('triangle', 2600, t, 0.07, g);
-        life = 0.1; break;
-      }
-      case 'crit': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.001, 0.3, 0.12);
-        this.osc('triangle', 3300, t, 0.14, g); this.osc('sine', 1650, t, 0.14, g);
-        life = 0.2; break;
-      }
-      case 'kill': {
-        [0, 7, 12].forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + i * 0.06, 0.003, 0.3, 0.45);
-          this.osc('triangle', 880 * Math.pow(2, n / 12), t + i * 0.06, 0.5, g);
-        });
-        life = 0.7; break;
-      }
-      case 'hurt': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.003, 0.5, 0.18);
-        const o = this.osc('sine', 160, t, 0.2, g); o.frequency.exponentialRampToValueAtTime(60, t + 0.18);
-        life = 0.25; break;
-      }
-      case 'jump': {
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(1500, t + 0.15);
-        const g = ctx.createGain(); this.env(g.gain, t, 0.01, 0.15, 0.15); f.connect(g).connect(out); this.noiseSrc(t, 0.2, f);
-        life = 0.25; break;
-      }
-      case 'heal': {
-        [0, 5, 9].forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + i * 0.05, 0.01, 0.1, 0.3);
-          this.osc('sine', 1318 * Math.pow(2, n / 12), t + i * 0.05, 0.35, g);
-        });
-        life = 0.5; break;
-      }
-      case 'pickup': {
-        [0, 4, 7, 12].forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + i * 0.045, 0.005, 0.22, 0.3);
-          this.osc('triangle', 784 * Math.pow(2, n / 12), t + i * 0.045, 0.35, g);
-        });
-        life = 0.5; break;
-      }
-      case 'ui': case 'uiHover': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.001, name === 'ui' ? 0.18 : 0.05, 0.06);
-        this.osc('sine', name === 'ui' ? 1200 : 1800, t, 0.08, g);
-        life = 0.1; break;
-      }
-      case 'uiTab': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.09, 0.09);
-        const o = this.osc('triangle', 820, t, 0.1, g); o.frequency.exponentialRampToValueAtTime(1500, t + 0.07);
-        life = 0.15; break;
-      }
-      case 'uiBack': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.1, 0.12);
-        const o = this.osc('sine', 1100, t, 0.13, g); o.frequency.exponentialRampToValueAtTime(520, t + 0.11);
-        life = 0.18; break;
-      }
-      case 'lockIn': {
-        // airy whoosh + bright rising chord
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
-        f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(5000, t + 0.35);
-        const gn = ctx.createGain(); this.env(gn.gain, t, 0.12, 0.22, 0.35);
-        f.connect(gn).connect(out); this.noiseSrc(t, 0.6, f);
-        [0, 7, 12, 16].forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + 0.05 + i * 0.035, 0.005, 0.16, 0.9);
-          this.osc('triangle', 523 * Math.pow(2, n / 12), t + 0.05 + i * 0.035, 1, g);
-        });
-        const b = ctx.createGain(); b.connect(out); this.env(b.gain, t, 0.004, 0.35, 0.4);
-        const o = this.osc('sine', 110, t, 0.45, b); o.frequency.exponentialRampToValueAtTime(55, t + 0.4);
-        life = 1.1; break;
-      }
-      case 'denied': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.15, 0.12);
-        this.osc('square', 140, t, 0.14, g);
-        life = 0.2; break;
-      }
-      case 'ultReady': {
-        [0, 7, 12, 19].forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + i * 0.08, 0.005, 0.18, 0.6);
-          this.osc('sine', 523 * Math.pow(2, n / 12), t + i * 0.08, 0.7, g);
-        });
-        life = 1; break;
-      }
-      case 'respawn': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.2, 0.2, 0.7);
-        const o = this.osc('sine', 300, t, 0.9, g); o.frequency.exponentialRampToValueAtTime(1200, t + 0.8);
-        life = 1; break;
-      }
-      case 'countdown': case 'go': {
-        const g = ctx.createGain(); g.connect(out); this.env(g.gain, t, 0.002, 0.3, name === 'go' ? 0.8 : 0.25);
-        this.osc('triangle', name === 'go' ? 1320 : 660, t, name === 'go' ? 0.9 : 0.3, g);
-        life = 1; break;
-      }
-      case 'victory': case 'defeat': {
-        const seq = name === 'victory' ? [0, 4, 7, 12, 16, 19, 24] : [7, 3, 0, -5];
-        seq.forEach((n, i) => {
-          const g = ctx.createGain(); g.connect(out); this.env(g.gain, t + i * 0.12, 0.01, 0.25, 0.9);
-          this.osc('triangle', 392 * Math.pow(2, n / 12), t + i * 0.12, 1, g);
-          this.osc('sine', 196 * Math.pow(2, n / 12), t + i * 0.12, 1, g);
-        });
-        life = 2; break;
-      }
-    }
-    setTimeout(() => { this.voices--; }, life * 1000);
+    const dedupe = r.dedupe ?? 0.025;
+    if (dedupe > 0 && now - (this.lastPlayed.get(name) ?? -1) < dedupe) return;
+    const sp = this.spatial(pos);
+    const gain = vol * (r.level ?? 1) * sp.gain;
+    if (gain < 0.008 || this.total >= MAX_VOICES) return;
+    this.lastPlayed.set(name, now);
+
+    let list = this.active.get(name);
+    if (!list) { list = []; this.active.set(name, list); }
+    const max = r.maxVoices ?? 8;
+    while (list.length >= max) this.steal(list[0]);
+
+    let vi = opts.variant ?? Math.floor(Math.random() * bufs.length);
+    if (opts.variant === undefined && bufs.length > 1 && vi === this.lastVariant.get(name)) vi = (vi + 1) % bufs.length;
+    vi = Math.min(vi, bufs.length - 1);
+    this.lastVariant.set(name, vi);
+
+    const src = ctx.createBufferSource();
+    src.buffer = bufs[vi];
+    src.playbackRate.value = (opts.rate ?? 1) * (r.jitter ? semi((Math.random() * 2 - 1) * r.jitter) : 1);
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    const nodes: AudioNode[] = [src, g];
+    if (sp.lp < 20000) {
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sp.lp; f.Q.value = 0.5;
+      src.connect(f).connect(g); nodes.push(f);
+    } else src.connect(g);
+    const bus = r.bus === 'ui' ? this.uiBus : this.sfxBus;
+    if (pos) {
+      const p = ctx.createStereoPanner(); p.pan.value = sp.pan;
+      g.connect(p).connect(bus); nodes.push(p);
+    } else g.connect(bus);
+    const wet = (r.reverb ?? 0.1) * sp.wet;
+    if (wet > 0.01) { const s = ctx.createGain(); s.gain.value = wet; g.connect(s).connect(this.reverbIn); nodes.push(s); }
+    const voice: Voice = { src, gain: g, nodes, name };
+    list.push(voice);
+    this.total++;
+    src.onended = () => this.release(voice);
+    src.start(now + 0.002);
   }
 
-  /** Generative ambient bed for menus/matches: slow evolving chord pad. */
+  /** A looping sound whose position, pitch and level can be steered every frame. */
+  loop(name: Sfx, pos?: THREE.Vector3 | null, vol = 1): LoopHandle | null {
+    const ctx = this.ctx;
+    const bufs = this.bank.get(name);
+    if (!ctx || ctx.state !== 'running' || !bufs) return null;
+    const r: Recipe = RECIPES[name];
+    const src = ctx.createBufferSource();
+    src.buffer = bufs[0];
+    src.loop = true;
+    const g = ctx.createGain();
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 22000;
+    const p = ctx.createStereoPanner();
+    src.connect(lp).connect(g).connect(p).connect(this.sfxBus);
+    const send = ctx.createGain(); send.gain.value = 0;
+    g.connect(send).connect(this.reverbIn);
+    const level = r.level ?? 1;
+    let stopped = false;
+    const set = (ps: THREE.Vector3 | null, rate: number, v: number) => {
+      if (stopped) return;
+      const sp = this.spatial(ps);
+      const now = ctx.currentTime;
+      g.gain.setTargetAtTime(v * level * sp.gain, now, 0.05);
+      p.pan.setTargetAtTime(sp.pan, now, 0.05);
+      lp.frequency.setTargetAtTime(sp.lp, now, 0.05);
+      send.gain.setTargetAtTime((r.reverb ?? 0.1) * sp.wet, now, 0.1);
+      src.playbackRate.setTargetAtTime(rate, now, 0.06);
+    };
+    g.gain.value = 0;
+    set(pos ?? null, 1, vol);
+    src.start(ctx.currentTime + 0.002, Math.random() * src.buffer.duration);
+    this.total++;
+    return {
+      set,
+      stop: (fade = 0.2) => {
+        if (stopped) return;
+        stopped = true;
+        const now = ctx.currentTime;
+        g.gain.cancelScheduledValues(now);
+        g.gain.setTargetAtTime(0, now, fade / 4);
+        src.stop(now + fade + 0.05);
+        src.onended = () => { this.total--; for (const n of [src, lp, g, p, send]) n.disconnect(); };
+      },
+    };
+  }
+
+  // ───────────────────────── voice lines ─────────────────────────
+
+  /** Start loading a recorded line (cached). */
+  loadVoice(url: string) {
+    let p = this.voiceCache.get(url);
+    if (!p) {
+      p = (async () => {
+        try {
+          const ctx = this.ctx;
+          if (!ctx) return null;
+          const res = await fetch(url);
+          const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+          this.voiceReady.set(url, buf);
+          return buf;
+        } catch (e) {
+          console.warn('[audio] voice line failed to load', url, e);
+          this.voiceReady.set(url, null);
+          return null;
+        }
+      })();
+      this.voiceCache.set(url, p);
+    }
+    return p;
+  }
+
+  /** Decoded buffer if it's ready right now (and kicks off the load if it isn't). */
+  voiceBuffer(url: string) {
+    if (!this.ctx) return null;
+    if (!this.voiceCache.has(url)) void this.loadVoice(url);
+    return this.voiceReady.get(url) ?? null;
+  }
+
+  private chain(id: string, c: VoiceChain) {
+    const ctx = this.ctx!;
+    let input = this.chains.get(id);
+    if (input) return input;
+    input = ctx.createGain(); input.gain.value = c.gain;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = c.hp; hp.Q.value = 0.7;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = c.lp; lp.Q.value = 0.7;
+    const sum = ctx.createGain();
+    input.connect(hp).connect(lp);
+    const dry = ctx.createGain(); dry.gain.value = 1 - c.drive * 0.6;
+    lp.connect(dry).connect(sum);
+    if (c.drive > 0) {
+      const sh = ctx.createWaveShaper();
+      const curve = new Float32Array(1024);
+      const k = 1 + c.drive * 5;
+      for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(x * k) / Math.tanh(k); }
+      sh.curve = curve;
+      const wet = ctx.createGain(); wet.gain.value = c.drive * 0.8;
+      lp.connect(sh).connect(wet).connect(sum);
+    }
+    sum.connect(this.voiceBus);
+    if (c.slap > 0) {
+      const d = ctx.createDelay(1); d.delayTime.value = c.slap;
+      const dl = ctx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 3500;
+      const dg = ctx.createGain(); dg.gain.value = c.slapMix;
+      sum.connect(d).connect(dl).connect(dg).connect(this.voiceBus);
+    }
+    const rv = ctx.createGain(); rv.gain.value = c.reverb;
+    sum.connect(rv).connect(this.reverbIn);
+    this.chains.set(id, input);
+    return input;
+  }
+
+  /** Play a recorded line through the hero's voice chain. Returns its length and a stop(). */
+  playVoice(buf: AudioBuffer, chainId: string, chain: VoiceChain, pos: THREE.Vector3 | null, vol = 1) {
+    const ctx = this.ctx!;
+    const sp = this.spatial(pos);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = chain.rate;
+    const g = ctx.createGain(); g.gain.value = vol * Math.max(0.35, sp.gain);
+    const p = ctx.createStereoPanner(); p.pan.value = sp.pan * 0.7;
+    src.connect(g).connect(p).connect(this.chain(chainId, chain));
+    src.start(ctx.currentTime + 0.01);
+    const dur = buf.duration / chain.rate;
+    this.duck(dur, 0.78, 0.55);
+    src.onended = () => { src.disconnect(); g.disconnect(); p.disconnect(); };
+    return {
+      dur,
+      stop: () => {
+        const now = ctx.currentTime;
+        g.gain.setTargetAtTime(0, now, 0.03);
+        try { src.stop(now + 0.15); } catch { /* done */ }
+      },
+    };
+  }
+
+  // ───────────────────────── music ─────────────────────────
+
+  /** Generative ambient bed for menus/matches: slow evolving chord pad with a glass bell. */
   startMusic() {
     if (!this.ctx || this.musicTimer !== null) return;
     const chords = [[0, 7, 12, 16], [-3, 4, 9, 12], [-7, 0, 5, 9], [-5, 2, 7, 11]];
@@ -398,6 +376,8 @@ export class AudioEngine {
       const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; f.Q.value = 0.5;
       const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 2.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 8.5);
       f.connect(g).connect(this.musicBus);
+      const send = ctx.createGain(); send.gain.value = 0.25;
+      g.connect(send).connect(this.reverbIn);
       for (const n of chords[i % chords.length]) {
         for (const d of [-0.003, 0.003]) {
           const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 196 * Math.pow(2, n / 12) * (1 + d);
@@ -406,8 +386,9 @@ export class AudioEngine {
       }
       const bell = ctx.createGain(); bell.gain.setValueAtTime(0.0001, t + 1); bell.gain.exponentialRampToValueAtTime(0.04, t + 1.02); bell.gain.exponentialRampToValueAtTime(0.0001, t + 4);
       bell.connect(this.musicBus);
+      bell.connect(send);
       const o = ctx.createOscillator(); o.frequency.value = 784 * Math.pow(2, chords[i % chords.length][2] / 12); o.connect(bell); o.start(t + 1); o.stop(t + 4.2);
-      this.musicNodes = [g];
+      this.musicNodes = [g, send];
       i++;
     };
     playChord();

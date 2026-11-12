@@ -558,7 +558,7 @@ export class Menu {
   private renderSettingsBody(el: HTMLElement) {
     const body = el.querySelector('.set-body') as HTMLElement;
     const row = (label: string, desc: string, control: string) => `<div class="srow"><div class="sl"><b>${label}</b><small>${desc}</small></div><div class="sc">${control}</div></div>`;
-    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
+    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
     const slider = (k: SliderKey) => {
       const s = SLIDERS[k];
       const v = settings[k];
@@ -582,7 +582,9 @@ export class Menu {
     } else if (c === 'audio') {
       html = `<h3>Audio</h3>
         ${row('Master volume', 'Every sound in the game.', slider('volume'))}
-        ${row('Music', 'The ambient score.', slider('music'))}`;
+        ${row('Music', 'The ambient score.', slider('music'))}
+        ${row('Voice lines', 'What the legends say in a match.', slider('voice'))}
+        ${row('Subtitles', 'Show voice lines as text above the HUD.', toggle('subtitles'))}`;
     } else if (c === 'interface') {
       html = `<h3>Interface</h3>
         ${row('HUD scale', 'Size of health, abilities and score.', slider('hudScale'))}
@@ -604,7 +606,7 @@ export class Menu {
       this.hooks.onQualityChange();
     }));
     body.querySelectorAll<HTMLButtonElement>('.tgl').forEach((b) => b.addEventListener('click', () => {
-      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers';
+      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles';
       settings[k] = !settings[k];
       b.classList.toggle('on', settings[k]);
       b.setAttribute('aria-checked', String(settings[k]));
@@ -620,6 +622,7 @@ export class Menu {
       (r.nextElementSibling as HTMLElement).textContent = s.fmt(v);
       if (k === 'volume') audio.setVolume(v);
       if (k === 'music') audio.setMusic(v);
+      if (k === 'voice') audio.setVoice(v);
       saveSettings(settings);
     }));
     body.querySelectorAll<HTMLButtonElement>('.sw').forEach((b) => b.addEventListener('click', () => {
@@ -814,12 +817,13 @@ export class Menu {
   }
 }
 
-type SliderKey = 'sensitivity' | 'fov' | 'volume' | 'music' | 'hudScale';
+type SliderKey = 'sensitivity' | 'fov' | 'volume' | 'music' | 'voice' | 'hudScale';
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const SLIDERS: Record<SliderKey, { min: number; max: number; step: number; fmt: (v: number) => string }> = {
   sensitivity: { min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) },
   fov: { min: 65, max: 110, step: 1, fmt: (v) => `${Math.round(v)}°` },
   volume: { min: 0, max: 1, step: 0.01, fmt: pct },
   music: { min: 0, max: 1, step: 0.01, fmt: pct },
+  voice: { min: 0, max: 1, step: 0.01, fmt: pct },
   hudScale: { min: 0.8, max: 1.25, step: 0.05, fmt: pct },
 };

@@ -26,6 +26,8 @@ export interface Settings {
   fov: number;
   volume: number;
   music: number;
+  voice: number;
+  subtitles: boolean;
   showFps: boolean;
   invertY: boolean;
   playerName: string;
@@ -65,6 +67,8 @@ function defaults(): Settings {
     fov: 82,
     volume: 0.8,
     music: 0.5,
+    voice: 0.9,
+    subtitles: true,
     showFps: true,
     invertY: false,
     playerName: 'Player',

@@ -8,6 +8,10 @@ import { rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
 import { propMesh } from '../render/props';
+import { audio, type LoopHandle } from '../core/Audio';
+
+/** Bell Ring plays a riff: each shot is the next note (indices into BELL_SEMIS). */
+const RIFF = [0, 1, 3, 1, 4, 3, 1, 2];
 
 const GOLD = new THREE.Color(3.2, 2.2, 0.7);
 const Z = new THREE.Vector3(0, 0, 1);
@@ -27,7 +31,10 @@ class YeatKit implements HeroKit {
     h.anim.attack = 1;
     h.anim.attackSide = (h.anim.attackSide * -1) || 1;
     const col = GOLD;
-    g.play('bell', m, 0.8);
+    const st = h.kitState;
+    st.riff = g.time - (st.riffT ?? -9) > 1.8 ? 0 : ((st.riff ?? -1) + 1) % RIFF.length;
+    st.riffT = g.time;
+    g.play('bell', m, 0.8, { variant: RIFF[st.riff] });
     g.vfx.p({ x: m.x, y: m.y, z: m.z, r: col.r, g: col.g, b: col.b, size: 0.3, grow: 4, life: 0.2, shape: Shape.Ring, aux: 0.15 });
     g.vfx.burst(m, col, 8, 5, 0.1, 0.25);
     const up = new THREE.Vector3(0, 1, 0);
@@ -48,6 +55,7 @@ class YeatKit implements HeroKit {
           pool.add(_m1, new THREE.Color(p.color.r * fade, p.color.g * fade, p.color.b * fade));
         },
         onHit(p, g, hit, point) {
+          if (hit) g.play('bellHit', point, 0.7);
           if (hit) {
             const crit = point.y > hit.pos.y + 1.42;
             const falloff = p.age > 0.2 ? 0.6 : 1;
@@ -96,6 +104,7 @@ interface TruckState {
   /** Distance we asked physics to move last frame (frame times vary, so compare against this). */
   expect: number;
   roll: number;
+  engine: LoopHandle | null;
 }
 
 let truckTemplate: { group: THREE.Group; wheelNames: string[] } | null = null;
@@ -153,10 +162,11 @@ function startTonka(h: Hero, g: Game) {
   hidden.forEach(({ o }) => { o.visible = false; });
   h.model.root.add(group);
   const f = h.forward;
-  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0 };
+  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null };
   h.kitState.truck = st;
   if (h.isLocal) g.camRig.vehicle = 1;
   g.play('tonka', h.pos, 1.1);
+  st.engine = g.loop('engineLoop', h.pos, 0);
   const c = h.center;
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 14, 1.1, 0.9, 0.6);
   g.vfx.burst(c, YELLOW, 40, 9, 0.12, 0.5);
@@ -206,8 +216,8 @@ function updateTonka(h: Hero, g: Game, dt: number) {
         g.vfx.sparks(e.chest, YELLOW, 30, 14, dir);
         g.vfx.burst(e.chest, new THREE.Color(3, 1.2, 0.3), 30, 10, 0.12, 0.5);
       }
-      g.play('crash', h.pos, 1.2);
-      g.play('bass808', h.pos, 1);
+      g.play('ram', h.pos, 1.2);
+      g.voice.say(h, 'secondaryHit');
       g.vfx.shockwave(nose, YELLOW, 6, 0.4, 0.12);
       g.vfx.flash(nose.clone().setY(h.pos.y + 1), new THREE.Color(1, 0.7, 0.2), 60, 0.4, 14);
       g.shake(h.pos, 0.8);
@@ -220,6 +230,9 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   st.group.rotation.set(0, st.heading - h.bodyYaw, st.roll);
   st.group.position.y = Math.sin(st.t * 30) * 0.015 * (st.speed / TONKA_MAX);
   for (const w of st.wheels) w.rotation.x += (st.speed / 0.48) * dt;
+  // engine pitch follows speed (fades in under the transform sound)
+  const sk = st.speed / TONKA_MAX;
+  st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
   // dust from the rear wheels + exhaust
   if (Math.random() < dt * 30) {
     const back = _v1.copy(h.pos).addScaledVector(dir, -1.1);
@@ -232,6 +245,7 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   const st = h.kitState.truck as TruckState | null;
   if (!st) return;
   h.kitState.truck = null;
+  st.engine?.stop(crashed ? 0.08 : 0.35);
   if (h.isLocal) g.camRig.vehicle = 0;
   h.model.root.remove(st.group);
   st.hidden.forEach(({ o, v }) => { o.visible = v; });
@@ -303,7 +317,7 @@ function dropTheBell(h: Hero, g: Game) {
   const HANG = 15; // hanging point height above the ground while it swings
   pivot.position.set(pos.x, pos.y + HANG + 22, pos.z);
   g.scene.add(pivot);
-  g.play('emcCharge', pos, 0.5);
+  g.play('bellSummon', null, 0.75);
   if (h.isLocal) g.events.onAnnounce('THE BELL', 'It tolls for them', 'red');
   else if (g.local && g.local.team !== h.team && follow === g.local) g.events.onAnnounce('THE BELL TOLLS', 'Move!', 'red');
   let phase: 'descend' | 'swing' | 'fall' | 'landed' = 'descend';
@@ -337,12 +351,13 @@ function dropTheBell(h: Hero, g: Game) {
         if (!rang && s > 0.27) {
           rang = true;
           const mouth = _v1.copy(pivot.position).setY(pivot.position.y - 4.5);
-          g.play('bigBell', mouth, 1.6);
+          g.play('bigBell', mouth, 2);
+          audio.duck(2.5, 0.8, 0.35);
           g.vfx.flash(mouth, new THREE.Color(0.5, 1.6, 0.6), 120, 1.2, 40);
           for (let i = 0; i < 3; i++) g.vfx.add.spawn({ x: mouth.x, y: mouth.y, z: mouth.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 1.2 + i, grow: 12, life: 0.9 + i * 0.25, shape: Shape.Ring, aux: 0.04, fadeIn: 0.01, rot: 0 });
           g.shake(groundAt, 0.5, 60);
         }
-        if (s >= 1) { phase = 'fall'; pivot.rotation.z = 0; }
+        if (s >= 1) { phase = 'fall'; pivot.rotation.z = 0; g.play('bellWhistle', groundAt, 1.3); }
       } else if (phase === 'fall') {
         vy += 70 * dt;
         pivot.position.y -= vy * dt;
@@ -372,8 +387,8 @@ function impact(h: Hero, g: Game, at: THREE.Vector3) {
     if (out.lengthSq() < 0.01) out.set(1, 0, 0);
     g.damage(e, dmg, h, { knock: out.normalize().multiplyScalar(9).setY(9) });
   }
-  g.play('bellDrop', at, 1.5);
-  g.play('bigBell', at, 0.9);
+  g.play('bellDrop', at, 1.6);
+  audio.duck(1.2, 0.85, 0.4);
   g.vfx.shockwave(at, DOOM, 14, 0.8, 0.1);
   g.vfx.shockwave(at, new THREE.Color(3, 2.4, 1.2), 9, 0.5, 0.18);
   g.vfx.smoke(at, new THREE.Color(0.5, 0.45, 0.38), 40, 2.2, 1.8, 0.65);
