@@ -11,6 +11,8 @@ import { audio } from './core/Audio';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
+import { StudyArena } from './world/StudyArena';
+import type { ArenaLike } from './world/types';
 import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
@@ -40,10 +42,11 @@ async function boot() {
   const renderer = new Renderer(container, scene, camera);
   initGlobals();
 
-  await progress(20, 'Raising the ruins');
-  const arena = new Arena(scene, renderer.gl);
-  await progress(45, 'Growing the meadow');
-  await loadProps();
+  const study = settings.arena !== 'ruins';
+  await progress(20, study ? 'Opening the study' : 'Raising the ruins');
+  const arena: ArenaLike = study ? new StudyArena(scene, renderer.gl) : new Arena(scene, renderer.gl);
+  await progress(45, study ? 'Dusting the desk' : 'Growing the meadow');
+  await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
   await progress(58, 'Placing the relics');
 
@@ -152,6 +155,7 @@ async function boot() {
     bootEl.classList.add('fade');
     setTimeout(() => bootEl.remove(), 900);
     menu.show(true);
+    try { if (sessionStorage.getItem('la:reopen') === 'play') { sessionStorage.removeItem('la:reopen'); menu.openPlay(); } } catch { /* storage unavailable */ }
     window.removeEventListener('pointerdown', enter);
     window.removeEventListener('keydown', enter);
   };
@@ -170,16 +174,17 @@ async function boot() {
     last = now;
     const dt = Math.min(0.1, ms / 1000);
     game.update(dt);
-    if (game.state === 'menu') {
+    if (game.state === 'menu' && !(window as unknown as { __freeCam?: boolean }).__freeCam) {
       menuT += dt;
       // slow cinematic drift around the showcase hero on the dais
       const a = Math.sin(menuT * 0.09) * 0.45 - 0.15;
       const R = 7.2 + Math.sin(menuT * 0.13) * 0.6;
-      camTarget.set(Math.sin(a) * R, 2.35 + Math.sin(menuT * 0.17) * 0.25, -Math.cos(a) * R);
+      const sp = arena.showcasePos;
+      camTarget.set(sp.x + Math.sin(a) * R, sp.y + 1.35 + Math.sin(menuT * 0.17) * 0.25, sp.z - Math.cos(a) * R);
       camera.position.lerp(camTarget, 1 - Math.exp(-2 * dt));
       // frame the hero on the right third (UI lives on the left)
-      const right = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0, 0), camera.position).cross(new THREE.Vector3(0, 1, 0)).normalize();
-      lookTarget.set(0, 1.95, 0).addScaledVector(right, -1.55);
+      const right = new THREE.Vector3().subVectors(sp, camera.position).cross(new THREE.Vector3(0, 1, 0)).normalize();
+      lookTarget.set(sp.x, sp.y + 0.95, sp.z).addScaledVector(right, -1.55);
       camera.lookAt(lookTarget);
       if (camera.fov !== 42) { camera.fov = 42; camera.updateProjectionMatrix(); }
     }

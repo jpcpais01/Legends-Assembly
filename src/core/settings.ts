@@ -30,6 +30,7 @@ export interface Settings {
   invertY: boolean;
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
+  arena: 'study' | 'ruins';
 }
 
 const KEY = 'legends-assembly:settings:v1';
@@ -65,6 +66,7 @@ function defaults(): Settings {
     invertY: false,
     playerName: 'Player',
     botDifficulty: 'normal',
+    arena: 'study',
   };
 }
 

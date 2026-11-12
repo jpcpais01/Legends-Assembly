@@ -44,7 +44,11 @@ export interface HeroDef {
   /** Optional Meshy GLB. Falls back to the procedural rig while missing. */
   modelUrl?: string;
   /** Optional Meshy prop held in a hand of the GLB model (meters / radians in the hand bone's frame). */
-  held?: { prop: PropName; hand: 'L' | 'R'; size: number; pos: [number, number, number]; rot: [number, number, number] };
+  held?: {
+    prop: PropName; hand: 'L' | 'R'; size: number; pos: [number, number, number]; rot: [number, number, number];
+    /** Hang the prop from its top (pos is the grip) and swing it like a bell when attacking. */
+    ring?: boolean;
+  };
   look: RigLook;
   createKit(): HeroKit;
   /** Difficulty / stats for UI bars, 0..1. */

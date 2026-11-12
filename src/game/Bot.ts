@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import type { Hero } from './Hero';
 import type { Game } from './Game';
-import { SPAWNS } from '../world/collision';
 import { angleDiff, clamp, rand } from '../core/math';
 
 const DIFF = {
@@ -29,6 +28,9 @@ export class Bot {
   private abilityT = 0;
   private wander = new THREE.Vector3();
   private wanderT = 0;
+  private path: THREE.Vector3[] | null = null;
+  private pathGoal = new THREE.Vector3(1e9, 0, 0);
+  private pathT = 0;
 
   constructor(h: Hero, g: Game, difficulty: keyof typeof DIFF) {
     this.h = h; this.g = g; this.p = DIFF[difficulty];
@@ -75,7 +77,7 @@ export class Bot {
       let bestD = Infinity;
       for (const p of g.pickups) if (p.ready) { const d = p.pos.distanceTo(h.pos); if (d < bestD) { bestD = d; goal.copy(p.pos); } }
       for (const z of g.zones) if (z.kind === 'sunflower' && z.team === h.team) { const d = z.pos.distanceTo(h.pos); if (d < bestD + 8) { bestD = d; goal.copy(z.pos); } }
-      if (bestD === Infinity) goal.copy(SPAWNS[h.team]);
+      if (bestD === Infinity) goal.copy(g.world.spawns[h.team]);
       combat = !!t && vis;
     } else if (t) {
       const range = h.def.botRange;
@@ -88,14 +90,27 @@ export class Bot {
       this.wanderT -= dt;
       if (this.wanderT <= 0) {
         this.wanderT = rand(3, 6);
-        const a = rand(0, Math.PI * 2), r = rand(0, 18);
-        this.wander.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+        g.world.randomPoint(this.wander);
       }
       goal.copy(this.wander);
     }
 
-    // ── steering
-    const to = goal.clone().sub(h.pos).setY(0);
+    // ── steering (grid arenas: follow an A* path around big obstacles when the straight line is blocked)
+    const grid = g.world.grid;
+    let steer = goal;
+    if (grid) {
+      this.pathT -= dt;
+      if (grid.lineClear(h.pos, goal)) this.path = null;
+      else {
+        if (!this.path || this.pathT <= 0 || this.pathGoal.distanceToSquared(goal) > 9) {
+          this.path = grid.findPath(h.pos.x, h.pos.z, goal.x, goal.z);
+          this.pathGoal.copy(goal); this.pathT = rand(0.5, 0.8);
+        }
+        while (this.path && this.path.length > 1 && (Math.hypot(this.path[0].x - h.pos.x, this.path[0].z - h.pos.z) < 1.3 || grid.lineClear(h.pos, this.path[1]))) this.path.shift();
+        if (this.path?.length) steer = this.path[0];
+      }
+    }
+    const to = steer.clone().sub(h.pos).setY(0);
     const dist = to.length();
     const move = new THREE.Vector3();
     if (dist > 1.2) move.copy(to).divideScalar(dist);

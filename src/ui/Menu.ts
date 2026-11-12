@@ -110,7 +110,9 @@ export class Menu {
           ${heroesOnly ? '' : `<div class="section-label">Mode</div>
           <div class="modes">${(Object.keys(MODE_INFO) as Mode[]).map((m) => `<button class="mode${m === this.mode ? ' sel' : ''}" data-m="${m}"><b>${m}</b><span>${MODE_INFO[m].label}</span></button>`).join('')}</div>
           <div class="section-label">Bot difficulty</div>
-          <div class="seg diff">${(['easy', 'normal', 'hard'] as const).map((d) => `<button data-d="${d}" class="${settings.botDifficulty === d ? 'sel' : ''}">${d}</button>`).join('')}</div>`}
+          <div class="seg diff">${(['easy', 'normal', 'hard'] as const).map((d) => `<button data-d="${d}" class="${settings.botDifficulty === d ? 'sel' : ''}">${d}</button>`).join('')}</div>
+          <div class="section-label">Arena</div>
+          <div class="seg arena">${([['study', "Giant's Study"], ['ruins', 'Sunset Ruins']] as const).map(([k, n]) => `<button data-a="${k}" class="${settings.arena === k ? 'sel' : ''}">${n}</button>`).join('')}</div>`}
           <div class="section-label">Legend</div>
           <div class="heroes">${HERO_LIST.map((h) => `<button class="hcard${h.id === this.hero ? ' sel' : ''}" data-h="${h.id}" style="--hc:${h.color}"><img src="${portraits[h.id] ?? ''}" alt=""><div class="nm"><small>${h.role}</small>${h.name}</div></button>`).join('')}</div>
           ${heroesOnly ? '' : '<button class="cta start">Start match</button>'}
@@ -147,6 +149,15 @@ export class Menu {
       settings.botDifficulty = b.dataset.d as typeof settings.botDifficulty;
       saveSettings(settings);
       p.querySelectorAll('.diff button').forEach((x) => x.classList.toggle('sel', x === b));
+    }));
+    p.querySelectorAll<HTMLButtonElement>('.arena button').forEach((b) => b.addEventListener('click', () => {
+      if (settings.arena === b.dataset.a) return;
+      audio.play('ui');
+      settings.arena = b.dataset.a as typeof settings.arena;
+      saveSettings(settings);
+      // arenas are built at boot: reload straight back into this panel
+      try { sessionStorage.setItem('la:reopen', 'play'); } catch { /* storage unavailable */ }
+      location.reload();
     }));
     p.querySelectorAll<HTMLButtonElement>('.hcard').forEach((b) => {
       b.addEventListener('mouseenter', () => audio.play('uiHover'));

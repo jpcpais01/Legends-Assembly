@@ -75,7 +75,7 @@ export class CameraRig {
     // pull in against geometry
     const t = world.raycast(this.pivot, desired, 0.25);
     if (t >= 0) desired.lerpVectors(this.pivot, desired, Math.max(0.15, t - 0.06));
-    const minY = world.heightAt(desired.x, desired.z) + 0.25;
+    const minY = world.heightAt(desired.x, desired.z, desired.y) + 0.25;
     if (desired.y < minY) desired.y = minY;
     cam.position.copy(desired);
     const lookAt = this.tmp.copy(cam.position).add(fwd);

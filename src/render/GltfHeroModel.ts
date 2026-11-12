@@ -42,6 +42,10 @@ export class GltfHeroModel implements HeroModel {
   /** Set when the GLB was auto-rigged onto the game skeleton (scripts/autorig.mjs): procedural animation drives it. */
   private animator: RigAnimator | null = null;
   private heldMesh: THREE.Mesh | null = null;
+  private heldGrip: THREE.Group | null = null;
+  private heldRest = new THREE.Euler();
+  private ringT = 1;
+  private lastAttack = 0;
   private disposed = false;
   /** Resolves once the GLB is shown (or failed and the procedural rig stays). */
   ready: Promise<void>;
@@ -90,12 +94,18 @@ export class GltfHeroModel implements HeroModel {
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {
           const m = new THREE.Mesh(t.geometry, t.material);
-          m.scale.setScalar(held.size / Math.max(t.size.x, t.size.z));
-          m.position.set(...held.pos);
-          m.rotation.set(...held.rot);
+          const sc = held.size / Math.max(t.size.x, t.size.z);
+          m.scale.setScalar(sc);
           m.castShadow = true;
-          (held.hand === 'L' ? bones.handL : bones.handR).add(m);
+          const grip = new THREE.Group();
+          grip.position.set(...held.pos);
+          grip.rotation.set(...held.rot);
+          if (held.ring) m.position.y = -sc; // hangs from its handle
+          grip.add(m);
+          (held.hand === 'L' ? bones.handL : bones.handR).add(grip);
           this.heldMesh = m;
+          this.heldGrip = held.ring ? grip : null;
+          this.heldRest.copy(grip.rotation);
         }
       } else if (res.animations.length) {
         this.mixer = new THREE.AnimationMixer(obj);
@@ -127,6 +137,14 @@ export class GltfHeroModel implements HeroModel {
     if (this.animator) {
       this.animator.update(dt, s);
       if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
+      if (this.heldGrip) {
+        // a fresh attack rings the bell: a quick damped clapper swing about the grip
+        if (s.attack > this.lastAttack + 0.3) this.ringT = 0;
+        this.lastAttack = s.attack;
+        this.ringT = Math.min(3, this.ringT + dt);
+        const e = Math.exp(-this.ringT * 5), w = this.ringT * Math.PI * 2 * 4.2;
+        this.heldGrip.rotation.set(this.heldRest.x + Math.sin(w) * 0.75 * e, this.heldRest.y, this.heldRest.z + Math.sin(w * 0.7 + 1) * 0.3 * e);
+      }
       return;
     }
     if (this.mixer) {
