@@ -4,24 +4,39 @@ import type { Hero } from '../game/Hero';
 import { portraits } from './portraits';
 import { settings } from '../core/settings';
 import { MODE_INFO } from '../game/Game';
+import { esc, icon, ROLE_ICONS, UI, DomCache, mmss } from './uikit';
 
-const svg = (inner: string, cls = 'icon') => `<svg class="${cls}" viewBox="0 0 24 24">${inner}</svg>`;
+const RING = 2 * Math.PI * 44; // ult ring circumference (r = 44 in a 100 viewBox)
+const DEATH_RING = 2 * Math.PI * 26;
+const NUM_POOL = 28;
 
-interface DmgNum { el: HTMLDivElement; pos: THREE.Vector3; t: number; vx: number }
-interface Plate { el: HTMLDivElement; bar: HTMLElement; hero: Hero }
+interface DmgNum { el: HTMLDivElement; pos: THREE.Vector3; t: number; vx: number; live: boolean }
+interface Plate { el: HTMLDivElement; bar: HTMLElement; hero: Hero; shown: boolean; frac: number }
+interface Chip { el: HTMLElement; t: HTMLElement; hero: Hero }
 
+/**
+ * In-match HUD. Everything is plain DOM over the canvas, with no backdrop blur (it would
+ * re-read the 3D frame every frame). Per-frame writes go through DomCache so only values
+ * that actually changed touch the DOM.
+ */
 export class Hud {
   root: HTMLDivElement;
   private g: Game;
   private els: Record<string, HTMLElement> = {};
+  private c = new DomCache();
   private nums: DmgNum[] = [];
   private plates: Plate[] = [];
+  private chips: Chip[] = [];
   private v = new THREE.Vector3();
   private lastHp = 0;
   private dirs: { el: HTMLElement; t: number; from: THREE.Vector3 }[] = [];
-  private announceTimer = 0;
   private ultWasReady = false;
+  private rmbWasCd = false;
   private scoreboardOn = false;
+  private sbT = 0;
+  private deathTotal = 5;
+  private vig = 0;
+  private healFlashT = 0;
 
   constructor(parent: HTMLElement, g: Game) {
     this.g = g;
@@ -29,49 +44,77 @@ export class Hud {
     root.className = 'hud hidden';
     root.innerHTML = `
       <div class="vignette"></div>
+      <div class="ult-edge"></div>
       <div class="dmgdir">${'<i></i>'.repeat(6)}</div>
       <div class="fps"></div>
-      <div class="topbar">
-        <div class="team-row t0"></div>
-        <div class="score"><div class="s b">0</div><div class="mid"><div class="t">6:00</div><div class="g">First to 10</div></div><div class="s r">0</div></div>
-        <div class="team-row t1"></div>
+      <div class="h-top">
+        <div class="h-team ally"></div>
+        <div class="h-score">
+          <div class="hs-side ally"><i class="hs-bar"><s></s></i><b class="hs-n">0</b></div>
+          <div class="hs-mid"><div class="hs-time">6:00</div><div class="hs-goal">First to 10</div></div>
+          <div class="hs-side enemy"><b class="hs-n">0</b><i class="hs-bar"><s></s></i></div>
+        </div>
+        <div class="h-team enemy"></div>
       </div>
       <div class="feed"></div>
-      <div class="crosshair"><div class="dot"></div></div>
+      <div class="crosshair"></div>
       <div class="hitmarker"></div>
+      <div class="elims"></div>
       <div class="announce"><div class="big"></div><div class="small"></div></div>
-      <div class="countdown"></div>
-      <div class="dead-overlay hidden"><div class="t">Respawning in</div><div class="n">5</div></div>
+      <div class="intro"><small class="in-mode"></small><b class="in-title"></b><span class="in-goal"></span></div>
+      <div class="countdown"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/></svg><span></span></div>
+      <div class="death hidden">
+        <div class="dt-k">${icon(UI.skull)}Eliminated by</div>
+        <div class="dt-card"><span class="dt-av"><img alt=""></span><div><b class="dt-n"></b><small class="dt-h"></small></div></div>
+        <div class="dt-respawn"><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" class="dt-bg"/><circle cx="30" cy="30" r="26" class="dt-rc" stroke-dasharray="${DEATH_RING}"/></svg><b class="dt-s">5</b></div>
+        <small class="dt-l">Respawning</small>
+      </div>
       <div class="vitals">
-        <div class="portrait"><img alt=""></div>
-        <div class="hpwrap">
-          <div class="hpname"><span class="hname"></span><b><span class="hpv">250</span><small> / <span class="hpm">250</span></small></b></div>
-          <div class="hpbar"><div class="trail"></div><div class="fill"></div><div class="ticks"></div></div>
+        <div class="v-av"><img alt=""></div>
+        <div class="v-main">
+          <div class="v-name"><span class="v-role"></span><b class="hname"></b></div>
+          <div class="v-hp"><b class="hpv">250</b><small>/ <span class="hpm">250</span></small></div>
+          <div class="hpbar"><i class="trail"></i><i class="fill"></i><i class="ticks"></i></div>
         </div>
       </div>
       <div class="abilities">
-        <div class="slot s-lmb"><span class="k">LMB</span></div>
-        <div class="slot s-rmb"><div class="cd"></div><span class="num"></span><span class="k">RMB</span></div>
-        <div class="slot ult s-ult"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" stroke="rgba(255,255,255,.12)" stroke-width="5" fill="none"/><circle class="rc" cx="50" cy="50" r="46" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289"/></svg><span class="pct">0%</span><span class="k">SHIFT</span></div>
+        <div class="slot s-lmb"><div class="sl-box"><span class="sl-ic"></span></div><kbd>LMB</kbd><span class="sl-n"></span></div>
+        <div class="slot s-rmb"><div class="sl-box"><span class="sl-ic"></span><i class="cd"></i><b class="num"></b></div><kbd>RMB</kbd><span class="sl-n"></span></div>
+        <div class="ult">
+          <div class="u-core">
+            <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" class="rb"/><circle cx="50" cy="50" r="44" class="rc" stroke-dasharray="${RING}" stroke-dashoffset="${RING}"/></svg>
+            <span class="u-ic"></span><b class="pct">0%</b><span class="u-ready">Ready</span>
+          </div>
+          <kbd>SHIFT</kbd><span class="sl-n u-n"></span>
+        </div>
       </div>
       <div class="nums"></div>
       <div class="plates"></div>
-      <div class="scoreboard hidden"></div>
-    `;
+      <div class="scoreboard hidden"></div>`;
     parent.appendChild(root);
     this.root = root;
     const q = (s: string) => root.querySelector(s) as HTMLElement;
-    for (const k of ['vignette', 'fps', 'feed', 'crosshair', 'hitmarker', 'announce', 'countdown', 'dead-overlay', 'hpbar', 'hpv', 'hpm', 'hname', 'nums', 'plates', 'scoreboard', 'portrait']) this.els[k] = q('.' + k);
-    this.els.scoreB = q('.score .s.b'); this.els.scoreR = q('.score .s.r');
-    this.els.timer = q('.score .t'); this.els.goal = q('.score .g');
-    this.els.fill = q('.hpbar .fill'); this.els.trail = q('.hpbar .trail');
-    this.els.rmb = q('.s-rmb'); this.els.ult = q('.s-ult'); this.els.lmb = q('.s-lmb');
-    this.els.rmbCd = q('.s-rmb .cd'); this.els.rmbNum = q('.s-rmb .num');
-    this.els.ultRing = q('.s-ult .rc'); this.els.ultPct = q('.s-ult .pct');
-    this.els.t0 = q('.team-row.t0'); this.els.t1 = q('.team-row.t1');
-    this.els.deadN = q('.dead-overlay .n');
+    const map: Record<string, string> = {
+      vignette: '.vignette', ultEdge: '.ult-edge', fps: '.fps', feed: '.feed', crosshair: '.crosshair', hitmarker: '.hitmarker',
+      elims: '.elims', announce: '.announce', intro: '.intro', countdown: '.countdown', cdNum: '.countdown span',
+      death: '.death', dtAv: '.dt-av img', dtN: '.dt-n', dtH: '.dt-h', dtS: '.dt-s', dtRc: '.dt-rc', dtCard: '.dt-card', dtK: '.dt-k',
+      vitals: '.vitals', vAv: '.v-av img', vRole: '.v-role', hname: '.hname', hpv: '.hpv', hpm: '.hpm', hpbar: '.hpbar',
+      fill: '.hpbar .fill', trail: '.hpbar .trail',
+      lmb: '.s-lmb', rmb: '.s-rmb', rmbCd: '.s-rmb .cd', rmbNum: '.s-rmb .num', ult: '.ult', ultRing: '.ult .rc', ultPct: '.ult .pct',
+      teamA: '.h-team.ally', teamE: '.h-team.enemy', scoreA: '.hs-side.ally .hs-n', scoreE: '.hs-side.enemy .hs-n',
+      barA: '.hs-side.ally .hs-bar s', barE: '.hs-side.enemy .hs-bar s', timer: '.hs-time', goal: '.hs-goal',
+      nums: '.nums', plates: '.plates', scoreboard: '.scoreboard',
+    };
+    for (const k in map) this.els[k] = q(map[k]);
     this.dirs = Array.from(root.querySelectorAll('.dmgdir i')).map((el) => ({ el: el as HTMLElement, t: 0, from: new THREE.Vector3() }));
-    window.addEventListener('keydown', (e) => { if (e.code === 'Tab') { e.preventDefault(); this.scoreboardOn = true; } });
+    for (let i = 0; i < NUM_POOL; i++) {
+      const el = document.createElement('div');
+      el.className = 'dmgnum';
+      el.style.opacity = '0';
+      this.els.nums.appendChild(el);
+      this.nums.push({ el, pos: new THREE.Vector3(), t: 0, vx: 0, live: false });
+    }
+    window.addEventListener('keydown', (e) => { if (e.code === 'Tab' && this.g.state !== 'menu') { e.preventDefault(); this.scoreboardOn = true; this.sbT = 0; } });
     window.addEventListener('keyup', (e) => { if (e.code === 'Tab') this.scoreboardOn = false; });
   }
 
@@ -79,70 +122,98 @@ export class Hud {
 
   /** Called at match start to bind the local hero visuals. */
   setup() {
-    const h = this.g.local;
+    const g = this.g;
+    const h = g.local;
     const d = h.def;
+    const a = d.abilities;
+    this.c.clear();
     this.root.style.setProperty('--hc', d.color);
-    (this.els.portrait.querySelector('img') as HTMLImageElement).src = portraits[d.id] ?? '';
+    this.root.style.setProperty('--ha', d.accent);
+    (this.els.vAv as HTMLImageElement).src = portraits[d.id] ?? '';
+    this.els.vRole.innerHTML = icon(ROLE_ICONS[d.role]);
     this.els.hname.textContent = d.name;
     this.els.hpm.textContent = String(d.maxHp);
     this.els.hpbar.style.setProperty('--tick', `${(25 / d.maxHp) * 100}%`);
-    this.els.lmb.innerHTML = svg(d.abilities.primary.icon) + '<span class="k">LMB</span>';
-    this.els.rmb.insertAdjacentHTML('afterbegin', '');
-    this.els.rmb.innerHTML = svg(d.abilities.secondary.icon) + '<div class="cd"></div><span class="num"></span><span class="k">RMB</span>';
-    this.els.rmbCd = this.els.rmb.querySelector('.cd') as HTMLElement;
-    this.els.rmbNum = this.els.rmb.querySelector('.num') as HTMLElement;
-    const ultSvg = this.els.ult.querySelector('svg.ring')!.outerHTML;
-    this.els.ult.innerHTML = ultSvg + svg(d.abilities.ult.icon) + '<span class="pct">0%</span><span class="k">SHIFT</span>';
-    this.els.ultRing = this.els.ult.querySelector('.rc') as HTMLElement;
-    this.els.ultRing.setAttribute('stroke', d.color);
-    this.els.ultPct = this.els.ult.querySelector('.pct') as HTMLElement;
+    (this.els.lmb.querySelector('.sl-ic') as HTMLElement).innerHTML = icon(a.primary.icon);
+    (this.els.lmb.querySelector('.sl-n') as HTMLElement).textContent = a.primary.name;
+    (this.els.rmb.querySelector('.sl-ic') as HTMLElement).innerHTML = icon(a.secondary.icon);
+    (this.els.rmb.querySelector('.sl-n') as HTMLElement).textContent = a.secondary.name;
+    (this.els.ult.querySelector('.u-ic') as HTMLElement).innerHTML = icon(a.ult.icon);
+    (this.els.ult.querySelector('.u-n') as HTMLElement).textContent = a.ult.name;
+    this.els.ult.classList.remove('ready');
+    this.els.rmb.classList.remove('cooling', 'flash');
     // crosshair style per hero
     const ch = this.els.crosshair;
-    ch.innerHTML = '<div class="dot"></div>';
-    if (d.id === 'yeat') ch.insertAdjacentHTML('beforeend', '<div class="ring"></div>');
+    ch.innerHTML = '<i class="dot"></i>';
+    if (d.id === 'yeat') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
     else {
       const gap = d.id === 'einstein' ? 7 : 9;
       for (const [x, y, w, hh] of [[-gap - 8, -1, 8, 2], [gap, -1, 8, 2], [-1, gap, 2, 8]] as const) {
-        ch.insertAdjacentHTML('beforeend', `<div class="arm" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></div>`);
+        ch.insertAdjacentHTML('beforeend', `<i class="arm" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`);
       }
     }
-    this.els.goal.textContent = `First to ${MODE_INFO[this.g.config!.mode].target}`;
-    // team rows
-    for (const team of [0, 1]) {
-      const row = team === 0 ? this.els.t0 : this.els.t1;
-      row.style.setProperty('--tc', team === 0 ? 'var(--blue)' : 'var(--red)');
-      row.innerHTML = this.g.heroes.filter((x) => x.team === team).map((x) => `<div class="tp" data-id="${x.id}"><img src="${portraits[x.def.id] ?? ''}"></div>`).join('');
+    const info = MODE_INFO[g.config!.mode];
+    this.els.goal.textContent = `First to ${info.target}`;
+    // team chips (ally on the left, enemies on the right)
+    this.chips = [];
+    for (const [row, ally] of [[this.els.teamA, true], [this.els.teamE, false]] as const) {
+      row.innerHTML = '';
+      for (const x of g.heroes.filter((y) => (y.team === h.team) === ally)) {
+        const el = document.createElement('div');
+        el.className = 'chip-h' + (x.isLocal ? ' me' : '');
+        el.style.setProperty('--hc', x.def.color);
+        el.innerHTML = `<img src="${portraits[x.def.id] ?? ''}" alt=""><b></b>`;
+        row.appendChild(el);
+        this.chips.push({ el, t: el.querySelector('b') as HTMLElement, hero: x });
+      }
     }
     // nameplates
     this.els.plates.innerHTML = '';
     this.plates = [];
-    for (const hero of this.g.heroes) {
+    for (const hero of g.heroes) {
       if (hero.isLocal) continue;
       const el = document.createElement('div');
       el.className = 'plate ' + (hero.team === h.team ? 'ally' : 'enemy');
-      el.innerHTML = `<div class="n">${hero.name} · ${hero.def.name.split(' ').pop()}</div><div class="b"><i></i></div>`;
+      el.innerHTML = `<div class="n">${esc(hero.name)}<small>${hero.def.name.split(' ').pop()}</small></div><div class="b"><i></i><s></s></div>`;
+      el.style.display = 'none';
       this.els.plates.appendChild(el);
-      this.plates.push({ el, bar: el.querySelector('i') as HTMLElement, hero });
+      this.plates.push({ el, bar: el.querySelector('i') as HTMLElement, hero, shown: false, frac: -1 });
     }
     this.els.feed.innerHTML = '';
+    this.els.elims.innerHTML = '';
+    for (const n of this.nums) { n.live = false; n.el.style.opacity = '0'; }
     this.lastHp = h.maxHp;
     this.ultWasReady = false;
+    this.rmbWasCd = false;
+    this.vig = 0;
+    // mode intro card plays over the countdown
+    (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
+    (this.els.intro.querySelector('.in-title') as HTMLElement).textContent = info.label;
+    (this.els.intro.querySelector('.in-goal') as HTMLElement).textContent = `First team to ${info.target} eliminations wins`;
+    this.restart(this.els.intro, 'intro', 'show');
+  }
+
+  /** Restart a CSS animation by swapping its class (one forced style flush, only on events). */
+  private restart(el: HTMLElement, base: string, extra: string) {
+    el.className = base;
+    void el.offsetWidth;
+    el.className = `${base} ${extra}`;
   }
 
   damageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean) {
-    const el = document.createElement('div');
-    el.className = 'dmgnum' + (crit ? ' crit' : '') + (heal ? ' heal' : '');
-    el.textContent = String(Math.round(amount));
-    this.els.nums.appendChild(el);
-    this.nums.push({ el, pos: pos.clone(), t: 0, vx: (Math.random() - 0.5) * 60 });
-    if (this.nums.length > 40) { const n = this.nums.shift()!; n.el.remove(); }
+    if (!settings.damageNumbers) return;
+    let n = this.nums.find((x) => !x.live);
+    if (!n) n = this.nums.reduce((a, b) => (a.t > b.t ? a : b));
+    n.live = true;
+    n.t = 0;
+    n.pos.copy(pos);
+    n.vx = (Math.random() - 0.5) * 60;
+    n.el.className = 'dmgnum' + (crit ? ' crit' : '') + (heal ? ' heal' : '');
+    n.el.textContent = (heal ? '+' : '') + Math.round(amount);
   }
 
   hitmarker(crit: boolean, kill: boolean) {
-    const el = this.els.hitmarker;
-    el.className = 'hitmarker';
-    void el.offsetWidth;
-    el.className = 'hitmarker on' + (kill ? ' kill' : crit ? ' crit' : '');
+    this.restart(this.els.hitmarker, 'hitmarker', 'on' + (kill ? ' kill' : crit ? ' crit' : ''));
   }
 
   hurt(from: THREE.Vector3 | null) {
@@ -153,130 +224,200 @@ export class Hud {
     best.from.copy(from);
   }
 
-  kill(killer: Hero | null, victim: Hero) {
+  kill(killer: Hero | null, victim: Hero, assists: Hero[] = []) {
     const me = this.g.local;
+    // kill feed
     const el = document.createElement('div');
-    el.className = 'k' + (killer === me || victim === me ? ' me' : '');
-    const cls = (h: Hero) => (h.team === me.team ? 'a' : 'e');
+    el.className = 'k' + (killer === me || victim === me || assists.includes(me) ? ' me' : '');
+    const side = (h: Hero) => (h.team === me.team ? 'a' : 'e');
+    const who = (h: Hero) => `<span class="kp ${side(h)}"><img src="${portraits[h.def.id] ?? ''}" alt=""><b>${esc(h.name)}</b></span>`;
     el.innerHTML = killer
-      ? `<span class="${cls(killer)}">${killer.name}</span><svg viewBox="0 0 24 24"><path d="M4 20L20 4M14 4h6v6M4 14l6 6"/></svg><span class="${cls(victim)}">${victim.name}</span>`
-      : `<span class="${cls(victim)}">${victim.name}</span> was eliminated`;
+      ? `${who(killer)}${assists.length ? `<small class="ka">+${assists.length}</small>` : ''}${icon(UI.swords, 'kx')}${who(victim)}`
+      : `${icon(UI.skull, 'kx')}${who(victim)}`;
     this.els.feed.prepend(el);
     while (this.els.feed.children.length > 5) this.els.feed.lastElementChild!.remove();
     setTimeout(() => el.remove(), 7000);
+    // personal elimination ticker under the crosshair
+    if (killer === me && victim !== me) this.elim(`${icon(UI.skull)}<span>Eliminated</span><b>${esc(victim.name)}</b>`, '');
+    else if (assists.includes(me)) this.elim(`<span>Assist</span><b>${esc(victim.name)}</b>`, 'as');
+    if (victim === me) {
+      this.deathTotal = Math.max(1, victim.respawnT);
+      this.els.dtCard.style.display = killer ? '' : 'none';
+      this.els.dtK.lastChild!.textContent = killer ? 'Eliminated by' : 'Eliminated';
+      if (killer) {
+        (this.els.dtAv as HTMLImageElement).src = portraits[killer.def.id] ?? '';
+        this.els.dtN.textContent = killer.name;
+        this.els.dtH.textContent = killer.def.name;
+        this.els.dtCard.style.setProperty('--hc', killer.def.color);
+      }
+    }
+  }
+
+  private elim(html: string, cls: string) {
+    const e = document.createElement('div');
+    e.className = 'el ' + cls;
+    e.innerHTML = html;
+    this.els.elims.prepend(e);
+    while (this.els.elims.children.length > 3) this.els.elims.lastElementChild!.remove();
+    setTimeout(() => e.remove(), 2600);
   }
 
   announce(text: string, sub = '', tone: 'gold' | 'red' | 'blue' = 'gold') {
+    // single eliminations and your own death have dedicated widgets (ticker, death card)
+    if (text === 'ELIMINATED' || text === 'YOU WERE ELIMINATED') return;
     const a = this.els.announce;
     (a.querySelector('.big') as HTMLElement).textContent = text;
     (a.querySelector('.small') as HTMLElement).textContent = sub;
-    a.className = 'announce ' + tone;
-    void a.offsetWidth;
-    a.className = 'announce show ' + tone;
-    this.announceTimer = 2.4;
+    this.restart(a, 'announce', 'show ' + tone);
   }
 
   countdown(n: number) {
-    const c = this.els.countdown;
-    c.textContent = n === 0 ? 'FIGHT' : String(n);
-    c.className = 'countdown' + (n === 0 ? ' go' : '');
-    void c.offsetWidth;
-    c.className = 'countdown pop' + (n === 0 ? ' go' : '');
+    this.els.cdNum.textContent = n === 0 ? 'Fight' : String(n);
+    this.restart(this.els.countdown, 'countdown', 'pop' + (n === 0 ? ' go' : ''));
   }
 
   update(dt: number, camera: THREE.PerspectiveCamera, fps: number, drawCalls: number) {
-    const g = this.g, h = g.local;
+    const g = this.g, h = g.local, c = this.c, E = this.els;
     if (!h) return;
-    this.els.fps.textContent = settings.showFps ? `${Math.round(fps)} FPS · ${drawCalls} draws` : '';
-    // HP
-    const hpFrac = Math.max(0, h.hp / h.maxHp);
-    this.els.fill.style.transform = `scaleX(${hpFrac})`;
-    this.els.trail.style.transform = `scaleX(${hpFrac})`;
-    this.els.hpv.textContent = String(Math.ceil(h.hp));
-    this.els.hpbar.classList.toggle('low', hpFrac < 0.35);
-    const lowV = h.alive ? Math.max(0, (0.4 - hpFrac) / 0.4) * 0.8 : 0;
+    c.text('fps', E.fps, settings.showFps ? `${Math.round(fps)} FPS · ${drawCalls} draws` : '');
+    c.style('hs', this.root, '--hs', String(settings.hudScale));
+    c.style('xc', this.root, '--xc', settings.crosshairColor);
+
+    // health
+    const hpFrac = Math.max(0, Math.min(1, h.hp / h.maxHp));
+    const fk = hpFrac.toFixed(3);
+    c.style('hpf', E.fill, 'transform', `scaleX(${fk})`);
+    c.style('hpt', E.trail, 'transform', `scaleX(${fk})`);
+    c.text('hpv', E.hpv, String(Math.ceil(h.hp)));
+    c.cls('low', E.vitals, 'low', h.alive && hpFrac < 0.35);
+    this.healFlashT -= dt;
+    if (h.hp > this.lastHp + 0.5 && this.healFlashT <= 0) { this.healFlashT = 0.5; this.restart(E.hpbar, 'hpbar', 'heal'); }
     const hurtPulse = h.hp < this.lastHp - 0.5 ? 0.6 : 0;
     this.lastHp = h.hp;
-    const v = Math.max(lowV, hurtPulse, parseFloat(this.els.vignette.style.opacity || '0') - dt * 2);
-    this.els.vignette.style.opacity = String(v);
-    // cooldowns
-    const rmbFrac = h.secondaryCd / h.def.secondaryCd;
-    this.els.rmbCd.style.setProperty('--p', `${rmbFrac * 100}%`);
-    this.els.rmbNum.textContent = h.secondaryCd > 0 ? (h.secondaryCd < 1 ? h.secondaryCd.toFixed(1) : String(Math.ceil(h.secondaryCd))) : '';
-    this.els.ultRing.setAttribute('stroke-dashoffset', String(289 * (1 - h.ult)));
-    this.els.ultPct.textContent = `${Math.floor(h.ult * 100)}%`;
+    const lowV = h.alive ? Math.max(0, (0.4 - hpFrac) / 0.4) * 0.8 : 0;
+    this.vig = Math.max(lowV, hurtPulse, this.vig - dt * 2);
+    c.style('vig', E.vignette, 'opacity', this.vig.toFixed(2));
+
+    // abilities
+    const rmbCd = h.secondaryCd > 0;
+    const rmbFrac = rmbCd ? h.secondaryCd / h.def.secondaryCd : 0;
+    c.style('rmbp', E.rmbCd, '--p', `${Math.round(rmbFrac * 100)}%`);
+    c.text('rmbn', E.rmbNum, rmbCd ? (h.secondaryCd < 1 ? h.secondaryCd.toFixed(1) : String(Math.ceil(h.secondaryCd))) : '');
+    c.cls('rmbc', E.rmb, 'cooling', rmbCd);
+    if (this.rmbWasCd && !rmbCd) this.restart(E.rmb, 'slot s-rmb', 'flash');
+    this.rmbWasCd = rmbCd;
+    c.cls('lmba', E.lmb, 'active', h.alive && h.input.primary);
+    c.style('ult', E.ultRing, 'strokeDashoffset', (RING * (1 - h.ult)).toFixed(1));
+    c.text('ultp', E.ultPct, `${Math.floor(h.ult * 100)}%`);
     const ready = h.ult >= 1;
-    if (ready !== this.ultWasReady) { this.els.ult.classList.toggle('ready', ready); this.ultWasReady = ready; }
-    // score & time
-    this.els.scoreB.textContent = String(g.score[0]);
-    this.els.scoreR.textContent = String(g.score[1]);
-    const t = Math.max(0, g.matchTime);
-    const ot = g.matchTime <= 0;
-    this.els.timer.textContent = ot ? 'OVERTIME' : `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-    this.els.timer.classList.toggle('ot', ot);
-    for (const tp of this.root.querySelectorAll<HTMLElement>('.team-row .tp')) {
-      const hero = g.heroes.find((x) => x.id === Number(tp.dataset.id));
-      if (!hero) continue;
-      tp.classList.toggle('dead', !hero.alive);
-      tp.dataset.t = hero.alive ? '' : String(Math.max(0, Math.ceil(hero.respawnT)));
+    if (ready !== this.ultWasReady) {
+      E.ult.classList.toggle('ready', ready);
+      if (ready) this.restart(E.ultEdge, 'ult-edge', 'pulse');
+      this.ultWasReady = ready;
     }
-    // death overlay
-    this.els['dead-overlay'].classList.toggle('hidden', h.alive || g.state === 'ended');
-    if (!h.alive) this.els.deadN.textContent = String(Math.max(0, Math.ceil(h.respawnT)));
-    this.els.crosshair.style.opacity = h.alive ? '1' : '0';
+    c.cls('dead', this.root, 'is-dead', !h.alive);
+
+    // score & time (ally always on the left)
+    const info = MODE_INFO[g.config!.mode];
+    const sa = g.score[h.team], se = g.score[1 - h.team];
+    c.text('sa', E.scoreA, String(sa));
+    c.text('se', E.scoreE, String(se));
+    c.style('ba', E.barA, 'transform', `scaleX(${Math.min(1, sa / info.target).toFixed(3)})`);
+    c.style('be', E.barE, 'transform', `scaleX(${Math.min(1, se / info.target).toFixed(3)})`);
+    const ot = g.matchTime <= 0;
+    c.text('time', E.timer, ot ? 'Overtime' : mmss(Math.max(0, g.matchTime)));
+    c.cls('ot', E.timer, 'ot', ot);
+    c.cls('late', E.timer, 'late', !ot && g.matchTime < 30);
+    for (let i = 0; i < this.chips.length; i++) {
+      const ch = this.chips[i];
+      c.cls('cd' + i, ch.el, 'dead', !ch.hero.alive);
+      c.text('ct' + i, ch.t, ch.hero.alive ? '' : String(Math.max(0, Math.ceil(ch.hero.respawnT))));
+    }
+
+    // death card
+    const showDeath = !h.alive && g.state !== 'ended';
+    c.cls('death', E.death, 'hidden', !showDeath);
+    if (showDeath) {
+      c.text('dts', E.dtS, String(Math.max(0, Math.ceil(h.respawnT))));
+      c.style('dtr', E.dtRc, 'strokeDashoffset', (DEATH_RING * Math.max(0, h.respawnT) / this.deathTotal).toFixed(1));
+    }
+
     // damage direction
     const camYaw = g.camRig.yaw;
     for (const d of this.dirs) {
+      if (d.t <= 0) continue;
       d.t = Math.max(0, d.t - dt);
       d.el.style.opacity = String(Math.min(1, d.t));
-      if (d.t > 0) {
-        const ang = Math.atan2(-(d.from.x - h.pos.x), -(d.from.z - h.pos.z));
-        const rel = camYaw - ang;
-        d.el.style.transform = `rotate(${rel}rad)`;
-      }
+      const ang = Math.atan2(-(d.from.x - h.pos.x), -(d.from.z - h.pos.z));
+      d.el.style.transform = `rotate(${camYaw - ang}rad)`;
     }
-    // floating damage numbers
+
+    // floating damage numbers (pooled)
     const W = window.innerWidth, H = window.innerHeight;
-    for (let i = this.nums.length - 1; i >= 0; i--) {
-      const n = this.nums[i];
+    for (const n of this.nums) {
+      if (!n.live) continue;
       n.t += dt;
-      if (n.t > 0.9) { n.el.remove(); this.nums.splice(i, 1); continue; }
+      if (n.t > 0.9) { n.live = false; n.el.style.opacity = '0'; continue; }
       this.v.copy(n.pos).project(camera);
       if (this.v.z > 1) { n.el.style.opacity = '0'; continue; }
       const x = (this.v.x * 0.5 + 0.5) * W + n.vx * n.t;
       const y = (-this.v.y * 0.5 + 0.5) * H - n.t * 70;
-      const s = n.t < 0.1 ? 1.5 - n.t * 5 : 1;
-      n.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s})`;
-      n.el.style.opacity = String(Math.min(1, (0.9 - n.t) * 4));
+      const s = n.t < 0.1 ? 1.6 - n.t * 6 : 1;
+      n.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${s.toFixed(2)})`;
+      n.el.style.opacity = String(Math.min(1, (0.9 - n.t) * 4).toFixed(2));
     }
+
     // nameplates
     for (const p of this.plates) {
       const hero = p.hero;
-      if (!hero.alive) { p.el.style.display = 'none'; continue; }
-      this.v.set(hero.pos.x, hero.pos.y + 2.25, hero.pos.z);
-      const dist = this.v.distanceTo(camera.position);
-      const enemy = hero.team !== h.team;
-      if (enemy && dist > 45) { p.el.style.display = 'none'; continue; }
-      if (enemy && !g.los(camera.position, this.v)) { p.el.style.display = 'none'; continue; }
-      this.v.project(camera);
-      if (this.v.z > 1 || Math.abs(this.v.x) > 1.1 || Math.abs(this.v.y) > 1.1) { p.el.style.display = 'none'; continue; }
-      p.el.style.display = '';
+      let vis = hero.alive;
+      let dist = 0;
+      if (vis) {
+        this.v.set(hero.pos.x, hero.pos.y + 2.25, hero.pos.z);
+        dist = this.v.distanceTo(camera.position);
+        const enemy = hero.team !== h.team;
+        if (enemy && (dist > 45 || !g.los(camera.position, this.v))) vis = false;
+        else {
+          this.v.project(camera);
+          if (this.v.z > 1 || Math.abs(this.v.x) > 1.1 || Math.abs(this.v.y) > 1.1) vis = false;
+        }
+      }
+      if (vis !== p.shown) { p.el.style.display = vis ? '' : 'none'; p.shown = vis; }
+      if (!vis) continue;
       const x = (this.v.x * 0.5 + 0.5) * W, y = (-this.v.y * 0.5 + 0.5) * H;
       const s = Math.max(0.55, Math.min(1, 14 / dist));
-      p.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${s})`;
-      p.bar.style.width = `${(hero.hp / hero.maxHp) * 100}%`;
+      p.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -100%) scale(${s.toFixed(3)})`;
+      const f = Math.round((hero.hp / hero.maxHp) * 200) / 200;
+      if (f !== p.frac) { p.frac = f; p.bar.style.transform = `scaleX(${f})`; }
     }
-    // scoreboard
+
+    // scoreboard (refreshed a few times a second while held)
     const sbOn = this.scoreboardOn && g.state !== 'ended';
-    this.els.scoreboard.classList.toggle('hidden', !sbOn);
-    if (sbOn) this.els.scoreboard.innerHTML = scoreboardHtml(g);
-    this.announceTimer -= dt;
+    c.cls('sb', E.scoreboard, 'hidden', !sbOn);
+    if (sbOn) {
+      this.sbT -= dt;
+      if (this.sbT <= 0) { this.sbT = 0.25; E.scoreboard.innerHTML = scoreboardHtml(g); }
+    }
   }
 }
 
-export function scoreboardHtml(g: Game) {
-  const rows = [...g.heroes].sort((a, b) => a.team - b.team || b.stats.kills - a.stats.kills);
-  return `<table class="sb-table"><thead><tr><th>Player</th><th>K</th><th>D</th><th>A</th><th>Damage</th><th>Healing</th></tr></thead><tbody>${rows
-    .map((h) => `<tr class="t${h.team}${h.isLocal ? ' me' : ''}"><td><div class="hn"><img src="${portraits[h.def.id] ?? ''}"><div>${h.name}<small>${h.def.name}</small></div></div></td><td>${h.stats.kills}</td><td>${h.stats.deaths}</td><td>${h.stats.assists}</td><td>${Math.round(h.stats.damage)}</td><td>${Math.round(h.stats.healing)}</td></tr>`)
-    .join('')}</tbody></table>`;
+function scoreboardHtml(g: Game) {
+  const me = g.local;
+  const info = MODE_INFO[g.config!.mode];
+  const team = (t: number) => {
+    const ally = t === me.team;
+    const rows = g.heroes.filter((x) => x.team === t).sort((a, b) => b.stats.kills - a.stats.kills || a.stats.deaths - b.stats.deaths);
+    return `<div class="sb-team ${ally ? 'ally' : 'enemy'}">
+      <div class="sb-th"><b>${ally ? 'Your team' : 'Enemy team'}</b><span>${g.score[t]}</span></div>
+      <div class="sb-r sb-hd"><span></span><span>Player</span><span>E</span><span>D</span><span>A</span><span>Dmg</span><span>Heal</span></div>
+      ${rows.map((x) => `<div class="sb-r${x.isLocal ? ' me' : ''}${x.alive ? '' : ' dead'}" style="--hc:${x.def.color}">
+        <span class="sb-av"><img src="${portraits[x.def.id] ?? ''}" alt="">${x.alive ? '' : `<b>${Math.max(0, Math.ceil(x.respawnT))}</b>`}</span>
+        <span class="sb-n"><b>${esc(x.name)}</b><small>${x.def.name}</small></span>
+        <span class="sb-k">${x.stats.kills}</span><span>${x.stats.deaths}</span><span>${x.stats.assists}</span>
+        <span>${Math.round(x.stats.damage)}</span><span>${Math.round(x.stats.healing)}</span></div>`).join('')}
+    </div>`;
+  };
+  return `<div class="sb-head"><span class="chip">${g.config!.mode}</span><b>${info.label}</b><span class="sb-goal">First to ${info.target}</span>
+    <span class="sb-time">${g.matchTime <= 0 ? 'Overtime' : mmss(Math.max(0, g.matchTime))}</span></div>
+    ${team(me.team)}${team(1 - me.team)}`;
 }

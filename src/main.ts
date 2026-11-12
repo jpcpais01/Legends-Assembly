@@ -1,7 +1,9 @@
 import '@fontsource-variable/inter';
-import '@fontsource/chakra-petch/500.css';
-import '@fontsource/chakra-petch/600.css';
-import '@fontsource/chakra-petch/700.css';
+import '@fontsource/barlow-condensed/latin-600.css';
+import '@fontsource/barlow-condensed/latin-700.css';
+import '@fontsource/barlow-condensed/latin-800.css';
+import '@fontsource/barlow-condensed/latin-700-italic.css';
+import '@fontsource/barlow-condensed/latin-800-italic.css';
 import './ui/ui.css';
 import * as THREE from 'three';
 import { registerSW } from 'virtual:pwa-register';
@@ -52,7 +54,7 @@ async function boot() {
   // eslint-disable-next-line prefer-const
   let hud: Hud;
   const game = new Game(scene, arena, camera, input, {
-    onKill: (k, v) => hud.kill(k, v),
+    onKill: (k, v, a) => hud.kill(k, v, a),
     onDamageNumber: (p, a, c, h) => hud.damageNumber(p, a, c, h),
     onHitmarker: (c, k) => hud.hitmarker(c, k),
     onLocalHurt: (_a, from) => hud.hurt(from),
@@ -95,6 +97,7 @@ async function boot() {
     onResume: () => { input.lock(); },
     onLeave: () => { menu.pause(false); toMenu(); },
   });
+  menu.bindGame(game);
   menu.show(false);
   game.setShowcase(menu.hero);
 
@@ -139,11 +142,8 @@ async function boot() {
   renderer.gl.domElement.addEventListener('click', () => {
     if (game.state !== 'menu' && game.state !== 'ended' && !input.locked && !document.querySelector('.panel')) input.lock();
   });
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && document.querySelector('.panel') && game.state === 'menu') menu.closePanel();
-  });
 
-  await progress(100, 'Click anywhere to enter');
+  await progress(100, 'Press any key to start');
   hint.classList.add('pulse');
   const enter = () => {
     audio.unlock();
@@ -163,6 +163,9 @@ async function boot() {
   let menuT = 0;
   const lookTarget = new THREE.Vector3();
   const camTarget = new THREE.Vector3();
+  const camRight = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0);
+  const mc = { ...menu.cam };
   let sat = 0.12;
   const loop = (now: number) => {
     requestAnimationFrame(loop);
@@ -172,14 +175,20 @@ async function boot() {
     game.update(dt);
     if (game.state === 'menu') {
       menuT += dt;
+      // ease toward the framing the current menu page asks for (closer on hero select)
+      const want = menu.cam;
+      mc.dist = damp(mc.dist, want.dist, 2.6, dt);
+      mc.side = damp(mc.side, want.side, 2.6, dt);
+      mc.look = damp(mc.look, want.look, 2.6, dt);
+      mc.height = damp(mc.height, want.height, 2.6, dt);
       // slow cinematic drift around the showcase hero on the dais
       const a = Math.sin(menuT * 0.09) * 0.45 - 0.15;
-      const R = 7.2 + Math.sin(menuT * 0.13) * 0.6;
-      camTarget.set(Math.sin(a) * R, 2.35 + Math.sin(menuT * 0.17) * 0.25, -Math.cos(a) * R);
+      const R = mc.dist + Math.sin(menuT * 0.13) * 0.6 * (mc.dist / 7.2);
+      camTarget.set(Math.sin(a) * R, mc.height + Math.sin(menuT * 0.17) * 0.25, -Math.cos(a) * R);
       camera.position.lerp(camTarget, 1 - Math.exp(-2 * dt));
-      // frame the hero on the right third (UI lives on the left)
-      const right = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0, 0), camera.position).cross(new THREE.Vector3(0, 1, 0)).normalize();
-      lookTarget.set(0, 1.95, 0).addScaledVector(right, -1.55);
+      // frame the hero off-center so the UI owns the left side
+      camRight.set(-camera.position.x, -camera.position.y, -camera.position.z).cross(UP).normalize();
+      lookTarget.set(0, mc.look, 0).addScaledVector(camRight, -mc.side);
       camera.lookAt(lookTarget);
       if (camera.fov !== 42) { camera.fov = 42; camera.updateProjectionMatrix(); }
     }
