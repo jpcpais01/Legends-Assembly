@@ -31,6 +31,10 @@ export interface Settings {
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
   arena: 'study' | 'ruins';
+  /** HUD size multiplier (0.8 to 1.25). */
+  hudScale: number;
+  damageNumbers: boolean;
+  crosshairColor: string;
 }
 
 const KEY = 'legends-assembly:settings:v1';
@@ -67,6 +71,9 @@ function defaults(): Settings {
     playerName: 'Player',
     botDifficulty: 'normal',
     arena: 'study',
+    hudScale: 1,
+    damageNumbers: true,
+    crosshairColor: '#ffffff',
   };
 }
 
