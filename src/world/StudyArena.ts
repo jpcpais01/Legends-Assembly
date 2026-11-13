@@ -24,7 +24,10 @@ const FLOOR_Y = -38; // the room floor, far below the desk top
  * Desk drop-ins that have been delivered, with a version to bump whenever the GLB changes. /models/ is cache-first
  * on players' devices, so a new URL is what makes them fetch a model they once missed (or an updated one).
  */
-const DROP_VER: Record<string, number> = { antique_books: 1, inkwell_quill: 1 };
+const DROP_VER: Record<string, number> = {
+  antique_books: 1, inkwell_quill: 1, hourglass: 1, brush_jar: 1, candle_holder: 1, coin_stack: 1, teacup_saucer: 1, rolled_map: 1,
+  closed_book: 1, spectacles: 1, magnifying_glass: 1, ruler: 1, envelope_wax_seal: 1, pencil: 1, emerald_quill: 1,
+};
 const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
 
@@ -220,6 +223,7 @@ export class StudyArena implements ArenaLike {
         const fit = fitTemplate(t, d.meshy.fit, d.meshy.cm * P.U);
         statics.push({ geo: t.geometry, mat: t.material, m: world.clone().multiply(fit.m), collide: d.meshy.collide });
         tops.push(y + fit.height);
+        if (d.meshy.name === 'hourglass') for (const p of P.hourglassGlass()) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(fit.m), collide: false });
         if (d.flame) {
           const f = candleTop(t.geometry, fit.m);
           for (const p of P.flame(M)) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(new THREE.Matrix4().makeTranslation(f.x, f.y, f.z)), collide: false });
@@ -382,7 +386,7 @@ export class StudyArena implements ArenaLike {
       { parts: () => P.decal(M, 0, 11), x: -17, z: 14, yaw: 2.1 },
       // writing things
       { parts: () => P.inkwell(M), meshy: tall('inkwell_quill', 26), x: -17, z: -20, yaw: 0.3 },
-      { parts: () => P.fountainPen(M), meshy: lying('fountain_pen', 14.2), x: 3.5, z: -12, yaw: -0.28 },
+      { parts: () => P.fountainPen(M), meshy: lying('emerald_quill', 24), x: 3.5, z: -12, yaw: -0.28 },
       { parts: () => P.pencil(M, C(0.95, 0.66, 0.05)), meshy: flat('pencil', 18.5), x: -6, z: 15, yaw: 0.5 },
       { parts: () => P.pencil(M, C(0.03, 0.2, 0.1), 13.5), meshy: flat('pencil', 16), x: 16, z: -1, yaw: 2.25 },
       { parts: () => P.ruler(M), meshy: flat('ruler', 30.5), x: 1, z: 25, yaw: -0.05 },
@@ -404,7 +408,7 @@ export class StudyArena implements ArenaLike {
       // the rest of the study
       { parts: () => P.teacup(M), meshy: tall('teacup_saucer', 7.3), x: 37, z: -11, yaw: 0.4 },
       { parts: () => P.candle(M), meshy: tall('candle_holder', 13), x: 37, z: -25, yaw: 0, flame: true },
-      { parts: () => P.coins(M), meshy: tall('coin_stack', 1.9), x: 12, z: 20, yaw: 0 },
+      { parts: () => P.coins(M), meshy: tall('coin_stack', 4), x: 12, z: 20, yaw: 0 },
       { parts: () => P.brushJar(M), meshy: tall('brush_jar', 22), x: -38, z: -6, yaw: 0.2 },
       { parts: () => P.hourglass(M), meshy: tall('hourglass', 15), x: 3, z: 17, yaw: 0.5 },
     ];

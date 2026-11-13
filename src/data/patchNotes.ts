@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.10.4',
+    date: '2026-11-13',
+    title: 'Sand and Glass',
+    sections: [
+      {
+        heading: 'The Giant’s Study',
+        items: [
+          'Thirteen more desk pieces are now fully sculpted: the hourglass, brush jar, melted candle, coin stack, gold-rimmed teacup, crimson scroll, scarlet tome, brass spectacles, magnifying glass, ruler, sealed letter, yellow pencils and an emerald quill.',
+          'The hourglass has real glass you can see through, with sand piled in the bottom bulb and still draining from the top.',
+          'Fixed a rare white screen when some sculpted props were in view.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.10.3',
     date: '2026-11-13',
     title: 'First Editions',
