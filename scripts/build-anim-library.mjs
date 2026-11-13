@@ -6,11 +6,10 @@
 import { NodeIO } from '@gltf-transform/core';
 import { prune, dedup } from '@gltf-transform/functions';
 
+// keep in step with CLIPS in src/render/mocap.ts (attacks and ultimates are hand-authored gestures, not clips)
 const KEEP = new Set([
-  'A_TPose', 'Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop',
+  'Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop',
   'Jump_Start', 'Jump_Loop', 'Jump_Land', 'Hit_Chest', 'Hit_Head', 'Death01',
-  'Punch_Jab', 'Punch_Cross', 'Spell_Simple_Shoot', 'Spell_Simple_Enter', 'Spell_Simple_Idle_Loop',
-  'Sword_Attack', 'Pistol_Shoot', 'Roll', 'Idle_Talking_Loop',
 ]);
 const DROP_NODE = /f_(index|middle|pinky|ring)|thumb/;
 

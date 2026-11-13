@@ -35,9 +35,27 @@ See [`docs/MESHY_AND_ASSETS.md`](docs/MESHY_AND_ASSETS.md) for the image prompts
 2. Run `npm run models`. It cuts triangles 10x with meshoptimizer (`--ratio 0.1`), keeping UVs and normals.
    It also shrinks textures to 2K WebP and meshopt-compresses the result into `public/models/heroes/<hero>.glb`.
 3. Unrigged models are **auto-rigged** (`scripts/autorig.mjs`). The script scales the model to 1.8 m, turns it to face
-   forward, finds the crotch, legs, hands, torso and neck from cross-sections, and binds the mesh to the same
-   17-bone skeleton the procedural animator drives. Walk, aim, attack, cast, levitate and death all work with no clips.
-4. Set `modelUrl: '/models/heroes/<hero>.glb'` in `src/heroes/<hero>.ts`.
+   forward, finds the crotch, armpits, shoulders, neck and chin from cross-sections, and binds the mesh to a
+   22-bone skeleton (spine, clavicles, arms, legs, toes). Skin weights follow distances measured through the body,
+   and the head is bound rigidly so faces never stretch.
+4. Set `modelUrl: '/models/heroes/<hero>.glb?v=1'` in `src/heroes/<hero>.ts`. Bump `?v=` whenever the file changes,
+   because models are cached forever on players' devices.
+
+`npm run rerig` rebuilds the skeleton and weights of the shipped hero GLBs in place (no raw export needed) after a
+change to `scripts/autorig.mjs`. Per-hero landmark fixes go in `scripts/rig-overrides.json`.
+
+## Hero motion
+
+- `src/render/mocap.ts` retargets a small motion-capture library (`public/models/anim/ual.glb`, Quaternius' Universal
+  Animation Library, CC0) onto each hero's proportions once at load. `scripts/build-anim-library.mjs` builds that
+  file with only the clips the game plays.
+- `src/render/MocapAnimator.ts` plays it: speed-matched walk, jog and sprint, strafes and backpedals made by turning
+  the pelvis and swinging the strides, feet pinned to the ground with leg IK, steps when turning on the spot, lean
+  and bank from acceleration, aim through the spine, jumps, hit flinches and deaths.
+- Attacks and ultimates are hand-authored arm gestures (hand paths solved with arm IK along the crosshair), so they
+  layer over any movement. Tune them in the `GESTURES` table.
+- `dev/` holds the rig viewer and contact-sheet tools used to check all of this frame by frame
+  (`npm run dev`, then open `/dev/rigview.html` or run `node dev/suite.mjs <outDir> <hero> <scenarios>`).
 
 Props such as statues, cauldrons, ruins, the sunflower, the palette, `tonka_truck` and `giant_bell` go in `models-src/props/<name>.glb`.
 Run `npm run models:props` to process them. Textures shrink to 1K WebP and props are never decimated. `src/render/props.ts` loads every prop at boot.

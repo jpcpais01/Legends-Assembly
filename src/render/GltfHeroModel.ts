@@ -5,7 +5,8 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import { PROPS } from './props';
-import { bakeMocap, MocapAnimator, snapshotRest } from './mocap';
+import { bakeMocap, snapshotRest } from './mocap';
+import { MocapAnimator } from './MocapAnimator';
 import type { HeroDef } from '../game/types';
 
 const loader = new GLTFLoader();
@@ -58,7 +59,7 @@ export class GltfHeroModel implements HeroModel {
     this.fx = this.fallback.fx;
     this.root.add(this.fallback.root);
     this.root.add(this.inner);
-    this.ready = load(def.modelUrl!).then((res) => {
+    this.ready = load(def.modelUrl!).then(async (res) => {
       if (!res || this.disposed) return;
       const obj = SkeletonUtils.clone(res.scene);
       const laRig = obj.getObjectByName('la_hips');
@@ -86,17 +87,18 @@ export class GltfHeroModel implements HeroModel {
         if (!this.handL && /(left|_l\b|\.l\b|l_).*hand|hand.*(left|_l\b|\.l\b)/.test(n)) this.handL = o;
         if (!this.head && /head/.test(n) && !/top|end/.test(n)) this.head = o;
       });
+      // motion capture is retargeted before the hero is shown, so it never appears in its modelled pose
+      const snap = laRig ? snapshotRest(obj) : null;
+      const set = snap ? await bakeMocap(def.modelUrl!, snap.rest) : null;
+      if (this.disposed) return;
       this.inner.add(obj);
       this.obj = obj;
       if (laRig) {
         const bones = { body: this.inner } as Record<string, THREE.Object3D>;
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
-        const armOut = Number(obj.getObjectByName('la_armature')?.userData?.armOut ?? 0);
-        const rest = snapshotRest(obj, bones);
-        this.animator = new RigAnimator(bones as unknown as RigBones, { armOut, style: def.motion });
-        bakeMocap(def.modelUrl!, rest).then((set) => {
-          if (set && !this.disposed) this.mocap = new MocapAnimator(bones as unknown as RigBones, set, { armOut });
-        });
+        // the procedural animator only stands in when the motion library could not be loaded
+        this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: def.motion === 'swagger' ? 'ring' : def.motion === 'artist' ? 'stroke' : 'flick' });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {
