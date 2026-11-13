@@ -19,6 +19,11 @@ export interface PropTemplate {
 export type PropName = 'cauldron' | 'palette' | 'ruins' | 'statue' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell';
 export const PROP_NAMES: PropName[] = ['cauldron', 'palette', 'ruins', 'statue', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell'];
 export const PROPS: Partial<Record<PropName, PropTemplate>> = {};
+/**
+ * Bump a prop's version whenever its GLB changes: /models/ is cache-first on players' devices, so an
+ * unversioned URL can keep serving an old copy (or keep a failed load failing) indefinitely.
+ */
+const PROP_VER: Partial<Record<PropName, number>> = { tonka_truck: 2, giant_bell: 2, golden_bell: 2 };
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -36,8 +41,10 @@ function dequantize(g: THREE.BufferGeometry) {
 }
 
 async function loadOne(name: PropName): Promise<void> {
-  const t = await loadTemplate(`/models/props/${name}.glb`);
+  const v = PROP_VER[name];
+  const t = await loadTemplate(`/models/props/${name}.glb${v ? `?v=${v}` : ''}`);
   if (t) PROPS[name] = t;
+  else console.warn(`[props] ${name} failed to load, using the procedural fallback`);
 }
 
 /** Load any static GLB as one baked geometry + material (feet on y=0, centered on x/z, 1 m tall). Null if missing. */
