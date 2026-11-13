@@ -8,6 +8,52 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.10.0',
+    date: '2026-11-13',
+    title: 'Second Nature',
+    sections: [
+      {
+        heading: 'Heroes rebuilt from the bones up',
+        items: [
+          'Every hero has a new skeleton, placed on their real shoulders, neck, hips and knees. Arms now hang naturally at the sides instead of sticking out.',
+          'Faces no longer stretch or warp. Heads move as one solid piece, so Einstein keeps his face whatever he does.',
+          'Shoulders, elbows, collars and coats bend much more cleanly, with new collarbones, an extra spine joint and toes.',
+          'Heroes stand in a relaxed stance instead of a wide brace.',
+        ],
+      },
+      {
+        heading: 'Movement',
+        items: [
+          'Real strafing and diagonals: the hips turn into the direction of travel and the feet step where you are actually going, while the chest stays on your crosshair.',
+          'A proper backpedal, upright and slightly leaning back, instead of a run played backwards.',
+          'Walk, jog and sprint now match your real speed, so feet grip the ground instead of sliding.',
+          'Feet stay planted while they carry weight. Turn on the spot and your hero takes real steps to follow.',
+          'Heroes lean into acceleration, bank into strafes and settle when they stop.',
+          'Jumps keep the arms in, and landings are softer when you are already running.',
+          'Looking up and down bends the whole spine, and attacks follow it.',
+        ],
+      },
+      {
+        heading: 'Attacks and abilities',
+        items: [
+          'Every attack has a new hand-made motion that follows your crosshair and works at full sprint.',
+          'Einstein jabs photons from alternating hands and winds up a real overhand throw for his gravity orb.',
+          'Yeat cocks the bell by his head and snaps it at the target.',
+          'Van Gogh slashes his brush stroke from high to low and lobs seeds with an underhand toss.',
+          'New ultimate poses: Einstein floats with open arms and loose legs, and Vincent sweeps his arm up to paint the sky.',
+          'Getting hit now makes heroes flinch on impact.',
+        ],
+      },
+      {
+        heading: 'Under the hood',
+        items: [
+          'The motion library is six times smaller, so the first load is quicker.',
+          'Heroes only appear once their motion is ready, so they never flash a stiff pose.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.2',
     date: '2026-11-13',
     title: 'Fresh Varnish',
