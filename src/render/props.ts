@@ -37,6 +37,13 @@ function dequantize(g: THREE.BufferGeometry) {
     for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) out[i * a.itemSize + k] = a.getComponent(i, k);
     g.setAttribute(name, new THREE.BufferAttribute(out, a.itemSize));
   }
+  // Meshy exports the odd zero-length normal; normalize() turns it into NaN, and one NaN pixel blows up the bloom
+  // chain into a white screen. Renormalize everything and point the degenerate ones up.
+  const n = g.getAttribute('normal');
+  if (n) for (let i = 0; i < n.count; i++) {
+    const x = n.getX(i), y = n.getY(i), z = n.getZ(i), l = Math.hypot(x, y, z);
+    if (l > 1e-6) n.setXYZ(i, x / l, y / l, z / l); else n.setXYZ(i, 0, 1, 0);
+  }
   return g;
 }
 

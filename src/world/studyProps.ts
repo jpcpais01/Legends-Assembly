@@ -757,6 +757,28 @@ export function hourglass(M: PropMaterials) {
   return k.parts;
 }
 
+/**
+ * Real glass and sand for the Meshy hourglass, whose painted glass shell scripts/strip-hourglass-glass.mjs cuts out.
+ * Profiles are measured from that model; output is in the template's space (1 tall, feet on y = 0).
+ */
+export function hourglassGlass(): Part[] {
+  const H = 0.9487, Y0 = -0.4739; // the stripped model's height and floor
+  const fit = (g: THREE.BufferGeometry) => clean(g.translate(0, -Y0, 0).scale(1 / H, 1 / H, 1 / H));
+  const half: [number, number][] = [[0.125, -0.358], [0.127, -0.33], [0.136, -0.3], [0.157, -0.26], [0.166, -0.215], [0.161, -0.175], [0.139, -0.14], [0.115, -0.1], [0.081, -0.07], [0.048, -0.04], [0.031, -0.015], [0.027, 0]];
+  const bulb = [...half, ...half.slice(0, -1).reverse().map(([r, y]) => [r, -y] as [number, number])];
+  sandMat ??= new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.22, 0.08), roughness: 0.95 });
+  // thinner than the shared glass so the sand reads through it: clear, with just a rim of reflection
+  bulbMat ??= new THREE.MeshStandardMaterial({ color: 0xf2f6ff, roughness: 0.02, transparent: true, opacity: 0.07, depthWrite: false, envMapIntensity: 1.4 });
+  return [
+    // the bottom heap, the last of the top chamber (dipping where it drains) and the falling thread
+    { geo: fit(lathe([[0, -0.356], [0.118, -0.356], [0.124, -0.3], [0.146, -0.26], [0.155, -0.222], [0.09, -0.19], [0.025, -0.153], [0, -0.15]], 32)), mat: sandMat, collide: false },
+    { geo: fit(lathe([[0, 0.004], [0.022, 0.01], [0.042, 0.036], [0.074, 0.065], [0.106, 0.1], [0.132, 0.136], [0.148, 0.168], [0.07, 0.158], [0, 0.146]], 32)), mat: sandMat, collide: false },
+    { geo: fit(new THREE.CylinderGeometry(0.0035, 0.0035, 0.15, 6).translate(0, -0.075, 0)), mat: sandMat, collide: false },
+    { geo: fit(lathe(bulb, 48)), mat: bulbMat, collide: false },
+  ];
+}
+let sandMat: THREE.MeshStandardMaterial | undefined, bulbMat: THREE.MeshStandardMaterial | undefined;
+
 /** Ground decals: a coffee ring and an ink splatter. kind 0 = ring, 1 = ink. Size in cm. */
 export function decal(M: PropMaterials, kind: 0 | 1, size: number) {
   const k = new Kit(M);
