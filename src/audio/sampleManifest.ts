@@ -131,6 +131,12 @@ export const SAMPLE_FILES: Record<string, string[]> = {
   "engineLoop": [
     "engineLoop-0.ogg"
   ],
+  "engineHigh": [
+    "engineHigh-0.ogg"
+  ],
+  "skid": [
+    "skid-0.ogg"
+  ],
   "crash": [
     "crash-0.ogg",
     "crash-1.ogg"

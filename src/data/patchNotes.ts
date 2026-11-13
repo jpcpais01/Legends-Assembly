@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.12.1',
+    date: '2026-11-13',
+    title: 'Horsepower',
+    sections: [
+      {
+        heading: 'Yeat · Tonka',
+        items: [
+          'Tonka has all-new sound. The transform is a crisp run of ratchets and servos that slams shut with a heavy metal clunk.',
+          'The engine now has two layers: a throaty V8 rumble while cruising that builds into a full-throttle roar as the truck hits top speed. No more chipmunk revving.',
+          'Tires squeal when you throw the truck into a hard turn.',
+          'Ramming someone lands a much heavier crunch.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-11-13',
     title: 'Through the Window',
