@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.9.1',
+    version: '0.9.2',
     date: '2026-11-13',
     title: 'Fresh Varnish',
     sections: [
@@ -36,6 +36,24 @@ export const PATCH_NOTES: PatchNote[] = [
           'The bookshelves around the room are now filled with real books of every size, some leaning and some stacked, instead of a flat picture.',
           'The coffee mug, desk lamp, chess pieces, eraser and crumpled paper use twice the texture detail.',
           'The arena downloads faster too: the desk is built in code instead of a large model.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.9.1',
+    date: '2026-11-13',
+    title: 'Locked In',
+    sections: [
+      {
+        heading: 'Fullscreen and mouse',
+        items: [
+          'Matches now open in fullscreen the moment you hit Lock In, with the mouse captured right away. You can turn this off in Settings, Controls.',
+          'Esc opens the pause menu without kicking you out of fullscreen. Hold Esc if you want to leave fullscreen.',
+          'The mouse now uses raw input where your browser supports it, so turning matches your hand exactly with no OS acceleration.',
+          'Fixed sudden camera jerks right after the mouse gets captured or recaptured.',
+          'If the mouse ever gets released mid-match (alt-tab, a browser popup), the game pauses cleanly instead of leaving a stray cursor. Click anywhere on the arena to jump back in.',
+          'The cursor stays hidden over the arena for the whole match.',
         ],
       },
     ],

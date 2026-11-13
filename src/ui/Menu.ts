@@ -18,6 +18,8 @@ export interface MenuHooks {
   onPreviewHero(hero: HeroId): void;
   onQualityChange(): void;
   onResume(): void;
+  /** Fires on the Lock In click itself, while the browser still counts it as a user gesture. */
+  onEngage(): void;
   onLeave(): void;
 }
 
@@ -434,6 +436,7 @@ export class Menu {
     if (!el) return;
     this.locking = true;
     audio.play('lockIn');
+    this.hooks.onEngage();
     store('la:lastHero', this.hero);
     store('la:lastMode', this.mode);
     (el.querySelector('.lock-name') as HTMLElement).textContent = splitName(HEROES[this.hero].name)[1];
@@ -536,7 +539,7 @@ export class Menu {
   private renderSettingsBody(el: HTMLElement) {
     const body = el.querySelector('.set-body') as HTMLElement;
     const row = (label: string, desc: string, control: string) => `<div class="srow"><div class="sl"><b>${label}</b><small>${desc}</small></div><div class="sc">${control}</div></div>`;
-    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
+    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake' | 'fullscreen') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
     const slider = (k: SliderKey) => {
       const s = SLIDERS[k];
       const v = settings[k];
@@ -556,7 +559,8 @@ export class Menu {
       html = `<h3>Controls</h3>
         ${row('Mouse sensitivity', 'How fast the camera turns.', slider('sensitivity'))}
         ${row('Field of view', 'Wider shows more of the arena.', slider('fov'))}
-        ${row('Invert mouse Y', 'Push forward to look down.', toggle('invertY'))}`;
+        ${row('Invert mouse Y', 'Push forward to look down.', toggle('invertY'))}
+        ${row('Fullscreen in matches', 'Fill the whole screen when a match starts. Esc opens the pause menu; hold Esc to leave fullscreen.', toggle('fullscreen'))}`;
     } else if (c === 'audio') {
       html = `<h3>Audio</h3>
         ${row('Master volume', 'Every sound in the game.', slider('volume'))}
@@ -586,7 +590,7 @@ export class Menu {
       this.hooks.onQualityChange();
     }));
     body.querySelectorAll<HTMLButtonElement>('.tgl').forEach((b) => b.addEventListener('click', () => {
-      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake';
+      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake' | 'fullscreen';
       settings[k] = !settings[k];
       b.classList.toggle('on', settings[k]);
       b.setAttribute('aria-checked', String(settings[k]));
@@ -681,10 +685,12 @@ export class Menu {
           <button class="pbtn" data-a="learn" data-hover>${icon(UI.book)}How to play</button>
           <button class="pbtn danger" data-a="leave" data-hover>${icon(UI.exit)}<span>Leave match</span></button>
         </nav>
-        <p class="ps-hint">Click Resume to lock the mouse again</p>
+        <p class="ps-hint">Click anywhere on the arena to jump back in</p>
       </aside>
       ${me ? this.pauseCard(me) : ''}`;
     el.querySelector('[data-a=resume]')!.addEventListener('click', () => { audio.play('ui'); this.hooks.onResume(); });
+    // Clicking the open arena (not the panels) resumes too, like any PC shooter.
+    el.addEventListener('click', (e) => { if (e.target === el) { audio.play('ui'); this.hooks.onResume(); } });
     el.querySelector('[data-a=settings]')!.addEventListener('click', () => { audio.play('ui'); this.openOverlay('settings'); });
     el.querySelector('[data-a=learn]')!.addEventListener('click', () => { audio.play('ui'); this.openOverlay('learn'); });
     const leave = el.querySelector('[data-a=leave]') as HTMLButtonElement;

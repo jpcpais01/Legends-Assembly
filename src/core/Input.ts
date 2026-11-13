@@ -9,8 +9,16 @@ export class Input {
   lmbPressed = false;
   rmbPressed = false;
   locked = false;
+  /** True when the browser gave us raw (unaccelerated) mouse input. */
+  rawInput = false;
   onLockChange: ((locked: boolean) => void) | null = null;
+  /** The browser refused the lock (no user gesture, or re-locking too soon after Esc). */
+  onLockError: (() => void) | null = null;
   private el: HTMLElement;
+  private lockedAt = 0;
+  private settleEvents = 0;
+  private avgMove = 0;
+  private pending: Promise<void> | null = null;
 
   constructor(el: HTMLElement) {
     this.el = el;
@@ -25,10 +33,18 @@ export class Input {
     window.addEventListener('blur', () => { this.down.clear(); this.lmb = this.rmb = false; });
     window.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
-      // Clamp absurd spikes some browsers emit when pointer lock engages.
-      if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
-      this.mouseDX += e.movementX;
-      this.mouseDY += e.movementY;
+      const dx = e.movementX || 0, dy = e.movementY || 0;
+      // The first events after the lock engages often carry the jump from wherever the
+      // cursor was to the lock point (and Windows Chrome sends junk for ~1 frame).
+      if (this.settleEvents > 0 || performance.now() - this.lockedAt < 70) { this.settleEvents--; return; }
+      const mag = Math.abs(dx) + Math.abs(dy);
+      // Drop single-event teleports: far beyond anything a hand can do in one event and
+      // way out of line with the recent motion. Real fast flicks build up over several
+      // events, so the running average lets them through.
+      if (mag > 180 && mag > 9 * (this.avgMove + 8)) return;
+      this.avgMove += (mag - this.avgMove) * 0.25;
+      this.mouseDX += dx;
+      this.mouseDY += dy;
     });
     window.addEventListener('mousedown', (e) => {
       if (!this.locked) return;
@@ -41,19 +57,46 @@ export class Input {
     });
     window.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
+      const was = this.locked;
       this.locked = document.pointerLockElement === this.el;
-      if (!this.locked) { this.lmb = this.rmb = false; }
-      this.onLockChange?.(this.locked);
+      if (this.locked) { this.lockedAt = performance.now(); this.settleEvents = 2; this.avgMove = 0; }
+      else { this.lmb = this.rmb = false; this.down.clear(); }
+      this.mouseDX = this.mouseDY = 0;
+      if (was !== this.locked) this.onLockChange?.(this.locked);
     });
+    // Promise-based browsers report errors through lock(); this covers the legacy API.
+    document.addEventListener('pointerlockerror', () => { if (!this.pending) this.onLockError?.(); });
   }
 
   private norm(e: KeyboardEvent) { return e.code; }
 
+  /**
+   * Call from a user gesture. Asks for raw mouse input first (no OS acceleration, which is
+   * what makes turning feel "floaty" or inconsistent), and falls back to a normal lock where
+   * that isn't supported. Failures surface through onLockError instead of silently leaving
+   * the cursor free in a live match.
+   */
   lock() {
-    if (this.locked) return;
-    const p = this.el.requestPointerLock?.({ unadjustedMovement: true } as any) as unknown as Promise<void> | undefined;
-    // Some browsers reject unadjustedMovement; fall back to standard lock.
-    if (p && typeof p.catch === 'function') p.catch(() => this.el.requestPointerLock());
+    if (this.locked || this.pending || !this.el.requestPointerLock) return;
+    let p: Promise<void> | undefined;
+    try {
+      p = this.el.requestPointerLock({ unadjustedMovement: true } as PointerLockOptions) as unknown as Promise<void> | undefined;
+    } catch { p = undefined; }
+    if (!p || typeof p.then !== 'function') { this.rawInput = false; return; } // legacy: result comes via events
+    this.pending = p.then(
+      () => { this.rawInput = true; },
+      (err: DOMException) => {
+        if (this.locked) return;
+        // NotSupportedError = no raw input on this platform: retry plain. Anything else
+        // (e.g. re-locking too soon after Esc) needs a fresh click.
+        if (err?.name === 'NotSupportedError' || (err?.name === 'NotAllowedError' && /unadjusted/i.test(err.message))) {
+          this.rawInput = false;
+          const q = this.el.requestPointerLock() as unknown as Promise<void> | undefined;
+          return q && typeof q.then === 'function' ? q.catch(() => { if (!this.locked) this.onLockError?.(); }) : undefined;
+        }
+        this.onLockError?.();
+      },
+    ).finally(() => { this.pending = null; });
   }
 
   unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
