@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { settings } from './settings';
 import { RECIPES, BAKE_ORDER, renderRecipe, type Sfx, type Recipe } from '../audio/bank';
 import { impulseResponse } from '../audio/synth';
+import { SAMPLE_FILES, ANNOUNCER_FILES } from '../audio/sampleManifest';
 
 export type { Sfx };
 
 /**
- * Audio engine. Every sound is designed procedurally in audio/bank.ts and baked into
- * buffers once when audio unlocks, so firing one at runtime is just a buffer source,
- * a gain and a panner. The mix: SFX / UI / voice / music buses, a shared convolution
+ * Audio engine. Sounds are ElevenLabs-generated recordings (public/audio/sfx, see
+ * scripts/sfx/) streamed in when audio unlocks; every one also has a procedural patch in
+ * audio/bank.ts that is baked first and stays as the fallback if a file can't load or
+ * decode. Firing a sound at runtime is just a buffer source, a gain and a panner. The mix: SFX / UI / voice / music buses, a shared convolution
  * reverb whose send grows with distance, air absorption on far sounds, ducking under
  * voice lines and big moments, and a "doom" filter on the music for The Bell.
  */
@@ -60,6 +62,12 @@ export class AudioEngine {
   private voiceCache = new Map<string, Promise<AudioBuffer | null>>();
   private voiceReady = new Map<string, AudioBuffer | null>();
   private musicNodes: AudioNode[] = [];
+  private sampled = new Set<Sfx>();
+  private annBus!: GainNode;
+  private annBufs = new Map<string, AudioBuffer>();
+  private annQueue: { key: string; at: number; prio: number }[] = [];
+  private annCur: { src: AudioBufferSourceNode; g: GainNode; prio: number; end: number } | null = null;
+  private annTimer: number | null = null;
   private musicTimer: number | null = null;
 
   /** Must be called from a user gesture. */
@@ -96,20 +104,65 @@ export class AudioEngine {
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
     this.reverbIn.connect(hp).connect(conv).connect(ret).connect(pre);
 
+    // announcer: tight low cut, a little presence and a fast leveller, so it cuts through a fight
+    this.annBus = g(1.05);
+    const ahp = ctx.createBiquadFilter(); ahp.type = 'highpass'; ahp.frequency.value = 110; ahp.Q.value = 0.7;
+    const apr = ctx.createBiquadFilter(); apr.type = 'peaking'; apr.frequency.value = 3200; apr.gain.value = 3.5; apr.Q.value = 0.9;
+    const acomp = ctx.createDynamicsCompressor();
+    acomp.threshold.value = -20; acomp.knee.value = 6; acomp.ratio.value = 4; acomp.attack.value = 0.003; acomp.release.value = 0.12;
+    this.annBus.connect(ahp).connect(apr).connect(acomp).connect(this.voiceBus);
+    const asend = g(0.16); acomp.connect(asend).connect(this.reverbIn);
+
     void this.bake();
+    void this.loadSamples();
+    void this.loadAnnouncer();
   }
+
+  private async fetchBuffer(url: string) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${url}`);
+    return this.ctx!.decodeAudioData(await res.arrayBuffer());
+  }
+
+  /** Swap in the recorded sounds as they arrive; a sound that fails keeps its procedural patch. */
+  private async loadSamples() {
+    const t0 = performance.now();
+    const names = Object.keys(SAMPLE_FILES) as Sfx[];
+    let ok = 0;
+    let i = 0;
+    const worker = async () => {
+      while (i < names.length) {
+        const name = names[i++];
+        if (!(name in RECIPES)) continue;
+        try {
+          const bufs = await Promise.all(SAMPLE_FILES[name].map((f) => this.fetchBuffer(`/audio/sfx/${f}`)));
+          this.bank.set(name, bufs);
+          this.sampled.add(name);
+          ok++;
+        } catch (e) {
+          console.warn('[audio] sample failed, keeping procedural', name, e);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    console.info(`[audio] ${ok}/${names.length} recorded sounds loaded in ${Math.round(performance.now() - t0)} ms`);
+  }
+
+  /** True once the recorded version of a sound is in use. */
+  hasSample(name: Sfx) { return this.sampled.has(name); }
 
   private async bake() {
     const sr = this.ctx!.sampleRate;
     const t0 = performance.now();
     for (const name of BAKE_ORDER) {
+      if (this.sampled.has(name)) continue;
       const r: Recipe = RECIPES[name];
       const n = r.variants ?? 1;
       const out: AudioBuffer[] = [];
       for (let v = 0; v < n; v++) {
         try { out.push(await renderRecipe(name, v, sr)); } catch (e) { console.warn('[audio] bake failed', name, e); }
       }
-      if (out.length) this.bank.set(name, out);
+      if (out.length && !this.sampled.has(name)) this.bank.set(name, out);
     }
     console.info(`[audio] ${this.bank.size} sounds baked in ${Math.round(performance.now() - t0)} ms`);
   }
@@ -200,16 +253,29 @@ export class AudioEngine {
     const max = r.maxVoices ?? 8;
     while (list.length >= max) this.steal(list[0]);
 
-    let vi = opts.variant ?? Math.floor(Math.random() * bufs.length);
-    if (opts.variant === undefined && bufs.length > 1 && vi === this.lastVariant.get(name)) vi = (vi + 1) % bufs.length;
-    vi = Math.min(vi, bufs.length - 1);
-    this.lastVariant.set(name, vi);
+    const sampled = this.sampled.has(name);
+    let rate = opts.rate ?? 1;
+    let vi: number;
+    if (sampled && r.pitchVariants) {
+      // one recorded strike, re-pitched per riff note
+      const n = opts.variant ?? Math.floor(Math.random() * r.pitchVariants.length);
+      rate *= semi(r.pitchVariants[Math.min(n, r.pitchVariants.length - 1)]);
+      vi = 0;
+    } else {
+      vi = opts.variant ?? Math.floor(Math.random() * bufs.length);
+      if (opts.variant === undefined && bufs.length > 1 && vi === this.lastVariant.get(name)) vi = (vi + 1) % bufs.length;
+      vi = Math.min(vi, bufs.length - 1);
+      this.lastVariant.set(name, vi);
+    }
+    // recordings get a touch of pitch and level variation even where the patch had none,
+    // so a sound fired twenty times a second never machine-guns
+    const jitter = r.jitter ?? (sampled && r.bus !== 'ui' ? 0.35 : 0);
 
     const src = ctx.createBufferSource();
     src.buffer = bufs[vi];
-    src.playbackRate.value = (opts.rate ?? 1) * (r.jitter ? semi((Math.random() * 2 - 1) * r.jitter) : 1);
+    src.playbackRate.value = rate * (jitter ? semi((Math.random() * 2 - 1) * jitter) : 1);
     const g = ctx.createGain();
-    g.gain.value = gain;
+    g.gain.value = gain * (sampled && r.bus !== 'ui' ? 0.89 + Math.random() * 0.22 : 1);
     const nodes: AudioNode[] = [src, g];
     if (sp.lp < 20000) {
       const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sp.lp; f.Q.value = 0.5;
@@ -362,6 +428,79 @@ export class AudioEngine {
       },
     };
   }
+
+  // ───────────────────────── announcer ─────────────────────────
+
+  private async loadAnnouncer() {
+    await Promise.all(Object.entries(ANNOUNCER_FILES).map(async ([k, f]) => {
+      try { this.annBufs.set(k, await this.fetchBuffer(`/audio/announcer/${f}`)); } catch (e) { console.warn('[audio] announcer line failed', k, e); }
+    }));
+  }
+
+  /**
+   * The arena announcer. Lines queue so they never talk over each other; a higher-priority
+   * line (a penta over a double) cuts the current one, and stale lines are dropped.
+   */
+  announce(key: string, prio = 1) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running' || !this.annBufs.has(key)) return;
+    const now = ctx.currentTime;
+    if (this.annCur && now < this.annCur.end) {
+      if (prio > this.annCur.prio) {
+        const c = this.annCur;
+        c.g.gain.setTargetAtTime(0, now, 0.025);
+        try { c.src.stop(now + 0.12); } catch { /* done */ }
+        this.annCur = null;
+        this.annQueue = this.annQueue.filter((q) => q.prio > prio);
+      } else {
+        this.annQueue = this.annQueue.filter((q) => q.prio >= prio).slice(-1);
+        this.annQueue.push({ key, at: now, prio });
+        this.pumpAnnouncer();
+        return;
+      }
+    }
+    this.speak(key, prio);
+  }
+
+  private speak(key: string, prio: number) {
+    const ctx = this.ctx!;
+    const buf = this.annBufs.get(key)!;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = 1;
+    src.connect(g).connect(this.annBus);
+    src.start(now + 0.01);
+    this.annCur = { src, g, prio, end: now + buf.duration };
+    this.duck(buf.duration, 0.7, 0.45);
+    src.onended = () => { src.disconnect(); g.disconnect(); };
+    this.pumpAnnouncer();
+  }
+
+  private pumpAnnouncer() {
+    if (this.annTimer !== null || !this.annQueue.length || !this.annCur) return;
+    const wait = Math.max(0, this.annCur.end - this.ctx!.currentTime) + 0.12;
+    this.annTimer = window.setTimeout(() => {
+      this.annTimer = null;
+      const now = this.ctx!.currentTime;
+      const next = this.annQueue.shift();
+      if (next && now - next.at < 2.5) this.speak(next.key, next.prio);
+      else this.pumpAnnouncer();
+    }, wait * 1000);
+  }
+
+  // ───────────────────────── ambience ─────────────────────────
+
+  private amb: LoopHandle | null = null;
+
+  /** The arena's room tone under a match (recorded only; silent without the file). */
+  startAmbience(arena: 'study' | 'ruins') {
+    this.stopAmbience();
+    const h = this.loop(arena === 'ruins' ? 'ambRuins' : 'ambStudy', null, 1);
+    if (h) { h.set(null, 1, 1); this.amb = h; }
+  }
+
+  stopAmbience(fade = 1.2) { this.amb?.stop(fade); this.amb = null; }
 
   // ───────────────────────── music ─────────────────────────
 

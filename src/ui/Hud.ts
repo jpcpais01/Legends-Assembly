@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Game } from '../game/Game';
+import type { Game, Callout } from '../game/Game';
 import type { Hero } from '../game/Hero';
 import { portraits } from './portraits';
 import { settings } from '../core/settings';
@@ -66,6 +66,13 @@ export class Hud {
       <div class="hitmarker"></div>
       <div class="elims"></div>
       <div class="announce"><div class="big"></div><div class="small"></div></div>
+      <div class="callout">
+        <div class="co-badge"><i class="co-ring"></i><i class="co-ring r2"></i><svg viewBox="0 0 100 100"><path class="co-hex" d="M50 4 91 27v46L50 96 9 73V27Z"/><path class="co-hex2" d="M50 13 83 32v36L50 87 17 68V32Z"/></svg><b class="co-n"></b></div>
+        <div class="co-title"><b class="co-glow"></b><span></span></div>
+        <div class="co-sub"></div>
+        <div class="co-tags"></div>
+        <div class="co-pips"></div>
+      </div>
       <div class="intro"><small class="in-mode"></small><b class="in-title"></b><span class="in-goal"></span></div>
       <div class="countdown"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/></svg><span></span></div>
       <div class="death hidden">
@@ -294,6 +301,26 @@ export class Hud {
     (a.querySelector('.big') as HTMLElement).textContent = text;
     (a.querySelector('.small') as HTMLElement).textContent = sub;
     this.restart(a, 'announce', 'show ' + tone);
+  }
+
+  private coTimer = 0;
+
+  /** Kill-feat banner: a hex badge slams in, the title wipes on with a light sweep. */
+  callout(c: Callout) {
+    const root = this.root.querySelector('.callout') as HTMLElement;
+    const badge = c.kind === 'multi' ? `×${c.count}` : c.kind === 'streak' ? String(c.count) : c.kind === 'firstBlood' ? '1' : c.kind === 'shutdown' ? '✕' : c.kind === 'wiped' ? '!' : String(c.count);
+    (root.querySelector('.co-n') as HTMLElement).textContent = badge;
+    const title = root.querySelector('.co-title span') as HTMLElement;
+    title.textContent = c.title;
+    (root.querySelector('.co-glow') as HTMLElement).textContent = c.title;
+    (root.querySelector('.co-sub') as HTMLElement).textContent = c.sub;
+    (root.querySelector('.co-tags') as HTMLElement).innerHTML = c.tags.map((t) => `<i>+ ${esc(t)}</i>`).join('');
+    const pips = Math.min(c.streak, 10);
+    (root.querySelector('.co-pips') as HTMLElement).innerHTML = c.streak >= 2 ? Array.from({ length: pips }, (_, i) => `<i style="--i:${i}"></i>`).join('') + (c.streak > 10 ? `<b>+${c.streak - 10}</b>` : '') : '';
+    this.restart(root, 'callout', `show k-${c.kind} t${c.tier}`);
+    this.root.classList.add('co-on');
+    clearTimeout(this.coTimer);
+    this.coTimer = window.setTimeout(() => this.root.classList.remove('co-on'), 2900);
   }
 
   countdown(n: number) {

@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.11.0',
+    version: '0.12.0',
     date: '2026-11-13',
     title: 'Through the Window',
     sections: [
@@ -21,6 +21,40 @@ export const PATCH_NOTES: PatchNote[] = [
           'Real god rays: you can see the beams of light in the air, with dust drifting through them and glinting only where the sun catches it.',
           'The fireplace glows and flickers, and the chandelier now hangs from the ceiling on a long chain.',
           'The magnifying glass and the spectacles now have real see-through lenses.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.11.0',
+    date: '2026-11-13',
+    title: 'Sound Check',
+    sections: [
+      {
+        heading: 'All-new sound',
+        items: [
+          'Every sound in the game has been re-recorded: all nine abilities, hits, headshots, eliminations, footsteps, jumps, landings, pickups, respawns and the whole menu.',
+          'Einstein’s photons zap, the Gravity Well now swirls and then implodes right on the pop, and E = mc² charges up before it detonates.',
+          'Yeat’s bell riff hits with a real handbell and 808, Tonka roars and revs with speed, and The Bell tolls like a cathedral before it craters the ground.',
+          'Van Gogh’s paint flicks and splats wetly, the sunflower bursts out of the earth, and The Starry Night shimmers over the arena.',
+          'Footsteps match the floor: polished wood on the Giant’s Study desk, grass in the Ruins.',
+          'Each arena now has its own ambience: rain, a ticking clock and a crackling fire in the Study, wind and birds in the Ruins.',
+          'Rapid-fire sounds vary in pitch and level every shot, so nothing machine-guns.',
+        ],
+      },
+      {
+        heading: 'Announcer',
+        items: [
+          'An arena announcer calls the big moments: First Blood, Double, Triple, Quadra and Penta Eliminations, streaks (On a Streak, Rampage, Unstoppable, Legendary), Shutdown, Team Wipe, Fight, Victory and Defeat.',
+          'Lock In a legend and the announcer calls “Legends… assemble!”.',
+          'Multi-kills now count kills chained within 4.5 seconds, separately from your streak.',
+        ],
+      },
+      {
+        heading: 'HUD',
+        items: [
+          'Brand-new kill callouts: a hex badge slams in with a shockwave, the title wipes on with a light sweep, extra feats show as tags and your streak as a row of diamonds.',
+          'Each feat has its own color, from gold doubles to a prismatic Penta.',
         ],
       },
     ],
