@@ -8,6 +8,28 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.9.0',
+    date: '2026-11-13',
+    title: 'Real Motion',
+    sections: [
+      {
+        heading: 'Motion capture',
+        items: [
+          'Every hero now moves with real motion capture from human actors, fitted to each hero’s own body and proportions.',
+          'Walking, jogging and sprinting blend smoothly with speed, and the stride matches how fast you move, so feet plant on the ground instead of sliding.',
+          'Strafing turns the hips into the run while the shoulders stay on target, and backpedaling steps backwards for real.',
+          'Jumps push off and tuck in the air, landings absorb the drop (lighter when you land running), and turning on the spot takes small steps.',
+          'Attacks are real throws, swings and casts on the upper body while the legs keep running.',
+          'Taking damage makes heroes flinch from the hit, and eliminations play a proper fall.',
+        ],
+      },
+      {
+        heading: 'Credits',
+        items: ['Motion capture from the Universal Animation Library by Quaternius (CC0).'],
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-11-12',
     title: 'Feel Every Hit',

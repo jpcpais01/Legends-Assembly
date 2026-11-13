@@ -5,6 +5,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import { PROPS } from './props';
+import { bakeMocap, MocapAnimator, snapshotRest } from './mocap';
 import type { HeroDef } from '../game/types';
 
 const loader = new GLTFLoader();
@@ -41,6 +42,8 @@ export class GltfHeroModel implements HeroModel {
   private inner = new THREE.Group();
   /** Set when the GLB was auto-rigged onto the game skeleton (scripts/autorig.mjs): procedural animation drives it. */
   private animator: RigAnimator | null = null;
+  /** Motion-capture animator; replaces the procedural one once the clips are retargeted. */
+  private mocap: MocapAnimator | null = null;
   private heldMesh: THREE.Mesh | null = null;
   private heldGrip: THREE.Group | null = null;
   private heldRest = new THREE.Euler();
@@ -89,7 +92,11 @@ export class GltfHeroModel implements HeroModel {
         const bones = { body: this.inner } as Record<string, THREE.Object3D>;
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         const armOut = Number(obj.getObjectByName('la_armature')?.userData?.armOut ?? 0);
+        const rest = snapshotRest(obj, bones);
         this.animator = new RigAnimator(bones as unknown as RigBones, { armOut, style: def.motion });
+        bakeMocap(def.modelUrl!, rest).then((set) => {
+          if (set && !this.disposed) this.mocap = new MocapAnimator(bones as unknown as RigBones, set, { armOut });
+        });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {
@@ -135,7 +142,7 @@ export class GltfHeroModel implements HeroModel {
   update(dt: number, s: AnimState) {
     if (!this.obj) { this.fallback.update(dt, s); return; }
     if (this.animator) {
-      this.animator.update(dt, s);
+      (this.mocap ?? this.animator).update(dt, s);
       if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
       if (this.heldGrip) {
         // a fresh attack rings the bell: a quick damped clapper swing about the grip
