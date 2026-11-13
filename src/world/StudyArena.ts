@@ -28,9 +28,11 @@ const FLOOR_Y = -38; // the room floor, far below the desk top
  * on players' devices, so a new URL is what makes them fetch a model they once missed (or an updated one).
  */
 const DROP_VER: Record<string, number> = {
-  antique_books: 1, inkwell_quill: 1, hourglass: 1, brush_jar: 1, candle_holder: 1, coin_stack: 1, teacup_saucer: 1, rolled_map: 1,
-  closed_book: 1, spectacles: 2, magnifying_glass: 2, ruler: 1, envelope_wax_seal: 1, pencil: 1, emerald_quill: 1,
+  antique_books: 2, inkwell_quill: 2, hourglass: 2, brush_jar: 2, candle_holder: 2, coin_stack: 2, teacup_saucer: 2, rolled_map: 2,
+  closed_book: 2, spectacles: 3, magnifying_glass: 3, ruler: 2, envelope_wax_seal: 2, pencil: 2, emerald_quill: 2,
 };
+/** Same idea for the fixed set of desk models (v2: 1K metal/roughness maps). */
+const STUDY_VER = 2;
 const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
 
@@ -135,6 +137,8 @@ export class StudyArena implements ArenaLike {
     scene.background = new THREE.Color(0x1a120c);
     // the sunset sky is only seen through the window
     this.sky.material.uniforms.uSunDir.value.copy(SUN_DIR);
+    // the sky only shows through the windows: draw it after every opaque so the depth test skips the walls in front of it
+    this.sky.mesh.renderOrder = 10;
     scene.add(this.sky.mesh);
     scene.environment = this.bakeEnvironment(renderer);
     scene.environmentIntensity = 0.55;
@@ -195,7 +199,7 @@ export class StudyArena implements ArenaLike {
 
   private async load() {
     this.roomModel = await this.loadRoomModel();
-    const loaded = await Promise.all(STUDY_PROPS.map((n) => loadTemplate(`/models/study/${n}.glb`)));
+    const loaded = await Promise.all(STUDY_PROPS.map((n) => loadTemplate(`/models/study/${n}.glb?v=${STUDY_VER}`)));
     STUDY_PROPS.forEach((n, i) => { const t = loaded[i]; if (t) this.T[n] = t; });
     const hx = DESK_HX, hz = DESK_HZ;
     this.floorY = FLOOR_Y;
@@ -471,6 +475,8 @@ export class StudyArena implements ArenaLike {
 
   /** Ceiling, window glass, fire glow and dust around the room model. */
   private dressModelRoom(room: THREE.Mesh) {
+    // the backdrop draws after the desk, props and heroes, so whatever they cover is never shaded
+    room.renderOrder = 1;
     this.scene.add(room);
     const B = ROOM_BOX;
     // ceiling: dark planks and heavy beams just above the model's crown beams
@@ -491,6 +497,7 @@ export class StudyArena implements ArenaLike {
     for (let i = 0; i < 5; i++) beams.push(new RoundedBoxGeometry(cw, 9, 8, 2, 1.5).translate(cx, WIN.ceil + 1.5, B.z0 + 20 + i * ((B.z1 - B.z0 - 40) / 4)));
     const beam = new THREE.Mesh(mergeGeometries(beams, false)!, beamMat);
     ceil.receiveShadow = beam.receiveShadow = true;
+    ceil.renderOrder = beam.renderOrder = 1;
     this.scene.add(ceil, beam);
 
     // window glass: barely there, a sheen of the room on it

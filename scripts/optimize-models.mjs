@@ -78,6 +78,8 @@ for (const f of files) {
     resample(),
     prune(),
     dedup(),
+    // metal/roughness is smooth data: 1K looks the same and saves ~16 MB of video memory per 2K model
+    textureCompress({ encoder: sharp, targetFormat: 'webp', slots: /^metallicRoughness/, resize: [Math.min(TEX, 1024), Math.min(TEX, 1024)], quality: 90 }),
     textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [TEX, TEX], quality: 90 }),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   );
