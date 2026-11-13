@@ -708,6 +708,68 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .sb-k { font-weight: 750; }
 
 /* ───────── small screens ───────── */
+/* ── kill-feat callouts (multi-kills, streaks, first blood, shutdown, team wipe) ── */
+.callout { --c1: #fff2c4; --c2: #ffb347; --glow: 255, 176, 64; position: absolute; left: 50%; top: 13.5%; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); opacity: 0; pointer-events: none; text-align: center; white-space: nowrap; }
+.callout.t1 { --c1: #e8f4ff; --c2: #8fb8d8; --glow: 120, 170, 220; }
+.callout.t2 { --c1: #fff2c4; --c2: #ffb347; --glow: 255, 176, 64; }
+.callout.t3 { --c1: #ffe1c2; --c2: #ff7a2e; --glow: 255, 110, 40; }
+.callout.t4 { --c1: #ffd6f4; --c2: #ff3fae; --glow: 255, 64, 170; }
+.callout.t5 { --c1: #ffffff; --c2: #b78cff; --glow: 170, 120, 255; }
+.callout.k-firstBlood { --c1: #ffd0d4; --c2: #ff2e4d; --glow: 255, 40, 70; }
+.callout.k-shutdown { --c1: #dcf3ff; --c2: #38b6ff; --glow: 56, 182, 255; }
+.callout.k-streak.t2 { --c1: #d9fff4; --c2: #2ee6b0; --glow: 46, 230, 176; }
+.callout.k-wiped { --c1: #ffd6dc; --c2: #ff6d80; --glow: 255, 61, 90; }
+.callout.show { animation: coLife 2.75s linear forwards; }
+@keyframes coLife { 0% { opacity: 1; } 86% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.96); } }
+
+.co-badge { position: relative; width: 66px; height: 66px; display: grid; place-items: center; margin-bottom: 4px; }
+.co-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 14px rgba(var(--glow), .7)); }
+.co-hex { fill: rgba(8, 10, 18, .82); stroke: var(--c2); stroke-width: 4; }
+.co-hex2 { fill: none; stroke: var(--c1); stroke-width: 1.5; opacity: .55; }
+.co-n { position: relative; font-family: var(--display); font-weight: 800; font-style: italic; font-size: 30px; line-height: 1; color: var(--c1); text-shadow: 0 0 12px rgba(var(--glow), .9); letter-spacing: -.02em; }
+.co-ring { position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%; border: 2px solid rgba(var(--glow), .9); opacity: 0; }
+.callout.show .co-badge { animation: coSlam .55s var(--spring) both; }
+.callout.show .co-ring { animation: coRing .7s cubic-bezier(.2, .8, .3, 1) .08s both; }
+.callout.show .co-ring.r2 { animation-delay: .2s; border-width: 1px; }
+@keyframes coSlam { 0% { transform: scale(2.6) rotate(-30deg); opacity: 0; } 45% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes coRing { 0% { transform: scale(.6); opacity: .95; } 100% { transform: scale(3.4); opacity: 0; } }
+
+.co-title { position: relative; padding: 0 8px; }
+.co-title span { display: inline-block; font-family: var(--display); font-weight: 800; font-style: italic; font-size: clamp(40px, 4.4vw, 60px); line-height: 1.02; letter-spacing: .04em; text-transform: uppercase;
+  background: linear-gradient(100deg, var(--c2) 0%, var(--c1) 38%, #fff 50%, var(--c1) 62%, var(--c2) 100%); background-size: 260% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* the glow is a solid copy of the title behind the gradient text: any filter near clipped text leaks its box */
+.co-title span { position: relative; }
+.co-title .co-glow { position: absolute; left: 8px; top: 0; pointer-events: none; font-family: var(--display); font-weight: 800; font-style: italic; font-size: clamp(40px, 4.4vw, 60px); line-height: 1.02; letter-spacing: .04em; text-transform: uppercase; color: rgba(0, 0, 0, .35); text-shadow: 0 3px 0 rgba(0, 0, 0, .5), 0 0 20px rgba(var(--glow), .8), 0 0 46px rgba(var(--glow), .35); }
+.callout.t4 .co-glow, .callout.t5 .co-glow { font-size: clamp(46px, 5vw, 70px); }
+.callout.t4 .co-title span, .callout.t5 .co-title span { font-size: clamp(46px, 5vw, 70px); }
+.callout.show .co-title { animation: coWipe .42s cubic-bezier(.2, .9, .2, 1) .1s both; }
+.callout.show .co-title span { animation: coSweep 1.5s ease-out .2s both; }
+@keyframes coWipe { 0% { clip-path: inset(-60px 100% -60px -80px); transform: skewX(-14deg) translateX(-24px); } 100% { clip-path: inset(-60px -80px -60px -80px); transform: none; } }
+@keyframes coSweep { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+.callout.t5.show .co-badge svg { animation: coPrism 2.2s linear infinite; }
+.callout.t5 .co-title span { background-image: linear-gradient(100deg, #b78cff 0%, #6bf0ff 20%, #fff 34%, #ffd36b 50%, #ff6bd5 66%, #fff 80%, #b78cff 100%); }
+.callout.t5.show .co-title span { animation: coSweep 1.1s linear .1s infinite; }
+@keyframes coPrism { 0% { filter: hue-rotate(0deg) drop-shadow(0 0 18px rgba(var(--glow), .6)); } 100% { filter: hue-rotate(360deg) drop-shadow(0 0 18px rgba(var(--glow), .6)); } }
+
+.co-sub { margin-top: 2px; padding: 4px 22px; font-size: 14px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: rgba(255, 255, 255, .92); background: linear-gradient(90deg, transparent, rgba(6, 8, 15, .78) 20% 80%, transparent); }
+.co-sub::before { content: ''; display: block; height: 1px; margin: -4px -22px 3px; background: linear-gradient(90deg, transparent, rgba(var(--glow), .8), transparent); }
+.co-sub:empty { display: none; }
+.callout.show .co-sub { animation: coUp .4s var(--out) .22s both; }
+.co-tags { display: flex; gap: 8px; margin-top: 5px; }
+.co-tags i { font-style: normal; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: var(--c1); padding: 2px 9px; border: 1px solid rgba(var(--glow), .55); border-radius: 4px; background: rgba(6, 8, 15, .6); }
+.co-tags:empty, .co-pips:empty { display: none; }
+.callout.show .co-tags i { animation: coUp .35s var(--spring) .38s both; }
+.co-pips { display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+.co-pips i { width: 9px; height: 9px; transform: rotate(45deg); background: var(--c2); box-shadow: 0 0 8px rgba(var(--glow), .9); }
+.co-pips b { font-family: var(--display); font-size: 13px; color: var(--c1); margin-left: 2px; }
+.callout.show .co-pips i { animation: coPip .3s var(--spring) both; animation-delay: calc(.35s + var(--i) * 45ms); }
+@keyframes coUp { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+@keyframes coPip { 0% { opacity: 0; transform: rotate(45deg) scale(0); } 100% { opacity: 1; transform: rotate(45deg) scale(1); } }
+/* an ability banner that lands during a callout steps down out of its way */
+.co-on .announce { top: 42%; }
+.co-on .announce .small { display: none; }
+.co-on .announce .big { font-size: 34px; }
+
 @media (max-width: 1100px) {
   .tab { padding: 0 13px; font-size: 15px; }
   .me div { display: none; }
@@ -761,6 +823,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
   .rm-art img { height: 250px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .callout.show .co-badge, .callout.show .co-ring, .callout.show .co-title, .callout.show .co-title span, .callout.t5.show .co-title span, .callout.show .co-pips i { animation: none; }
   .btn-play::after, .btn-lock::before, .logo .l1, .boot::after, .ult.ready .u-core::before { animation: none; }
 }
 

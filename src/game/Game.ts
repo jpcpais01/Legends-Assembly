@@ -41,7 +41,38 @@ export interface GameEvents {
   onAnnounce(text: string, sub?: string, tone?: 'gold' | 'red' | 'blue'): void;
   onMatchEnd(winner: number): void;
   onCountdown(n: number): void;
+  onCallout(c: Callout): void;
 }
+
+/** A kill-feat banner: multi-kills, streaks, first blood, shutdowns and team wipes. */
+export interface Callout {
+  kind: 'multi' | 'streak' | 'firstBlood' | 'shutdown' | 'teamWipe' | 'wiped';
+  title: string;
+  sub: string;
+  /** 1..5 intensity: drives color, size and the badge. */
+  tier: number;
+  /** Badge number (×2, ×3 … or the streak length). */
+  count: number;
+  /** Lesser feats earned on the same kill, shown as tags. */
+  tags: string[];
+  /** Current kill streak, drawn as pips. */
+  streak: number;
+}
+
+const MULTI_WINDOW = 4.5;
+const MULTI = [
+  null, null,
+  { title: 'Double Elimination', vox: 'double' },
+  { title: 'Triple Elimination', vox: 'triple' },
+  { title: 'Quadra Elimination', vox: 'quadra' },
+  { title: 'Penta Elimination', vox: 'penta' },
+];
+const STREAKS: Record<number, { title: string; vox: string; tier: number }> = {
+  3: { title: 'On a Streak', vox: 'streak3', tier: 2 },
+  5: { title: 'Rampage', vox: 'streak5', tier: 3 },
+  7: { title: 'Unstoppable', vox: 'streak7', tier: 4 },
+  10: { title: 'Legendary', vox: 'streak10', tier: 5 },
+};
 
 interface Pickup { pos: THREE.Vector3; ready: boolean; t: number; mesh: THREE.Group; orb: THREE.Mesh }
 
@@ -57,6 +88,8 @@ export class Game {
   projectiles: Projectile[] = [];
   zones: Zone[] = [];
   pickups: Pickup[] = [];
+  private multi = new Map<number, { n: number; t: number }>();
+  private firstBlood = false;
   pools = new Map<string, InstancedPool>();
   time = 0;
   matchTime = MATCH_TIME;
@@ -140,6 +173,8 @@ export class Game {
     this.target = info.target;
     this.score = [0, 0];
     this.matchTime = MATCH_TIME;
+    this.multi.clear();
+    this.firstBlood = false;
     this.time = 0;
     this.winner = -1;
     this.timeScale = 1;
@@ -309,6 +344,7 @@ export class Game {
     const info = this.config ? MODE_INFO[this.config.mode] : MODE_INFO['3v3'];
     victim.respawnT = 4 + info.size * 0.5;
     victim.stats.deaths++;
+    const victimStreak = victim.stats.streak;
     victim.stats.streak = 0;
     victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0;
     victim.kit.onDeath?.(victim, this);
@@ -323,12 +359,8 @@ export class Game {
       killer.stats.bestStreak = Math.max(killer.stats.bestStreak, killer.stats.streak);
       this.score[killer.team]++;
       this.chargeUlt(killer, 150);
-      if (killer.isLocal) {
-        this.play('kill');
-        const s = killer.stats.streak;
-        const label = s >= 5 ? 'UNSTOPPABLE' : s === 4 ? 'RAMPAGE' : s === 3 ? 'TRIPLE ELIMINATION' : s === 2 ? 'DOUBLE ELIMINATION' : 'ELIMINATED';
-        this.events.onAnnounce(label, victim.name + ' · ' + victim.def.name, s >= 2 ? 'gold' : 'blue');
-      }
+      if (killer.isLocal) this.play('kill');
+      if (killer !== victim) this.feats(killer, victim, victimStreak);
     }
     if (victim.isLocal) {
       this.camRig.mode = 'dead';
@@ -355,11 +387,59 @@ export class Game {
     this.events.onKill(killer, victim, assists);
     if (killer && killer !== victim) {
       const multi = killer.stats.streak >= 2;
-      this.voice.after(0.35, () => { if (!this.voice.say(killer, multi ? 'multiKill' : 'kill') && multi) this.voice.say(killer, 'kill'); });
+      // on a multi-kill the announcer speaks first, the legend answers after
+      this.voice.after(multi ? 1.9 : 0.35, () => { if (!this.voice.say(killer, multi ? 'multiKill' : 'kill') && multi) this.voice.say(killer, 'kill'); });
     }
     if (victim.isLocal) this.voice.after(0.2, () => this.voice.say(victim, 'death'));
     if (this.score[0] >= this.target || this.score[1] >= this.target) this.endMatch(this.score[0] >= this.target ? 0 : 1);
     else if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
+  }
+
+  /** Multi-kills, streaks, first blood, shutdowns and wipes: banner + announcer. */
+  private feats(killer: Hero, victim: Hero, victimStreak: number) {
+    const m = this.multi.get(killer.id);
+    const n = m && this.time - m.t <= MULTI_WINDOW ? m.n + 1 : 1;
+    this.multi.set(killer.id, { n, t: this.time });
+    const first = !this.firstBlood;
+    this.firstBlood = true;
+    const streak = killer.stats.streak;
+    const shutdown = victimStreak >= 3;
+    const enemyTeam = victim.team;
+    const teamSize = this.heroes.filter((h) => h.team === enemyTeam).length;
+    const wipe = teamSize >= 2 && this.heroes.every((h) => h.team !== enemyTeam || !h.alive);
+    const me = this.local;
+    const sub = `${killer.isLocal ? victim.name + ' · ' + victim.def.name : killer.name + ' · ' + killer.def.name}`;
+
+    type Feat = { kind: Callout['kind']; title: string; vox: string; tier: number; count: number; prio: number };
+    const list: Feat[] = [];
+    if (n >= 2) { const k = MULTI[Math.min(n, 5)]!; list.push({ kind: 'multi', title: k.title, vox: k.vox, tier: Math.min(5, n), count: n, prio: 10 + n }); }
+    if (STREAKS[streak]) { const k = STREAKS[streak]; list.push({ kind: 'streak', title: k.title, vox: k.vox, tier: k.tier, count: streak, prio: 6 + k.tier }); }
+    if (wipe) list.push({ kind: 'teamWipe', title: 'Team Wipe', vox: 'teamWipe', tier: 4, count: teamSize, prio: 9 });
+    if (shutdown) list.push({ kind: 'shutdown', title: 'Shutdown', vox: 'shutdown', tier: 3, count: victimStreak, prio: 7 });
+    if (first) list.push({ kind: 'firstBlood', title: 'First Blood', vox: 'firstBlood', tier: 2, count: 1, prio: 5 });
+    if (!list.length || !me) return;
+    list.sort((a, b) => b.prio - a.prio);
+
+    if (killer.isLocal) {
+      const top = list[0];
+      this.events.onCallout({ kind: top.kind, title: top.title, sub, tier: top.tier, count: top.count, tags: list.slice(1).map((f) => f.title), streak });
+      audio.announce(top.vox, top.prio);
+      if (list[1]) audio.announce(list[1].vox, 1);
+      return;
+    }
+    // other players' feats: only the ones the whole lobby hears
+    if (first) {
+      this.events.onCallout({ kind: 'firstBlood', title: 'First Blood', sub: `${killer.name} drew first blood`, tier: 2, count: 1, tags: [], streak: 0 });
+      audio.announce('firstBlood', 5);
+    } else if (wipe && killer.team === me.team) {
+      this.events.onCallout({ kind: 'teamWipe', title: 'Team Wipe', sub: 'Enemy team eliminated', tier: 4, count: teamSize, tags: [], streak: 0 });
+      audio.announce('teamWipe', 9);
+    } else if (wipe && enemyTeam === me.team) {
+      this.events.onCallout({ kind: 'wiped', title: 'Team Wiped', sub: `by ${killer.name} · ${killer.def.name}`, tier: 1, count: teamSize, tags: [], streak: 0 });
+    } else if (n >= 3 && killer.team !== me.team) {
+      // an enemy is running riot: warn without the fanfare
+      audio.announce(MULTI[Math.min(n, 5)]!.vox, 1);
+    }
   }
 
   private endMatch(winner: number) {
@@ -371,7 +451,9 @@ export class Game {
     this.play(winner === 0 ? 'victory' : 'defeat');
     audio.duck(2.5, 0.6, 0.3);
     const me = this.local;
-    if (me) this.voice.after(1.1, () => this.voice.say(me, winner === me.team ? 'victory' : 'defeat', true));
+    const won = !!me && winner === me.team;
+    this.voice.after(0.45, () => audio.announce(won ? 'victory' : 'defeat', 5));
+    if (me) this.voice.after(2.2, () => this.voice.say(me, winner === me.team ? 'victory' : 'defeat', true));
     this.events.onMatchEnd(winner);
   }
 
@@ -507,6 +589,7 @@ export class Game {
         this.lastCount = n;
         this.events.onCountdown(n);
         this.play(n === 0 ? 'go' : 'countdown');
+        if (n === 0) audio.announce('fight', 2);
         if (n === 0) this.voice.after(0.8, () => this.voice.matchStart());
       }
       if (this.introT >= 3) this.state = 'playing';
@@ -665,7 +748,7 @@ export class Game {
     const stride = 0.9 + sp * 0.17;
     if (acc >= stride) {
       acc -= stride;
-      this.play('step', h.pos, h.isLocal ? 0.55 : 0.85);
+      this.play(settings.arena === 'ruins' ? 'stepGrass' : 'step', h.pos, h.isLocal ? 0.55 : 0.85);
       if (sp > 4) this.vfx.dust(h.pos, 1, 0.32, 0.16, 0.5);
     }
     this.steps.set(h.id, acc);

@@ -22,6 +22,10 @@ export interface Recipe {
   dedupe?: number;
   bus?: 'sfx' | 'ui';
   loop?: boolean;
+  /** When a recorded sample replaces the patch: variant n plays the one sample shifted by these semitones. */
+  pitchVariants?: number[];
+  /** Sample-only sound (no procedural patch, never baked). */
+  sampleOnly?: boolean;
   render?(s: Synth, v: number): void;
   raw?(sr: number, v: number): Float32Array[];
 }
@@ -281,6 +285,14 @@ export const RECIPES = {
       s.crackle(T, 0.06, 4, 0.12, s.out, 2500, 7000);
     },
   },
+  stepGrass: {
+    // footsteps on the outdoor arena; the procedural fallback is the same scuff as the desk
+    dur: 0.18, variants: 6, level: 0.24, jitter: 1, maxVoices: 10, dedupe: 0,
+    render(s) {
+      s.burst(T, 0.001, 0.035, 0.5, 'lowpass', s.r(500, 800), 0.8, s.out, 'pink');
+      s.crackle(T, 0.08, 8, 0.18, s.out, 2000, 6000);
+    },
+  },
   jump: {
     dur: 0.32, variants: 3, level: 0.28, jitter: 0.8,
     render(s) {
@@ -475,7 +487,7 @@ export const RECIPES = {
   // ── Yeat ──
   bell: {
     // rage bell: struck handbell + FM edge + distorted 808 + hat. Variant = riff note.
-    dur: 1.4, variants: BELL_SEMIS.length, level: 0.55, maxVoices: 4, reverb: 0.15, dedupe: 0.05,
+    dur: 1.4, variants: BELL_SEMIS.length, pitchVariants: BELL_SEMIS, level: 0.55, maxVoices: 4, reverb: 0.15, dedupe: 0.05,
     render(s, v) {
       const f = 466.16 * semi(BELL_SEMIS[v]);
       s.partials(f, [[1, 0.9, 1.25], [2, 0.25, 0.7], [2.76, 0.45, 0.55], [5.4, 0.22, 0.25], [8.93, 0.1, 0.12]], T, s.out, 0.0015);
@@ -766,13 +778,18 @@ export const RECIPES = {
       s.partials(s.r(1500, 1900), [[1, 0.3, 0.7], [2.76, 0.1, 0.3], [5.4, 0.05, 0.15]], I, mix);
     },
   },
+
+  // ── sample-only (ElevenLabs; silent if the files are missing) ──
+  gravityCollapse: { dur: 1.1, level: 0.75, reverb: 0.25, sampleOnly: true },
+  ambStudy: { dur: 20, level: 0.16, loop: true, reverb: 0, sampleOnly: true },
+  ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true },
 } satisfies Record<string, Recipe>;
 
 export type Sfx = keyof typeof RECIPES;
 
 /** Bake order: what you hear first is ready first. */
 export const BAKE_ORDER: Sfx[] = [
-  'ui', 'uiHover', 'uiTab', 'uiBack', 'lockIn', 'denied', 'countdown', 'go', 'hit', 'crit', 'kill', 'hurt', 'step', 'jump', 'land', 'comm',
+  'ui', 'uiHover', 'uiTab', 'uiBack', 'lockIn', 'denied', 'countdown', 'go', 'hit', 'crit', 'kill', 'hurt', 'step', 'stepGrass', 'jump', 'land', 'comm',
   'photon', 'photonHit', 'bell', 'bellHit', 'paint', 'splat', 'gravityThrow', 'seedToss', 'gravity', 'tonka', 'engineLoop', 'crash', 'ram',
   'bloom', 'heal', 'pickup', 'respawn', 'death', 'ultReady', 'emcCharge', 'emcBlast', 'bellSummon', 'bellWhistle', 'bigBell', 'bellDrop',
   'starry', 'starFall', 'victory', 'defeat',

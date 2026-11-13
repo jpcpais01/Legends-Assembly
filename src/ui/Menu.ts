@@ -436,6 +436,7 @@ export class Menu {
     if (!el) return;
     this.locking = true;
     audio.play('lockIn');
+    audio.announce('assemble', 0);
     this.hooks.onEngage();
     store('la:lastHero', this.hero);
     store('la:lastMode', this.mode);
