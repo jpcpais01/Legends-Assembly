@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.11.0',
+    date: '2026-11-13',
+    title: 'Through the Window',
+    sections: [
+      {
+        heading: 'The Giant’s Study',
+        items: [
+          'The study is now a real, fully sculpted room: towering bookcases with a ladder, a stone fireplace, a reading chair, a window seat piled with scrolls and a carved wooden door, all closed in under a beamed ceiling.',
+          'A second arched window looks out from the side wall, and both windows have clear glass you can see the sky through.',
+          'Late sun now pours in through the back window: a bright patch of light, criss-crossed by the window bars, falls across the desk and the floor.',
+          'Real god rays: you can see the beams of light in the air, with dust drifting through them and glinting only where the sun catches it.',
+          'The fireplace glows and flickers, and the chandelier now hangs from the ceiling on a long chain.',
+          'The magnifying glass and the spectacles now have real see-through lenses.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.10.4',
     date: '2026-11-13',
     title: 'Sand and Glass',

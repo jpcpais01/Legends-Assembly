@@ -20,6 +20,7 @@ export interface PropMaterials {
   brass: THREE.MeshStandardMaterial;
   steel: THREE.MeshStandardMaterial;
   glass: THREE.MeshStandardMaterial;
+  lens: THREE.MeshStandardMaterial;
   porcelain: THREE.MeshStandardMaterial;
   pages: THREE.MeshStandardMaterial;
   cards: THREE.MeshStandardMaterial;
@@ -404,6 +405,7 @@ export function propMaterials(): PropMaterials {
     gloss: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.16, envMapIntensity: 1.4 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xd2a650, metalness: 1, roughness: 0.27 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 1, roughness: 0.2 }),
+    lens: new THREE.MeshStandardMaterial({ color: 0xf4f8ff, metalness: 0, roughness: 0.02, transparent: true, opacity: 0.1, depthWrite: false, envMapIntensity: 2.4, side: THREE.DoubleSide }),
     glass: new THREE.MeshStandardMaterial({ color: 0xe8f2ff, metalness: 0, roughness: 0.03, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 2.2 }),
     porcelain: new THREE.MeshStandardMaterial({ color: 0xf5f1e8, roughness: 0.14, envMapIntensity: 1.2 }),
     pages: new THREE.MeshStandardMaterial({ map: pagesTex, color: 0xd6cfc2, roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }),
@@ -413,7 +415,7 @@ export function propMaterials(): PropMaterials {
     decal: new THREE.MeshStandardMaterial({ map: makeDecals(), roughness: 0.3, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }),
     noShadow: new Set(),
   };
-  m.noShadow.add(m.glass).add(m.flame).add(m.decal);
+  m.noShadow.add(m.glass).add(m.lens).add(m.flame).add(m.decal);
   cachedMats = m;
   return m;
 }

@@ -101,7 +101,18 @@ export class Renderer {
     if (this.aaPass) this.composer.addPass(this.aaPass);
   }
 
+  private volumetric: { pass: EffectPass; effect: { setSteps(n: number): void } } | null = null;
+  /** An arena's volumetric light (the study's god rays): runs on the HDR scene, before bloom and grading. */
+  setVolumetric(effect: ConstructorParameters<typeof EffectPass>[1] & { setSteps(n: number): void }) {
+    const pass = new EffectPass(this.camera, effect);
+    this.composer.addPass(pass, 1);
+    this.volumetric = { pass, effect };
+    effect.setSteps(this.godRaySteps());
+  }
+  private godRaySteps() { return ({ low: 8, medium: 14, high: 20 } as Record<string, number>)[settings.quality] ?? 24; }
+
   applyQuality() {
+    if (this.volumetric) this.volumetric.effect.setSteps(this.godRaySteps());
     this.preset = QUALITY[settings.quality];
     this.gl.shadowMap.enabled = this.preset.shadows;
     this.rebuildPasses();

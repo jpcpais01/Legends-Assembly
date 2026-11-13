@@ -108,3 +108,12 @@ Download the GLB/GLTF zips and send them; the engine instancing is already in pl
 The desk is built in code. Every prop on it is a Meshy model, listed in `StudyArena.handProps()` with its real size in centimeters. Until a model arrives, a hand-built stand-in from `src/world/studyProps.ts` takes its place.
 
 To drop a model in: put the raw GLB in `models-src/study/<name>.glb`, run `npm run models:study` (2K WebP, no decimation), and the game picks it up by filename. Then add or bump its entry in `DROP_VER` in `src/world/StudyArena.ts`, because players' devices cache models by URL. The hourglass is special: put the raw file in `models-src/raw/hourglass.glb` and run `node scripts/strip-hourglass-glass.mjs` first, which cuts out the painted glass so the game can add real glass and sand. Lying props are laid flat and turned to their long side automatically. Names: paper_einstein, letter_vangogh, music_sheet_yeat, index_cards, envelope_wax_seal, inkwell_quill, fountain_pen, pencil, ruler, paper_clip, magnifying_glass, spectacles, closed_book, antique_books, emerald_quill, rolled_map, teacup_saucer, candle_holder, coin_stack, brush_jar, hourglass.
+
+## Study room backdrop
+
+The room around the desk is João's Meshy "Cartographer's study" (a two-wall cutaway). `npm run models:room` (scripts/build-study-room.mjs) reads `models-src/room/cartographer.glb`, removes the painted window glass, builds the two missing walls from the model's own pieces (a copy of the arched window on +x, the window frame stretched into a door with the carved shutter as its leaf on +z, plus a bookcase and chart frames), fills the cutaway's ragged edges with plaster and floor backing, simplifies it to about 510k triangles and writes `public/models/study/study_room.glb`. If you change it, bump the `?v=` on its URL in `StudyArena.loadRoomModel`.
+
+Sunlight only enters through the windows. `src/world/studyLight.ts` holds one analytic test (window arch, recess and mullions, with a soft penumbra). It shades every lit material, drives the god-ray pass and lights the dust. If the window geometry changes, update the numbers there.
+
+Painted lenses: `node scripts/split-lens-glass.mjs magnifying_glass:disc spectacles` (raw files in `models-src/raw/`) splits the lens triangles into a "glass" material, which the game renders as clear glass.
+
