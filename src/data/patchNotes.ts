@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.10.1',
+    version: '0.10.2',
     date: '2026-11-13',
     title: 'Sharper Toys',
     sections: [
@@ -17,6 +17,20 @@ export const PATCH_NOTES: PatchNote[] = [
         items: [
           'Tonka and The Bell now use their full 2K textures, so the emerald truck and the rune-carved bell stay crisp right up close.',
           'Updated models can no longer get stuck behind an old copy saved on your device: if you ever saw the old yellow truck or plain gold bell, they are gone for good.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.10.1',
+    date: '2026-11-13',
+    title: 'Sculpted Desk',
+    sections: [
+      {
+        heading: 'The Giant’s Study',
+        items: [
+          'The desk props are getting fully sculpted, hand-painted models, and each one swaps in as it arrives.',
+          'Stacked books now sit exactly on top of each other whatever their thickness, and the candle keeps its flickering flame.',
         ],
       },
     ],
