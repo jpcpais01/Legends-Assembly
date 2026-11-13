@@ -752,10 +752,13 @@ export class Menu {
         <div class="rr rr-head"><span></span><span>Player</span><span>E</span><span>D</span><span>A</span><span>Dmg</span><span>Heal</span></div>
         ${list.map(row).join('')}</div>`;
     };
-    const [mFirst, mLast] = splitName(mvp.def.name);
+    // the Play of the Game takes the spotlight card when someone made one; otherwise the MVP does
+    const potg = g.playOfGame;
+    const star = potg?.hero ?? mvp;
+    const [mFirst, mLast] = splitName(star.def.name);
     const el = document.createElement('div');
     el.className = `results ${win ? 'win' : 'lose'}`;
-    el.style.setProperty('--hc', mvp.def.color);
+    el.style.setProperty('--hc', star.def.color);
     el.innerHTML = `
       <div class="res-banner">
         <i class="rb-line l"></i><i class="rb-line r"></i>
@@ -764,13 +767,13 @@ export class Menu {
         <div class="rb-score"><b class="mine">${myScore}</b><span>—</span><b class="theirs">${theirScore}</b></div>
       </div>
       <div class="res-body">
-        <div class="res-mvp">
-          <div class="rm-art"><img src="${portraits[mvp.def.id] ?? ''}" alt=""></div>
+        <div class="res-mvp${potg ? ' potg' : ''}">
+          <div class="rm-art"><img src="${portraits[star.def.id] ?? ''}" alt=""></div>
           <div class="rm-tx">
-            <span class="rm-k">${icon(UI.trophy)}Match MVP</span>
-            <b class="rm-p">${esc(mvp.name)}</b>
+            <span class="rm-k">${icon(UI.trophy)}${potg ? 'Play of the Game' : 'Match MVP'}</span>
+            <b class="rm-p">${esc(star.name)}</b>
             <span class="rm-h">${mFirst ? mFirst + ' ' : ''}${mLast}</span>
-            <span class="rm-s">${mvp.stats.kills} / ${mvp.stats.deaths} / ${mvp.stats.assists}</span>
+            <span class="rm-s">${potg ? esc(potg.title) : `${mvp.stats.kills} / ${mvp.stats.deaths} / ${mvp.stats.assists}`}</span>
           </div>
         </div>
         <div class="res-you">

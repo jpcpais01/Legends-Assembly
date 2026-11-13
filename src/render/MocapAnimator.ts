@@ -152,6 +152,8 @@ export class MocapAnimator {
   private castW = 0; private lev = 0;
   private prevVX = 0; private prevVZ = 0; private accF = 0; private accR = 0; private hasPrev = false;
   private lean = new Spring(); private bank = new Spring();
+  /** hit recoil: the torso is shoved along the blow and springs back (pitch, roll, twist) */
+  private recP = new Spring(); private recR = new Spring(); private recY = new Spring();
   private hipDrop = 0;
   private legLen: number; private ballY: number; private armLen: number;
   /** per arm: rest finger direction, palm normal and hand rotation (model space) */
@@ -334,7 +336,14 @@ export class MocapAnimator {
 
     // ── hit reaction (additive on the upper body) ──
     const hit = s.hit ?? 0;
-    if (hit > this.lastHit + 0.3) this.hit = { c: Math.random() < 0.5 ? S.Hit_Chest : S.Hit_Head, t: 0 };
+    if (hit > this.lastHit + 0.3) {
+      this.hit = { c: Math.random() < 0.5 ? S.Hit_Chest : S.Hit_Head, t: 0 };
+      // directional shove: heavier blows throw the chest further along the push
+      const k = clamp(s.hitK ?? 0.5, 0.2, 1);
+      this.recP.v += (s.hitZ ?? -1) * k * 5;
+      this.recR.v += (s.hitX ?? 0) * k * 4;
+      this.recY.v += (Math.random() < 0.5 ? -1 : 1) * k * 2.4;
+    }
     this.lastHit = hit;
     if (this.hit) {
       const h = this.hit;
@@ -378,6 +387,19 @@ export class MocapAnimator {
       this.preRot(i, _qa.setFromAxisAngle(_Y, -psi * w));
       this.preRot(i, _qa.setFromAxisAngle(_X, -lean * w * 0.5 + posture * 0.65 * w));
       this.preRot(i, _qa.setFromAxisAngle(_Z, -bank * w * 0.7));
+    }
+    // hit recoil on top: a damped spring per axis, so a blow snaps the chest and it wobbles back
+    const rP = this.recP.step(0, 3.4, 0.42, dt), rR = this.recR.step(0, 3.4, 0.42, dt), rY = this.recY.step(0, 3, 0.5, dt);
+    if (Math.abs(rP) + Math.abs(rR) + Math.abs(rY) > 1e-3) {
+      this.preRot(0, _qa.setFromAxisAngle(_X, rP * 0.25));
+      for (let k = 0; k < 3; k++) {
+        const i = TORSO[k], w = TORSO_W[k];
+        this.preRot(i, _qa.setFromAxisAngle(_X, rP * w * 0.9));
+        this.preRot(i, _qa.setFromAxisAngle(_Z, rR * w * 0.8));
+        this.preRot(i, _qa.setFromAxisAngle(_Y, rY * w * 0.5));
+      }
+      this.preRot(I.head, _qa.setFromAxisAngle(_X, -rP * 0.5));
+      p[2] += rP * 0.08; p[0] -= rR * 0.06;
     }
     // aim: the spine bends toward the camera pitch (arms follow, so attacks track the crosshair)
     const pitch = clamp(s.pitch, -0.9, 0.9) * (1 - this.air * 0.4);

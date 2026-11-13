@@ -8,6 +8,55 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.13.0',
+    date: '2026-11-13',
+    title: 'Main Event',
+    sections: [
+      {
+        heading: 'The legends finally speak',
+        items: [
+          'Einstein, Yeat and Van Gogh now have real recorded voices: almost 250 lines between them, each in their own voice and style.',
+          'They talk about everything: opening a match, landing kills, getting revenge, ending a streak, picking up health, taking the lead, falling behind, match point and overtime.',
+          'Rivals get personal. Each legend has kill lines for the other two (and for a mirror match), and new banter pairs when legends meet at the start.',
+          'Your legend shouts a warning when an enemy special goes off nearby, and reacts when a teammate goes down close by.',
+        ],
+      },
+      {
+        heading: 'A real commentator',
+        items: [
+          'The announcer now calls the whole match: lead taken, lead lost, all tied, comebacks, match point for either side, one minute remaining and overtime.',
+          'Four new feats with their own banners and calls: Revenge (take out whoever last eliminated you), Clutch (finish a kill under 20% health), Ultimate Denied (kill someone whose special was ready) and Long Shot (a basic attack kill from over 30 m).',
+          'Matches end with a call on the final blow, or a Flawless Victory if the enemy never scored.',
+        ],
+      },
+      {
+        heading: 'Match flow',
+        items: [
+          'New VS lineup: both teams slide in under the countdown with every player and legend.',
+          'Final blow cam: when a match ends, the camera swings round the player who landed the last elimination in slow motion, letterboxed, before the results.',
+          'Play of the Game: the biggest highlight of the match (multi-kills, streaks, specials) takes the spotlight on the results screen, with an announcer call.',
+          'Death cam: when you are eliminated, the camera turns to show who got you before orbiting your fall.',
+        ],
+      },
+      {
+        heading: 'Combat feel',
+        items: [
+          'Casting your special now has a cinematic beat: the camera swings out wide, time slows for a breath and the ability name flashes between letterbox bars.',
+          'When an enemy special goes off near you, a red danger warning shows who cast what, and the screen edges throb.',
+          'Every shot has a little view kick that springs back (the aim itself never moves). Yeat’s bell kicks hardest.',
+          'Heroes now react to where a hit comes from: blows shove the upper body along the push and it springs back, heavier hits further.',
+        ],
+      },
+      {
+        heading: 'HUD',
+        items: [
+          'The kill feed shows which ability got the kill. Kills with a special are marked in gold, and enemy kills are tinted red.',
+          'Teammates’ special charge shows under their portraits at the top, glowing gold when it is ready.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.3',
     date: '2026-11-13',
     title: 'Smooth Light',

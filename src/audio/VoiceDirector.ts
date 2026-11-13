@@ -1,6 +1,6 @@
 import { audio } from '../core/Audio';
 import { settings } from '../core/settings';
-import { VOICES, VOICE_INDEX, type Line, type VoiceEvent } from './voicelines';
+import { VOICES, VOICE_INDEX, spoken, type Line, type VoiceEvent } from './voicelines';
 import type { Hero } from '../game/Hero';
 import type { Game } from '../game/Game';
 import type { HeroId } from '../game/types';
@@ -38,6 +38,17 @@ const RULES: Record<VoiceEvent, Rule> = {
   lowHp: { chance: 0.8, cd: 25, prio: 2 },
   victory: { chance: 1, cd: 0, prio: 5 },
   defeat: { chance: 1, cd: 0, prio: 5 },
+  assist: { chance: 0.45, cd: 20, prio: 1 },
+  revenge: { chance: 0.9, others: 0.3, range: 25, cd: 6, prio: 3 },
+  streak: { chance: 0.85, cd: 15, prio: 2 },
+  shutdown: { chance: 0.8, cd: 10, prio: 2 },
+  heal: { chance: 0.4, cd: 30, prio: 0 },
+  takeLead: { chance: 0.8, cd: 30, prio: 2 },
+  behind: { chance: 0.85, cd: 60, prio: 2 },
+  matchPoint: { chance: 1, cd: 0, prio: 3 },
+  overtime: { chance: 1, cd: 0, prio: 3 },
+  enemyUlt: { chance: 0.75, cd: 12, prio: 3 },
+  allyDown: { chance: 0.4, cd: 18, prio: 1 },
 };
 
 /**
@@ -110,6 +121,20 @@ export class VoiceDirector {
     return true;
   }
 
+  /** A kill line aimed at the rival legend that just fell (Yeat taunting Einstein, and so on). */
+  rival(h: Hero, victim: Hero): boolean {
+    const lines = VOICES[h.def.id]?.rival[victim.def.id];
+    if (!lines?.length) return false;
+    const rule = RULES.kill;
+    if (!h.isLocal && (!this.g.local || h.pos.distanceTo(this.g.local.pos) > (rule.range ?? 20) || Math.random() > (rule.others ?? 0))) return false;
+    const key = `${h.id}:kill`;
+    if (this.time < (this.cds.get(key) ?? 0) || this.time < (this.speakerCd.get(h.id) ?? 0)) return false;
+    if (this.time < this.busyUntil && rule.prio <= this.busyPrio) return false;
+    this.cds.set(key, this.time + rule.cd);
+    this.speak(h, this.next(h.def.id, `rival_${victim.def.id}` as VoiceEvent, lines), rule.prio);
+    return true;
+  }
+
   /** Ult callout: allies (and you) hear the hero's own cry, enemies hear the threat. */
   ult(h: Hero) {
     const local = this.g.local;
@@ -153,6 +178,7 @@ export class VoiceDirector {
     this.stopCurrent?.();
     this.stopCurrent = null;
     const url = URLS.get(`${h.def.id}/${line.id}`);
+    const text = spoken(line.text);
     const buf = url ? audio.voiceBuffer(url) : null;
     let dur: number;
     if (buf) {
@@ -160,14 +186,14 @@ export class VoiceDirector {
       dur = handle.dur;
       this.stopCurrent = handle.stop;
     } else {
-      const words = line.text.split(/\s+/).length;
+      const words = text.split(/\s+/).length;
       dur = Math.min(4.2, Math.max(1.6, 0.8 + words * 0.3));
       audio.play('comm', null, 1, { variant: VOICE_INDEX[h.def.id] });
     }
     this.busyUntil = this.time + dur + 0.25;
     this.busyPrio = prio;
     this.speakerCd.set(h.id, this.time + dur + 3);
-    if (settings.subtitles) this.onLine?.({ hero: h, name: v.short, text: line.text, dur: dur + 0.6, rel });
+    if (settings.subtitles) this.onLine?.({ hero: h, name: v.short, text, dur: dur + 0.6, rel });
     return dur;
   }
 }

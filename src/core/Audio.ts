@@ -4,6 +4,9 @@ import { RECIPES, BAKE_ORDER, renderRecipe, type Sfx, type Recipe } from '../aud
 import { impulseResponse } from '../audio/synth';
 import { SAMPLE_FILES, ANNOUNCER_FILES } from '../audio/sampleManifest';
 
+// extra announcer calls (lead changes, match point, revenge...) recorded by scripts/sfx/voices.mjs
+const ANN_EXTRA = import.meta.glob('../assets/announcer/*.ogg', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+
 export type { Sfx };
 
 /**
@@ -432,8 +435,10 @@ export class AudioEngine {
   // ───────────────────────── announcer ─────────────────────────
 
   private async loadAnnouncer() {
-    await Promise.all(Object.entries(ANNOUNCER_FILES).map(async ([k, f]) => {
-      try { this.annBufs.set(k, await this.fetchBuffer(`/audio/announcer/${f}`)); } catch (e) { console.warn('[audio] announcer line failed', k, e); }
+    const all: [string, string][] = Object.entries(ANNOUNCER_FILES).map(([k, f]) => [k, `/audio/announcer/${f}`]);
+    for (const [path, url] of Object.entries(ANN_EXTRA)) all.push([path.slice(path.lastIndexOf('/') + 1, -4), url]);
+    await Promise.all(all.map(async ([k, url]) => {
+      try { this.annBufs.set(k, await this.fetchBuffer(url)); } catch (e) { console.warn('[audio] announcer line failed', k, e); }
     }));
   }
 

@@ -829,3 +829,87 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 
 /* Hide the cursor over the arena for the whole match, even in the instant before pointer lock engages. */
 body.in-match canvas { cursor: none; }
+
+/* ───────── v0.13 match feel: lineup, cinematics, danger, squad ult, kill feed ───────── */
+/* VS lineup under the countdown */
+.vs { position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%) scale(var(--hs)); display: flex; align-items: center; gap: 22px; opacity: 0; }
+.vs.show { animation: vsLife 3.4s linear forwards; }
+@keyframes vsLife { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+.vs-side { display: flex; gap: 8px; }
+.vs-side.ally { flex-direction: row-reverse; }
+.vs-x { font-size: 44px; font-weight: 800; font-style: italic; color: #fff; text-shadow: 0 0 28px rgba(255, 207, 90, .7); opacity: 0; }
+.vs.show .vs-x { animation: vsX .6s var(--out) .35s both; }
+@keyframes vsX { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: none; } }
+.vs-c { position: relative; width: 92px; display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; }
+.vs.show .ally .vs-c { animation: vsInL .55s var(--out) calc(var(--i) * 70ms + 80ms) both; }
+.vs.show .enemy .vs-c { animation: vsInR .55s var(--out) calc(var(--i) * 70ms + 80ms) both; }
+@keyframes vsInL { from { opacity: 0; transform: translateX(-60px) skewX(-10deg); } to { opacity: 1; transform: none; } }
+@keyframes vsInR { from { opacity: 0; transform: translateX(60px) skewX(-10deg); } to { opacity: 1; transform: none; } }
+.vs-av { width: 76px; height: 92px; border-radius: 10px; overflow: hidden; transform: skewX(-10deg); background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--hc) 60%, #000), #070912 80%); box-shadow: inset 0 -4px 0 var(--tc), 0 10px 30px rgba(0, 0, 0, .45); }
+.ally .vs-av { --tc: var(--blue); } .enemy .vs-av { --tc: var(--red); }
+.vs-c.me .vs-av { box-shadow: inset 0 -4px 0 var(--tc), 0 0 0 2px #fff, 0 10px 30px rgba(0, 0, 0, .45); }
+.vs-av img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; transform: skewX(10deg) scale(1.45); transform-origin: 50% 0; }
+.vs-c b { margin-top: 4px; font-size: 16px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .04em; text-shadow: 0 2px 10px #000; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-c small { font-family: var(--body); font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--hc) 70%, #fff); text-shadow: 0 1px 6px #000; }
+.vs.many { gap: 14px; } .vs.many .vs-c { width: 64px; } .vs.many .vs-av { width: 56px; height: 68px; } .vs.many .vs-c b { font-size: 13px; } .vs.many .vs-c small { display: none; }
+
+/* cinematic letterbox: a beat when you cast your special, held through the final blow */
+.cine { position: absolute; inset: 0; opacity: 0; }
+.cine .cb { position: absolute; left: 0; right: 0; height: 11vh; background: #000; transform: scaleY(0); }
+.cine .cb.t { top: 0; transform-origin: 50% 0; } .cine .cb.b { bottom: 0; transform-origin: 50% 100%; }
+.cine-t { position: absolute; left: 6vw; bottom: calc(11vh + 22px); display: flex; flex-direction: column; align-items: flex-start; }
+.cine-t small { font-size: 14px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.cine-t small:empty, .cine-t span:empty, .cine-t b:empty { display: none; }
+.cine-t b { font-size: clamp(44px, 6vw, 84px); font-weight: 800; font-style: italic; line-height: .95; text-transform: uppercase; color: #fff; text-shadow: 0 0 34px color-mix(in srgb, var(--hc) 80%, transparent), 0 4px 24px rgba(0, 0, 0, .6); }
+.cine-t span { margin-top: 6px; padding: 4px 14px 4px 0; font-size: 16px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.cine.beat { animation: cineOn 1.25s linear forwards; }
+.cine.beat .cb { animation: cineBar 1.25s var(--out) forwards; }
+.cine.beat .cine-t { animation: cineTxt 1.25s var(--out) forwards; }
+.cine.hold { opacity: 1; }
+.cine.hold .cb { animation: cineBarIn .7s var(--out) forwards; }
+.cine.hold .cine-t { animation: cineTxtIn .8s var(--out) .25s both; }
+@keyframes cineOn { 0%, 100% { opacity: 1; } }
+@keyframes cineBar { 0% { transform: scaleY(0); } 18%, 70% { transform: scaleY(.62); } 100% { transform: scaleY(0); } }
+@keyframes cineTxt { 0% { opacity: 0; transform: translateX(-40px); } 18%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(20px); } }
+@keyframes cineBarIn { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes cineTxtIn { from { opacity: 0; transform: translateX(-50px); } to { opacity: 1; transform: none; } }
+.hud.outro > :not(.cine):not(.announce):not(.callout):not(.feed) { opacity: 0; transition: opacity .4s; }
+.hud.outro .feed { top: calc(11vh + 12px); }
+
+/* enemy special nearby: portrait + name, a red edge throb */
+.danger { position: absolute; left: 50%; top: 31%; transform: translateX(-50%) scale(var(--hs)); display: flex; align-items: center; gap: 12px; padding: 6px 18px 6px 6px; border-radius: 10px; background: linear-gradient(90deg, rgba(120, 10, 25, .85), rgba(30, 4, 10, .8)); box-shadow: 0 0 0 1px rgba(255, 80, 100, .7), 0 0 40px rgba(255, 40, 70, .45); opacity: 0; }
+.danger::before { content: ''; position: fixed; inset: -50vh -50vw; box-shadow: inset 0 0 180px 30px rgba(255, 30, 60, .55); opacity: 0; }
+.danger.on { animation: dangerIn 2.2s var(--out) forwards; }
+.danger.on::before { animation: dangerEdge .55s ease-in-out 3; }
+.dg-av { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--hc) 45%, #000); }
+.dg-av img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; transform: scale(1.4); transform-origin: 50% 0; }
+.danger small { display: block; font-family: var(--body); font-size: 11px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #ffb3bd; }
+.danger b { font-size: 26px; font-weight: 800; font-style: italic; text-transform: uppercase; color: #fff; line-height: 1; }
+@keyframes dangerIn { 0% { opacity: 0; transform: translateX(-50%) scale(calc(var(--hs) * 1.5)); } 10%, 80% { opacity: 1; transform: translateX(-50%) scale(var(--hs)); } 100% { opacity: 0; transform: translateX(-50%) scale(var(--hs)); } }
+@keyframes dangerEdge { 50% { opacity: 1; } }
+
+/* squad special charge under ally portraits */
+.chip-h .cu { position: absolute; left: 3px; right: 3px; bottom: 5px; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, .55); overflow: hidden; }
+.chip-h .cu s { position: absolute; inset: 0; background: #fff; transform-origin: 0 50%; transform: scaleX(0); opacity: .8; }
+.chip-h.uready { animation: chipReady 1.4s ease-in-out infinite; }
+.chip-h.uready .cu s { background: var(--gold); opacity: 1; }
+.chip-h.dead .cu { opacity: 0; }
+@keyframes chipReady { 50% { box-shadow: inset 0 -3px 0 var(--tc), 0 0 14px 2px rgba(255, 207, 90, .75); } }
+
+/* kill feed: the ability that did it, specials in gold, enemy kills tinted */
+.feed .kab { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--hc) 30%, rgba(0, 0, 0, .4)); }
+.feed .kab svg.kx { font-size: 16px; }
+.feed .k.ult .kab { background: linear-gradient(135deg, #ffd36b, #ff9a3c); box-shadow: 0 0 12px rgba(255, 190, 70, .7); }
+.feed .k.ult .kab svg.kx { color: #1a0f00; }
+.feed .k.foe:not(.me) { box-shadow: inset 3px 0 0 rgba(255, 70, 95, .8); }
+
+/* new feats */
+.callout.k-revenge { --c1: #ffe0e6; --c2: #ff4f7b; --glow: 255, 79, 123; }
+.callout.k-ultDenied { --c1: #e6f0ff; --c2: #7f8cff; --glow: 127, 140, 255; }
+.callout.k-clutch { --c1: #e8ffe9; --c2: #3fe38c; --glow: 63, 227, 140; }
+.callout.k-longshot { --c1: #fff8d6; --c2: #ffd84a; --glow: 255, 216, 74; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vs.show .vs-c, .vs.show .vs-x { animation: none; opacity: 1; }
+  .danger.on::before { animation: none; }
+}
