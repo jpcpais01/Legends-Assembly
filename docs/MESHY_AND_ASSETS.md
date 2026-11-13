@@ -101,3 +101,10 @@ Download the GLB/GLTF zips and send them; the engine instancing is already in pl
 - Image to 3D guide: https://docs.meshy.ai/en/webapp/image-to-3d
 - Auto-rigging: https://docs.meshy.ai/webapp/guides/3d-model/rigging
 - Animate: https://docs.meshy.ai/en/webapp/guides/animate
+
+
+## Giant's Study desk props
+
+The desk is built in code. Every prop on it is a Meshy model, listed in `StudyArena.handProps()` with its real size in centimeters. Until a model arrives, a hand-built stand-in from `src/world/studyProps.ts` takes its place.
+
+To drop a model in: put the raw GLB in `models-src/study/<name>.glb`, run `npm run models:study` (2K WebP, no decimation), and the game picks it up by filename. Lying props are laid flat and turned to their long side automatically. Names: paper_einstein, letter_vangogh, music_sheet_yeat, index_cards, envelope_wax_seal, inkwell_quill, fountain_pen, pencil, ruler, paper_clip, magnifying_glass, spectacles, closed_book, rolled_map, teacup_saucer, candle_holder, coin_stack, brush_jar, hourglass.
