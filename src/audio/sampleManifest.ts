@@ -2,214 +2,214 @@
 /** ElevenLabs-generated sound files per sound, in variant order (served from /audio/sfx/). */
 export const SAMPLE_FILES: Record<string, string[]> = {
   "ui": [
-    "ui-0.ogg"
+    "ui-0.ogg?v=d27354a8"
   ],
   "uiHover": [
-    "uiHover-0.ogg"
+    "uiHover-0.ogg?v=d6310a81"
   ],
   "uiTab": [
-    "uiTab-0.ogg"
+    "uiTab-0.ogg?v=2e0f05c7"
   ],
   "uiBack": [
-    "uiBack-0.ogg"
+    "uiBack-0.ogg?v=ccb0ea49"
   ],
   "lockIn": [
-    "lockIn-0.ogg"
+    "lockIn-0.ogg?v=8bf17347"
   ],
   "denied": [
-    "denied-0.ogg"
+    "denied-0.ogg?v=7996a509"
   ],
   "countdown": [
-    "countdown-0.ogg"
+    "countdown-0.ogg?v=d3b1b8c3"
   ],
   "go": [
-    "go-0.ogg"
+    "go-0.ogg?v=2e672d5d"
   ],
   "ultReady": [
-    "ultReady-0.ogg"
+    "ultReady-0.ogg?v=b35d1ad7"
   ],
   "victory": [
-    "victory-0.ogg"
+    "victory-0.ogg?v=92035205"
   ],
   "defeat": [
-    "defeat-0.ogg"
+    "defeat-0.ogg?v=d4b915b6"
   ],
   "hit": [
-    "hit-0.ogg",
-    "hit-1.ogg"
+    "hit-0.ogg?v=c97f3f08",
+    "hit-1.ogg?v=02593e3f"
   ],
   "crit": [
-    "crit-0.ogg"
+    "crit-0.ogg?v=3bc7b901"
   ],
   "kill": [
-    "kill-0.ogg"
+    "kill-0.ogg?v=56ff0f7c"
   ],
   "hurt": [
-    "hurt-0.ogg",
-    "hurt-1.ogg",
-    "hurt-2.ogg"
+    "hurt-0.ogg?v=7843a5ac",
+    "hurt-1.ogg?v=a4bbe8bc",
+    "hurt-2.ogg?v=03bb0368"
   ],
   "heal": [
-    "heal-0.ogg"
+    "heal-0.ogg?v=2a8ff055"
   ],
   "comm": [
-    "comm-0.ogg",
-    "comm-1.ogg",
-    "comm-2.ogg"
+    "comm-0.ogg?v=d5506948",
+    "comm-1.ogg?v=e0d5ee45",
+    "comm-2.ogg?v=f6499cb0"
   ],
   "step": [
-    "step-0.ogg",
-    "step-1.ogg",
-    "step-2.ogg",
-    "step-3.ogg",
-    "step-4.ogg",
-    "step-5.ogg"
+    "step-0.ogg?v=5e74b82e",
+    "step-1.ogg?v=b5f85e13",
+    "step-2.ogg?v=2e75852c",
+    "step-3.ogg?v=c17c935c",
+    "step-4.ogg?v=fe9a43cd",
+    "step-5.ogg?v=c6e5029e"
   ],
   "stepGrass": [
-    "stepGrass-0.ogg",
-    "stepGrass-1.ogg",
-    "stepGrass-2.ogg",
-    "stepGrass-3.ogg",
-    "stepGrass-4.ogg",
-    "stepGrass-5.ogg"
+    "stepGrass-0.ogg?v=a1860075",
+    "stepGrass-1.ogg?v=838fdbc8",
+    "stepGrass-2.ogg?v=9674e2bb",
+    "stepGrass-3.ogg?v=3a0ead22",
+    "stepGrass-4.ogg?v=9ef8aea9",
+    "stepGrass-5.ogg?v=57193fa6"
   ],
   "jump": [
-    "jump-0.ogg",
-    "jump-1.ogg",
-    "jump-2.ogg"
+    "jump-0.ogg?v=efc6a605",
+    "jump-1.ogg?v=09dc4a63",
+    "jump-2.ogg?v=e4719c22"
   ],
   "land": [
-    "land-0.ogg",
-    "land-1.ogg"
+    "land-0.ogg?v=b5e891e8",
+    "land-1.ogg?v=c9807e79"
   ],
   "death": [
-    "death-0.ogg"
+    "death-0.ogg?v=6095e01f"
   ],
   "respawn": [
-    "respawn-0.ogg"
+    "respawn-0.ogg?v=abdce07a"
   ],
   "pickup": [
-    "pickup-0.ogg"
+    "pickup-0.ogg?v=9f39998c"
   ],
   "photon": [
-    "photon-0.ogg",
-    "photon-1.ogg",
-    "photon-2.ogg",
-    "photon-3.ogg"
+    "photon-0.ogg?v=daf87fd4",
+    "photon-1.ogg?v=416819cd",
+    "photon-2.ogg?v=14e745e5",
+    "photon-3.ogg?v=77d9a9c2"
   ],
   "photonHit": [
-    "photonHit-0.ogg",
-    "photonHit-1.ogg",
-    "photonHit-2.ogg"
+    "photonHit-0.ogg?v=4fbaee3b",
+    "photonHit-1.ogg?v=9266734e",
+    "photonHit-2.ogg?v=18441ff2"
   ],
   "gravityThrow": [
-    "gravityThrow-0.ogg"
+    "gravityThrow-0.ogg?v=c5d41c26"
   ],
   "gravity": [
-    "gravity-0.ogg"
+    "gravity-0.ogg?v=d7fd7a37"
   ],
   "gravityCollapse": [
-    "gravityCollapse-0.ogg"
+    "gravityCollapse-0.ogg?v=ebc68453"
   ],
   "emcCharge": [
-    "emcCharge-0.ogg"
+    "emcCharge-0.ogg?v=b936875f"
   ],
   "emcBlast": [
-    "emcBlast-0.ogg"
+    "emcBlast-0.ogg?v=ca7d1cff"
   ],
   "bell": [
-    "bell-0.ogg"
+    "bell-0.ogg?v=14260c37"
   ],
   "bellHit": [
-    "bellHit-0.ogg",
-    "bellHit-1.ogg",
-    "bellHit-2.ogg"
+    "bellHit-0.ogg?v=1d95ac5b",
+    "bellHit-1.ogg?v=abb337e2",
+    "bellHit-2.ogg?v=c3728344"
   ],
   "tonka": [
-    "tonka-0.ogg"
+    "tonka-0.ogg?v=dafaf83a"
   ],
   "engineLoop": [
-    "engineLoop-0.ogg"
+    "engineLoop-0.ogg?v=13e3968b"
   ],
   "engineHigh": [
-    "engineHigh-0.ogg"
+    "engineHigh-0.ogg?v=63817bab"
   ],
   "skid": [
-    "skid-0.ogg"
+    "skid-0.ogg?v=54a0b80e"
   ],
   "crash": [
-    "crash-0.ogg",
-    "crash-1.ogg"
+    "crash-0.ogg?v=9ce92741",
+    "crash-1.ogg?v=474d0906"
   ],
   "ram": [
-    "ram-0.ogg"
+    "ram-0.ogg?v=a64138c9"
   ],
   "bellSummon": [
-    "bellSummon-0.ogg"
+    "bellSummon-0.ogg?v=51dd576d"
   ],
   "bigBell": [
-    "bigBell-0.ogg"
+    "bigBell-0.ogg?v=8cf43425"
   ],
   "bellWhistle": [
-    "bellWhistle-0.ogg"
+    "bellWhistle-0.ogg?v=386d6b42"
   ],
   "bellDrop": [
-    "bellDrop-0.ogg"
+    "bellDrop-0.ogg?v=8340e10e"
   ],
   "paint": [
-    "paint-0.ogg",
-    "paint-1.ogg",
-    "paint-2.ogg",
-    "paint-3.ogg"
+    "paint-0.ogg?v=c62c105e",
+    "paint-1.ogg?v=ac38859d",
+    "paint-2.ogg?v=67218f16",
+    "paint-3.ogg?v=d27f45d7"
   ],
   "splat": [
-    "splat-0.ogg",
-    "splat-1.ogg",
-    "splat-2.ogg",
-    "splat-3.ogg"
+    "splat-0.ogg?v=93d2dcbe",
+    "splat-1.ogg?v=2bbe1dac",
+    "splat-2.ogg?v=3fb4888b",
+    "splat-3.ogg?v=6a26ca40"
   ],
   "seedToss": [
-    "seedToss-0.ogg"
+    "seedToss-0.ogg?v=8df75bc7"
   ],
   "bloom": [
-    "bloom-0.ogg"
+    "bloom-0.ogg?v=ec65842d"
   ],
   "starry": [
-    "starry-0.ogg"
+    "starry-0.ogg?v=077abd7c"
   ],
   "starFall": [
-    "starFall-0.ogg",
-    "starFall-1.ogg",
-    "starFall-2.ogg"
+    "starFall-0.ogg?v=ce96ecbb",
+    "starFall-1.ogg?v=d5fbe1ab",
+    "starFall-2.ogg?v=48f491f9"
   ],
   "ambStudy": [
-    "ambStudy-0.ogg"
+    "ambStudy-0.ogg?v=c1ac69a6"
   ],
   "ambRuins": [
-    "ambRuins-0.ogg"
+    "ambRuins-0.ogg?v=e45d1c87"
   ]
 };
 
 /** Announcer lines (served from /audio/announcer/). */
 export const ANNOUNCER_FILES: Record<string, string> = {
-  "firstBlood": "firstBlood.ogg",
-  "double": "double.ogg",
-  "triple": "triple.ogg",
-  "quadra": "quadra.ogg",
-  "penta": "penta.ogg",
-  "streak3": "streak3.ogg",
-  "streak5": "streak5.ogg",
-  "streak7": "streak7.ogg",
-  "streak10": "streak10.ogg",
-  "shutdown": "shutdown.ogg",
-  "teamWipe": "teamWipe.ogg",
-  "assemble": "assemble.ogg",
-  "three": "three.ogg",
-  "two": "two.ogg",
-  "one": "one.ogg",
-  "fight": "fight.ogg",
-  "victory": "victory.ogg",
-  "defeat": "defeat.ogg"
+  "firstBlood": "firstBlood.ogg?v=c71fe323",
+  "double": "double.ogg?v=620e40c6",
+  "triple": "triple.ogg?v=cc240b7e",
+  "quadra": "quadra.ogg?v=76f0ca14",
+  "penta": "penta.ogg?v=c64bffe1",
+  "streak3": "streak3.ogg?v=b3851e5d",
+  "streak5": "streak5.ogg?v=589a69fe",
+  "streak7": "streak7.ogg?v=a88e9323",
+  "streak10": "streak10.ogg?v=a0cd484e",
+  "shutdown": "shutdown.ogg?v=53b6a0d4",
+  "teamWipe": "teamWipe.ogg?v=4c63c854",
+  "assemble": "assemble.ogg?v=4b36d42c",
+  "three": "three.ogg?v=89cf987f",
+  "two": "two.ogg?v=7c8affb6",
+  "one": "one.ogg?v=63a9d580",
+  "fight": "fight.ogg?v=05f6f2cc",
+  "victory": "victory.ogg?v=1108c1bf",
+  "defeat": "defeat.ogg?v=42eb5121"
 };
 
 /** Seconds from the start of the gravity collapse sample to its implosion peak. */
