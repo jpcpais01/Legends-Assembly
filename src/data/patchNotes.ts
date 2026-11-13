@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.10.3',
+    date: '2026-11-13',
+    title: 'First Editions',
+    sections: [
+      {
+        heading: 'The Giant’s Study',
+        items: [
+          'A tall stack of gilt-spined antique books now leans on the desk’s back corner.',
+          'The inkwell is a proper brass-and-glass piece with its white quill standing in it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.10.2',
     date: '2026-11-13',
     title: 'Sharper Toys',
