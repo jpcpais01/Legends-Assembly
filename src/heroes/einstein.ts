@@ -9,6 +9,7 @@ import { rand, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
 import { audio } from '../core/Audio';
+import { GRAVITY_COLLAPSE_PEAK } from '../audio/sampleManifest';
 import { screenFx, type Lens } from '../vfx/ScreenFx';
 import { TrailStyle } from '../vfx/Trails';
 
@@ -108,9 +109,12 @@ function createGravityWell(g: Game, owner: Hero, at: THREE.Vector3) {
   const lens: Lens = screenFx.lens(pos, 4.8, 0);
   let tickT = 0;
   let jetT = 0;
+  // the recorded well is split in two: the swirl, then an implosion whose peak lands on the pop
+  let collapseCued = !(audio.hasSample('gravity') && audio.hasSample('gravityCollapse'));
   const zone: Zone = {
     owner, team: owner.team, pos, radius: 6.5, t: 0, dur: 3.2, dead: false, kind: 'gravityWell',
     update(z, g, dt) {
+      if (!collapseCued && z.t >= z.dur - GRAVITY_COLLAPSE_PEAK) { collapseCued = true; g.play('gravityCollapse', pos); }
       const open = Math.min(1, z.t / 0.25);
       const close = z.t > z.dur - 0.3 ? Math.max(0, (z.dur - z.t) / 0.3) : 1;
       const s = (1 - Math.pow(1 - open, 3)) * (0.6 + 0.4 * close);

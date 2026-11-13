@@ -65,6 +65,7 @@ async function boot() {
     onLocalHurt: (a, from) => hud.hurt(from, a),
     onAnnounce: (t, s, tone) => hud.announce(t, s, tone),
     onCountdown: (n) => hud.countdown(n),
+    onCallout: (c) => hud.callout(c),
     onMatchEnd: () => {
       setTimeout(() => {
         input.unlock();
@@ -119,6 +120,7 @@ async function boot() {
     subs.clear();
     audio.setWorldPaused(false);
     game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty });
+    audio.startAmbience(study ? 'study' : 'ruins');
     hud.setup();
     hud.show(true);
     camera.fov = settings.fov;
@@ -136,6 +138,7 @@ async function boot() {
     input.unlock();
     subs.clear();
     audio.setWorldPaused(false);
+    audio.stopAmbience();
     game.clearMatch();
     game.paused = false;
     hud.show(false);

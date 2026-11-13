@@ -45,6 +45,12 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'models', expiration: { maxEntries: 60 } },
           },
+          {
+            // generated SFX + announcer: served from cache instantly, refreshed in the background
+            urlPattern: ({ url }) => url.pathname.startsWith('/audio/'),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'audio', expiration: { maxEntries: 160 } },
+          },
         ],
       },
     }),
