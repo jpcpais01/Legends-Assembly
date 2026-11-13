@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { registerSW } from 'virtual:pwa-register';
 import { Renderer } from './core/Renderer';
 import { Input } from './core/Input';
+import { enterFullscreen, isFullscreen, isStandalone } from './core/Display';
 import { audio } from './core/Audio';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
@@ -67,6 +68,7 @@ async function boot() {
     onMatchEnd: () => {
       setTimeout(() => {
         input.unlock();
+        document.body.classList.remove('in-match');
         menu.results(game, () => startMatch(lastMode, lastHero), () => toMenu());
       }, 3200);
     },
@@ -101,7 +103,8 @@ async function boot() {
     onStart: (mode, hero) => startMatch(mode, hero),
     onPreviewHero: (hero) => game.setShowcase(hero),
     onQualityChange: () => { renderer.applyQuality(); arena.applyQuality(); },
-    onResume: () => { input.lock(); },
+    onResume: () => engage(),
+    onEngage: () => engage(),
     onLeave: () => { menu.pause(false); toMenu(); },
   });
   menu.bindGame(game);
@@ -120,11 +123,17 @@ async function boot() {
     hud.show(true);
     camera.fov = settings.fov;
     camera.updateProjectionMatrix();
-    input.lock();
+    document.body.classList.add('in-match');
+    engage();
+    // Lock In already asked for the lock; if the browser refused it, don't leave the match
+    // running with a free cursor: show the pause screen so one click picks it back up.
+    setTimeout(() => { if (inMatch() && !input.locked) pauseFor(false); }, 600);
     flash();
   }
 
   function toMenu() {
+    document.body.classList.remove('in-match');
+    input.unlock();
     subs.clear();
     audio.setWorldPaused(false);
     game.clearMatch();
@@ -144,15 +153,41 @@ async function boot() {
     setTimeout(() => f.remove(), 800);
   }
 
-  input.onLockChange = (locked) => {
-    if (game.state === 'menu' || game.state === 'ended') return;
+  const inMatch = () => game.state !== 'menu' && game.state !== 'ended';
+
+  /** Lock the mouse (and go fullscreen if wanted). Only works inside a user gesture. */
+  function engage() {
+    // Pointer lock first: in some browsers requestFullscreen consumes the click's
+    // user activation, which would make the lock request that follows fail.
+    input.lock();
+    if (settings.fullscreen && !isFullscreen() && !isStandalone()) void enterFullscreen();
+  }
+
+  function pauseFor(locked: boolean) {
     game.paused = !locked;
     audio.setWorldPaused(game.paused);
     menu.pause(!locked);
-  };
+  }
+
+  input.onLockChange = (locked) => { if (inMatch()) pauseFor(locked); };
+  input.onLockError = () => { if (inMatch() && !input.locked) pauseFor(false); };
+  // Esc is captured while fullscreen (keyboard lock), so open the pause menu ourselves
+  // instead of letting the browser drop fullscreen.
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && input.locked && inMatch()) { e.preventDefault(); input.unlock(); }
+  });
+  // Leaving fullscreen mid-match (holding Esc, F11, alt-tab on some platforms) drops the lock
+  // in most browsers; make sure we land on the pause screen rather than a half-locked state.
+  document.addEventListener('fullscreenchange', () => {
+    if (!isFullscreen() && inMatch() && !game.paused && !input.locked) pauseFor(false);
+  });
+  // Tabbing away can lose the lock without a lockchange in some browsers.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && inMatch() && !game.paused) { input.unlock(); pauseFor(false); }
+  });
   // clicking the canvas during a match re-locks the mouse
   renderer.gl.domElement.addEventListener('click', () => {
-    if (game.state !== 'menu' && game.state !== 'ended' && !input.locked && !document.querySelector('.panel')) input.lock();
+    if (inMatch() && !input.locked && !document.querySelector('.panel')) engage();
   });
 
   await progress(100, 'Press any key to start');

@@ -378,8 +378,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .ov-close:hover { background: rgba(255, 255, 255, .15); }
 
 /* ════════════════════════ PAUSE ════════════════════════ */
-.pause { position: fixed; inset: 0; z-index: 5; display: flex; align-items: stretch; background: linear-gradient(90deg, rgba(4, 6, 12, .9) 0%, rgba(4, 6, 12, .55) 45%, rgba(4, 6, 12, .35) 100%); animation: fadeIn .25s both; }
-.pause-side { width: min(440px, 92vw); padding: 40px var(--pad); display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(255, 255, 255, .04), transparent), rgba(8, 10, 18, .7); border-right: 1px solid var(--line); animation: slideR .45s var(--out) both; }
+.pause { cursor: pointer; position: fixed; inset: 0; z-index: 5; display: flex; align-items: stretch; background: linear-gradient(90deg, rgba(4, 6, 12, .9) 0%, rgba(4, 6, 12, .55) 45%, rgba(4, 6, 12, .35) 100%); animation: fadeIn .25s both; }
+.pause-side { cursor: default; width: min(440px, 92vw); padding: 40px var(--pad); display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(255, 255, 255, .04), transparent), rgba(8, 10, 18, .7); border-right: 1px solid var(--line); animation: slideR .45s var(--out) both; }
 .ps-brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; letter-spacing: .3em; font-size: 12px; text-transform: uppercase; color: var(--muted); }
 .ps-brand .mark { width: 26px; height: 26px; }
 .ps-tag { margin-top: auto; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--hc); font-weight: 650; }
@@ -399,7 +399,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .pbtn.danger.armed { background: rgba(255, 61, 90, .18); color: #ff8a9a; box-shadow: inset 0 0 0 1px rgba(255, 61, 90, .6); }
 .pbtn:focus-visible { box-shadow: var(--focus); }
 .ps-hint { font-size: 12.5px; color: var(--dim); margin: 18px 0 0; }
-.pause-card { margin: auto 0 auto auto; margin-right: var(--pad); width: min(460px, 40vw); display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; border: 1px solid var(--line-2);
+.pause-card { cursor: default; margin: auto 0 auto auto; margin-right: var(--pad); width: min(460px, 40vw); display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; border: 1px solid var(--line-2);
   background: linear-gradient(180deg, color-mix(in srgb, var(--hc) 18%, transparent), rgba(8, 10, 18, .85) 45%); box-shadow: 0 40px 100px rgba(0, 0, 0, .5); animation: rise .5s var(--out) .08s both; }
 .pc-art { height: 230px; position: relative; overflow: hidden; background: radial-gradient(70% 90% at 50% 30%, color-mix(in srgb, var(--hc) 45%, transparent), transparent 75%); }
 .pc-art img { position: absolute; left: 50%; top: -10px; height: 300px; transform: translateX(-50%); }
@@ -763,3 +763,6 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 @media (prefers-reduced-motion: reduce) {
   .btn-play::after, .btn-lock::before, .logo .l1, .boot::after, .ult.ready .u-core::before { animation: none; }
 }
+
+/* Hide the cursor over the arena for the whole match, even in the instant before pointer lock engages. */
+body.in-match canvas { cursor: none; }
