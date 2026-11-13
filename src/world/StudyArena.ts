@@ -12,6 +12,9 @@ import { HERO_RADIUS } from '../game/Hero';
 import type { ArenaLike } from './types';
 import { bakeWoodMaps, buildDeskGeometry, makeDeskWoodMaterial } from './studyDesk';
 import * as P from './studyProps';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { SUN_DIR, WIN, ROOM_BOX, makeDust, patchSunThroughWindows, roomMatrix } from './studyLight';
 
 /**
  * The Giant's Study: toy-sized legends fight on top of a colossal scholar's desk.
@@ -26,7 +29,7 @@ const FLOOR_Y = -38; // the room floor, far below the desk top
  */
 const DROP_VER: Record<string, number> = {
   antique_books: 1, inkwell_quill: 1, hourglass: 1, brush_jar: 1, candle_holder: 1, coin_stack: 1, teacup_saucer: 1, rolled_map: 1,
-  closed_book: 1, spectacles: 1, magnifying_glass: 1, ruler: 1, envelope_wax_seal: 1, pencil: 1, emerald_quill: 1,
+  closed_book: 1, spectacles: 2, magnifying_glass: 2, ruler: 1, envelope_wax_seal: 1, pencil: 1, emerald_quill: 1,
 };
 const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
@@ -90,7 +93,6 @@ function candleTop(g: THREE.BufferGeometry, m: THREE.Matrix4) {
   return best.y > -Infinity ? best : new THREE.Vector3(0, bb.max.y, 0);
 }
 
-const SUN_DIR = new THREE.Vector3(0.72, 0.58, 0.32).normalize();
 
 function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, repeat = 1, srgb = true) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
@@ -129,16 +131,17 @@ export class StudyArena implements ArenaLike {
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     this.scene = scene;
+    patchSunThroughWindows();
     scene.background = new THREE.Color(0x1a120c);
     // the sunset sky is only seen through the window
     this.sky.material.uniforms.uSunDir.value.copy(SUN_DIR);
     scene.add(this.sky.mesh);
     scene.environment = this.bakeEnvironment(renderer);
     scene.environmentIntensity = 0.55;
-    this.fog = new THREE.FogExp2(new THREE.Color(0.32, 0.2, 0.13), 0.0032);
+    this.fog = new THREE.FogExp2(new THREE.Color(0.32, 0.2, 0.13), 0.0022);
     scene.fog = this.fog;
 
-    const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.72, 0.45), 3.6);
+    const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.74, 0.48), 7.0);
     sun.position.copy(SUN_DIR).multiplyScalar(160);
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
@@ -149,7 +152,7 @@ export class StudyArena implements ArenaLike {
     sun.shadow.radius = 2;
     this.sun = sun;
     scene.add(sun, sun.target);
-    this.hemi = new THREE.HemisphereLight(new THREE.Color(1.0, 0.82, 0.62), new THREE.Color(0.28, 0.16, 0.09), 0.75);
+    this.hemi = new THREE.HemisphereLight(new THREE.Color(1.0, 0.82, 0.62), new THREE.Color(0.28, 0.16, 0.09), 0.55);
     scene.add(this.hemi);
     this.lampLight = new THREE.PointLight(new THREE.Color(1.0, 0.85, 0.55), 0, 70, 1.6);
     this.candleLight = new THREE.PointLight(new THREE.Color(1.0, 0.7, 0.4), 0, 160, 1.4);
@@ -191,6 +194,7 @@ export class StudyArena implements ArenaLike {
   private renderer: THREE.WebGLRenderer;
 
   private async load() {
+    this.roomModel = await this.loadRoomModel();
     const loaded = await Promise.all(STUDY_PROPS.map((n) => loadTemplate(`/models/study/${n}.glb`)));
     STUDY_PROPS.forEach((n, i) => { const t = loaded[i]; if (t) this.T[n] = t; });
     const hx = DESK_HX, hz = DESK_HZ;
@@ -223,6 +227,7 @@ export class StudyArena implements ArenaLike {
         const fit = fitTemplate(t, d.meshy.fit, d.meshy.cm * P.U);
         statics.push({ geo: t.geometry, mat: t.material, m: world.clone().multiply(fit.m), collide: d.meshy.collide });
         tops.push(y + fit.height);
+        if (t.glass) statics.push({ geo: t.glass, mat: M.lens, m: world.clone().multiply(fit.m), collide: false });
         if (d.meshy.name === 'hourglass') for (const p of P.hourglassGlass()) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(fit.m), collide: false });
         if (d.flame) {
           const f = candleTop(t.geometry, fit.m);
@@ -308,21 +313,22 @@ export class StudyArena implements ArenaLike {
       const ch = this.T.chandelier;
       const H = 26;
       const pivot = new THREE.Group();
-      pivot.position.set(0, 92, 0);
+      const top = this.roomModel ? WIN.ceil + 2 : 92, chainL = top - 70;
+      pivot.position.set(0, top, 0);
       const mesh = new THREE.Mesh(ch.geometry, ch.material);
-      mesh.scale.setScalar(H); mesh.position.y = -H - 22;
-      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 22, 6).translate(0, -11, 0), new THREE.MeshStandardMaterial({ color: 0x1b1714, metalness: 0.8, roughness: 0.5 }));
+      mesh.scale.setScalar(H); mesh.position.y = -H - chainL;
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, chainL, 6).translate(0, -chainL / 2, 0), new THREE.MeshStandardMaterial({ color: 0x1b1714, metalness: 0.8, roughness: 0.5 }));
       pivot.add(mesh, chain);
       // candle flames
       const flames = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 8, 6).scale(1, 1.8, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2.4, 0.9), fog: false }), 8);
       const ringR = ch.size.x * H * 0.42;
       const m = new THREE.Matrix4();
-      for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; m.makeTranslation(Math.cos(a) * ringR, -22 - H * 0.35, Math.sin(a) * ringR); flames.setMatrixAt(i, m); }
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; m.makeTranslation(Math.cos(a) * ringR, -chainL - H * 0.35, Math.sin(a) * ringR); flames.setMatrixAt(i, m); }
       pivot.add(flames);
       this.scene.add(pivot);
       this.anim.chandelier = pivot;
       this.anim.flames = flames;
-      this.candleLight.position.set(0, 92 - 22 - H * 0.4, 0);
+      this.candleLight.position.set(0, 70 - H * 0.4, 0);
       this.candleLight.intensity = 650;
     }
 
@@ -361,7 +367,7 @@ export class StudyArena implements ArenaLike {
     for (const p of this.healthPadPositions) p.y = this.world.heightAt(p.x, p.z);
     grid.openSpot(6, -2, 8, this.showcasePos, 4);
     this.buildSpawns();
-    this.buildRoom(hx, hz);
+    if (this.roomModel) this.dressModelRoom(this.roomModel); else this.buildRoom(hx, hz);
   }
 
   /**
@@ -432,6 +438,91 @@ export class StudyArena implements ArenaLike {
   }
 
   /** The giant room around the desk: plank floor + rug, timber-framed plaster walls, a sunset window, bookshelves, fireplace, beamed ceiling. */
+  private roomModel: THREE.Mesh | null = null;
+  private dust: THREE.Points | null = null;
+  get hasRoomModel() { return !!this.roomModel; }
+
+  /** João's Cartographer's study, closed into a full room (scripts/build-study-room.mjs). Null if it is missing. */
+  private async loadRoomModel(): Promise<THREE.Mesh | null> {
+    try {
+      const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+      const gltf = await loader.loadAsync('/models/study/study_room.glb?v=1');
+      let mesh: THREE.Mesh | null = null;
+      gltf.scene.traverse((o) => { if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh; });
+      if (!mesh) return null;
+      const m = mesh as THREE.Mesh;
+      gltf.scene.updateMatrixWorld(true);
+      const local = m.matrixWorld.clone(); // meshopt quantization keeps its dequantize transform on the node
+      m.removeFromParent();
+      m.matrixAutoUpdate = false;
+      m.matrix.copy(roomMatrix()).multiply(local);
+      m.updateMatrixWorld(true);
+      m.receiveShadow = true;
+      m.castShadow = false; // the windows' light is analytic (studyLight); the shadow map stays on the desk
+      const mat = m.material as THREE.MeshStandardMaterial;
+      mat.envMapIntensity = 0.6;
+      if (mat.map) mat.map.anisotropy = 8;
+      return m;
+    } catch (e) {
+      console.warn('[study] room model missing, using the built room', e);
+      return null;
+    }
+  }
+
+  /** Ceiling, window glass, fire glow and dust around the room model. */
+  private dressModelRoom(room: THREE.Mesh) {
+    this.scene.add(room);
+    const B = ROOM_BOX;
+    // ceiling: dark planks and heavy beams just above the model's crown beams
+    const rnd = mulberry32(11);
+    const plank = canvasTex(512, 512, (c) => {
+      for (let i = 0; i < 8; i++) {
+        const v = 38 + rnd() * 18;
+        c.fillStyle = `rgb(${v + 22},${v * 0.66},${v * 0.38})`; c.fillRect(0, i * 64, 512, 64);
+        for (let k = 0; k < 50; k++) { c.fillStyle = `rgba(15,8,3,${0.05 + rnd() * 0.1})`; c.fillRect(0, i * 64 + rnd() * 64, 512, 1 + rnd() * 2); }
+        c.fillStyle = 'rgba(10,5,2,0.9)'; c.fillRect(0, i * 64, 512, 3);
+      }
+    }, 5);
+    const ceilMat = new THREE.MeshStandardMaterial({ map: plank, roughness: 0.85 });
+    const cw = B.x1 - B.x0 + 30, cd = B.z1 - B.z0 + 30, cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2;
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(cw, cd).rotateX(Math.PI / 2).translate(cx, WIN.ceil + 6, cz), ceilMat);
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x2a170c, roughness: 0.75 });
+    const beams: THREE.BufferGeometry[] = [];
+    for (let i = 0; i < 5; i++) beams.push(new RoundedBoxGeometry(cw, 9, 8, 2, 1.5).translate(cx, WIN.ceil + 1.5, B.z0 + 20 + i * ((B.z1 - B.z0 - 40) / 4)));
+    const beam = new THREE.Mesh(mergeGeometries(beams, false)!, beamMat);
+    ceil.receiveShadow = beam.receiveShadow = true;
+    this.scene.add(ceil, beam);
+
+    // window glass: barely there, a sheen of the room on it
+    const ap = WIN.ap;
+    const sh = new THREE.Shape();
+    sh.moveTo(ap.x0, ap.y0); sh.lineTo(ap.x1, ap.y0); sh.lineTo(ap.x1, ap.ys);
+    sh.absellipse((ap.x0 + ap.x1) / 2, ap.ys, (ap.x1 - ap.x0) / 2, ap.top - ap.ys, 0, Math.PI, false, 0);
+    sh.lineTo(ap.x0, ap.y0);
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0xdfe8f0, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.07, depthWrite: false, envMapIntensity: 1.6, side: THREE.DoubleSide });
+    const back = new THREE.Mesh(new THREE.ShapeGeometry(sh, 24).translate(0, 0, WIN.zA - 1.5), glassMat);
+    const side = new THREE.Mesh(new THREE.ShapeGeometry(sh, 24).rotateY(-Math.PI / 2).translate(WIN.xB + 1.5, 0, WIN.bOff), glassMat);
+    back.renderOrder = side.renderOrder = 3;
+    this.scene.add(back, side);
+
+    // the fireplace in the left wall: its painted fire gets a real glow and light
+    const fx = -108, fy = -25, fz = 21;
+    const fireTex = canvasTex(128, 128, (c) => {
+      const g = c.createRadialGradient(64, 120, 4, 64, 100, 90);
+      g.addColorStop(0, 'rgba(255,240,180,1)'); g.addColorStop(0.35, 'rgba(255,140,40,0.9)'); g.addColorStop(0.7, 'rgba(160,40,10,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+    }, 1, true);
+    fireTex.wrapS = fireTex.wrapT = THREE.ClampToEdgeWrapping;
+    const fire = new THREE.Mesh(new THREE.PlaneGeometry(22, 16).rotateY(Math.PI / 2), new THREE.MeshBasicMaterial({ map: fireTex, color: new THREE.Color(1.6, 0.8, 0.3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    fire.position.set(fx + 3, fy, fz);
+    this.scene.add(fire);
+    this.anim.fire = fire;
+    this.fireLight.position.set(fx + 14, fy + 6, fz);
+
+    this.dust = makeDust(settings.quality === 'low' ? 250 : 700);
+    this.scene.add(this.dust);
+  }
+
   private buildRoom(dhx: number, dhz: number) {
     const F = this.floorY;
     const RX = 120, RZ = 105, CEIL = 95;
@@ -742,6 +833,7 @@ export class StudyArena implements ArenaLike {
   private flick = 1;
   update(time: number, camera: THREE.Camera) {
     this.sky.update(time, camera.position);
+    if (this.dust) (this.dust.material as THREE.ShaderMaterial).uniforms.uTime.value = time;
     const a = this.anim;
     // watch: real-ish clock, ticking second hand
     if (a.second) {

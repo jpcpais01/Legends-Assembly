@@ -14,6 +14,7 @@ import { audio } from './core/Audio';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
+import { GodRaysEffect } from './world/studyLight';
 import { StudyArena } from './world/StudyArena';
 import type { ArenaLike } from './world/types';
 import { loadProps } from './render/props';
@@ -52,6 +53,7 @@ async function boot() {
   await progress(45, study ? 'Dusting the desk' : 'Growing the meadow');
   await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
+  if (arena instanceof StudyArena && arena.hasRoomModel) renderer.setVolumetric(new GodRaysEffect(camera, 14));
   await progress(58, 'Placing the relics');
 
   const uiRoot = document.getElementById('ui')!;
@@ -78,7 +80,7 @@ async function boot() {
   const subs = new Subtitles(uiRoot);
   const REL_COLOR = { ally: '#7cc4ff', enemy: '#ff5a6e' } as const;
   game.voice.onLine = (l) => subs.show(l.name, l.rel === 'self' ? l.hero.def.color : REL_COLOR[l.rel], l.text, l.dur);
-  (window as unknown as { __legends: unknown }).__legends = { game, renderer, settings };
+  (window as unknown as { __legends: unknown }).__legends = { game, renderer, settings, arena };
 
   await progress(70, 'Painting the legends');
   await renderPortraits(renderer.gl, scene.environment);

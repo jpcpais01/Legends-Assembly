@@ -14,6 +14,8 @@ export interface PropTemplate {
   material: THREE.Material;
   /** Size after normalization (height = 1). */
   size: THREE.Vector3;
+  /** Lens triangles split out by scripts/split-lens-glass.mjs (material named "glass"), in the same space. */
+  glass?: THREE.BufferGeometry;
 }
 
 export type PropName = 'cauldron' | 'palette' | 'ruins' | 'statue' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell';
@@ -59,7 +61,7 @@ export async function loadTemplate(url: string): Promise<PropTemplate | null> {
   try {
     const gltf = await loader.loadAsync(url);
     gltf.scene.updateMatrixWorld(true);
-    const geos: THREE.BufferGeometry[] = [];
+    const geos: THREE.BufferGeometry[] = [], lens: THREE.BufferGeometry[] = [];
     let material: THREE.Material | null = null;
     gltf.scene.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -67,21 +69,23 @@ export async function loadTemplate(url: string): Promise<PropTemplate | null> {
       const g = dequantize(m.geometry.clone());
       for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
       g.applyMatrix4(m.matrixWorld);
+      const mat = m.material as THREE.Material;
+      if (mat.name === 'glass') { lens.push(g); return; }
       geos.push(g);
-      material ??= m.material as THREE.Material;
+      material ??= mat;
     });
     if (!geos.length || !material) return null;
     const geometry = geos.length === 1 ? geos[0] : mergeGeometries(geos, false)!;
-    geometry.computeBoundingBox();
-    const bb = geometry.boundingBox!;
+    const glass = lens.length ? (lens.length === 1 ? lens[0] : mergeGeometries(lens, false)!) : undefined;
+    const bb = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute('position') as THREE.BufferAttribute);
+    if (glass) bb.union(new THREE.Box3().setFromBufferAttribute(glass.getAttribute('position') as THREE.BufferAttribute));
     const h = Math.max(1e-4, bb.max.y - bb.min.y);
     const c = bb.getCenter(new THREE.Vector3());
-    geometry.translate(-c.x, -bb.min.y, -c.z);
-    geometry.scale(1 / h, 1 / h, 1 / h);
+    for (const g of glass ? [geometry, glass] : [geometry]) { g.translate(-c.x, -bb.min.y, -c.z); g.scale(1 / h, 1 / h, 1 / h); }
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     const size = geometry.boundingBox!.getSize(new THREE.Vector3());
-    return { geometry, material, size };
+    return { geometry, material, size, glass };
   } catch {
     return null; // not delivered yet: procedural fallback stays
   }
