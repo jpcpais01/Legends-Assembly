@@ -8,6 +8,39 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.9.2',
+    date: '2026-11-13',
+    title: 'Fresh Varnish',
+    sections: [
+      {
+        heading: 'A new desk',
+        items: [
+          'The Giant’s Study desk is rebuilt from scratch: a varnished walnut top made of glued boards, with real wood grain, knots, pores and fine scratches that stay sharp right under your feet.',
+          'The desk now has rounded edges, a moulded lip, drawers with brass knobs and turned legs reaching down to the floor.',
+          'The old blurry clutter that was stuck to the desk is gone. Everything on it is now a separate, detailed prop.',
+        ],
+      },
+      {
+        heading: 'New things on the desk',
+        items: [
+          'Einstein’s relativity notes, Vincent’s letter to Theo with a sunflower sketch, and Yeat’s session sheet, all handwritten and curling at the corners.',
+          'An inkwell with a goose quill, a fountain pen, pencils, a 30 cm ruler, paper clips and a stack of index cards.',
+          'A magnifying glass, round spectacles, cloth hardcovers with gilt spines, a rolled map tied with ribbon and a sealed envelope.',
+          'A porcelain teacup, a lit candle in a brass holder, a stack of coins, an hourglass and a jar of paint-loaded brushes.',
+          'Coffee rings and an ink splatter where the giant got careless.',
+        ],
+      },
+      {
+        heading: 'Sharper study',
+        items: [
+          'The bookshelves around the room are now filled with real books of every size, some leaning and some stacked, instead of a flat picture.',
+          'The coffee mug, desk lamp, chess pieces, eraser and crumpled paper use twice the texture detail.',
+          'The arena downloads faster too: the desk is built in code instead of a large model.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-11-13',
     title: 'Locked In',
