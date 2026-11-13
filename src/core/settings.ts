@@ -40,6 +40,8 @@ export interface Settings {
   /** Shockwave ripples, lensing, color punches and flashes on big moments. */
   screenFx: boolean;
   cameraShake: boolean;
+  /** Go fullscreen when a match starts. */
+  fullscreen: boolean;
 }
 
 const KEY = 'legends-assembly:settings:v1';
@@ -83,6 +85,7 @@ function defaults(): Settings {
     crosshairColor: '#ffffff',
     screenFx: true,
     cameraShake: true,
+    fullscreen: true,
   };
 }
 
