@@ -8,6 +8,27 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.12.1',
+    date: '2026-11-13',
+    title: 'Smooth Light',
+    sections: [
+      {
+        heading: 'Performance',
+        items: [
+          'High and Ultra graphics run much smoother in the Giant’s Study. The god rays are now traced at half resolution with a smarter upscale, so they cost about a third of what they did on High while looking cleaner, with crisper edges around heroes and props.',
+          'The sky outside is no longer painted behind the walls where nobody can see it, and the room behind the desk is drawn last, so hidden parts of it are skipped.',
+          'The desk props use about 330 MB less video memory, with no visible change, which helps a lot on laptops and cards with less memory.',
+        ],
+      },
+      {
+        heading: 'Fixes',
+        items: [
+          'Fixed black holes appearing on shiny gold and glossy surfaces (the pocket watch, the pencil, the globe) when they caught the sun. They now gleam the way they should.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-11-13',
     title: 'Through the Window',

@@ -53,7 +53,7 @@ async function boot() {
   await progress(45, study ? 'Dusting the desk' : 'Growing the meadow');
   await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
-  if (arena instanceof StudyArena && arena.hasRoomModel) renderer.setVolumetric(new GodRaysEffect(camera, 14));
+  if (arena instanceof StudyArena && arena.hasRoomModel) renderer.setVolumetric(new GodRaysEffect(camera, 16));
   await progress(58, 'Placing the relics');
 
   const uiRoot = document.getElementById('ui')!;

@@ -7,6 +7,17 @@ import { QUALITY, settings, type QualityPreset } from './settings';
 import { ImpactEffect, screenFx } from '../vfx/ScreenFx';
 
 /**
+ * Cap what a lit surface can write into the half-float scene buffer. A near-mirror metal or gloss catching the sun
+ * head-on (GGX peak x a strong sun) can pass 65504, the largest half float: the pixel stores infinity, the grade turns
+ * it into NaN and it shows up as a hard black hole right where the brightest glint should be. 512 is far past what
+ * bloom and ACES need, so nothing else changes.
+ */
+THREE.ShaderChunk.opaque_fragment = THREE.ShaderChunk.opaque_fragment.replace(
+  'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+  'gl_FragColor = vec4( min( outgoingLight, vec3( 512.0 ) ), diffuseColor.a );',
+);
+
+/**
  * Renderer + post stack.
  * Single HDR (half-float) scene pass -> one merged effect pass (bloom, grade, tonemap, vignette)
  * -> AA pass on LDR. Dynamic resolution keeps frame time locked to the display refresh.
@@ -109,7 +120,8 @@ export class Renderer {
     this.volumetric = { pass, effect };
     effect.setSteps(this.godRaySteps());
   }
-  private godRaySteps() { return ({ low: 8, medium: 14, high: 20 } as Record<string, number>)[settings.quality] ?? 24; }
+  /** The march runs at half resolution (a quarter of the pixels), so these cost far less than they read. */
+  private godRaySteps() { return ({ low: 10, medium: 16, high: 24 } as Record<string, number>)[settings.quality] ?? 32; }
 
   applyQuality() {
     if (this.volumetric) this.volumetric.effect.setSteps(this.godRaySteps());

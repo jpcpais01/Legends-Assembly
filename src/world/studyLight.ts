@@ -109,65 +109,131 @@ export function patchSunThroughWindows() {
 
 /**
  * Volumetric god rays: march the view ray through the room up to the depth buffer and gather sunlight wherever the
- * window test passes. Dithered, so a handful of steps reads as a smooth beam; the desk shades the air under it.
+ * window test passes. The march runs at half resolution (a quarter of the pixels) on just the part of the ray inside
+ * the room, then a depth-aware upsample puts it back at full resolution without halos around heroes and props.
+ * Dithered, so a handful of steps reads as a smooth beam; the desk shades the air under it.
  */
 export class GodRaysEffect extends Effect {
   private cam: THREE.Camera;
+  private rt: THREE.WebGLRenderTarget;
+  private march: THREE.ShaderMaterial;
+  private quad: THREE.Mesh;
+  private quadScene = new THREE.Scene();
+  private quadCam = new THREE.Camera();
   constructor(camera: THREE.Camera, steps: number) {
     super('GodRaysEffect', /* glsl */ `
-      uniform mat4 uProjInv;
-      uniform mat4 uCamWorld;
-      uniform vec3 uCamPos;
+      uniform sampler2D uRays;
+      uniform vec2 uRaysSize;
+      uniform mat4 uProjInvC;
       uniform vec3 uColor;
       uniform float uDensity;
-      uniform float uFrame;
-      ${STUDY_SUN_GLSL}
-      float stIgn(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
       void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
-        vec4 v = uProjInv * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-        vec3 wp = (uCamWorld * vec4(v.xyz / v.w, 1.0)).xyz;
-        vec3 rd = wp - uCamPos;
-        float len = min(length(rd), 520.0);
-        rd = normalize(rd);
-        float dt = len / float(STEPS);
-        float off = stIgn(gl_FragCoord.xy + uFrame * 5.588238);
-        float acc = 0.0;
-        for (int i = 0; i < STEPS; i++) {
-          vec3 p = uCamPos + rd * (dt * (float(i) + off));
-          if (p.z < ${f(ROOM_BOX.z0)} || p.x > ${f(ROOM_BOX.x1)} || p.x < ${f(ROOM_BOX.x0)} || p.z > ${f(ROOM_BOX.z1)} || p.y < ${f(ROOM_BOX.y0)} || p.y > ${f(ROOM_BOX.y1)}) continue;
-          float s = studySun(p);
-          // under the desk top: the desk is in the way
-          if (p.y < 0.0) { vec2 q = p.xz - ST_SUN.xz * (p.y / ST_SUN.y); if (abs(q.x) < 43.0 && abs(q.y) < 30.0) s = 0.0; }
-          acc += s;
-        }
-        float mu = dot(rd, ST_SUN);
-        float g = 0.55;
-        float phase = 0.3 + (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * mu, 1.5) * 0.08;
-        outputColor = vec4(inputColor.rgb + uColor * (acc * dt * uDensity * phase), inputColor.a);
+        vec4 v = uProjInvC * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+        float d = length(v.xyz / v.w);
+        vec2 st = uv * uRaysSize - 0.5;
+        vec2 i = floor(st), f = st - i, t = 1.0 / uRaysSize, b = (i + 0.5) * t;
+        vec2 s0 = texture2D(uRays, b).rg, s1 = texture2D(uRays, b + vec2(t.x, 0.0)).rg;
+        vec2 s2 = texture2D(uRays, b + vec2(0.0, t.y)).rg, s3 = texture2D(uRays, b + t).rg;
+        // bilinear, but a neighbour at a different depth (the other side of a silhouette) barely counts
+        vec4 w = vec4((1.0 - f.x) * (1.0 - f.y), f.x * (1.0 - f.y), (1.0 - f.x) * f.y, f.x * f.y);
+        w *= 1.0 / (0.02 + abs(vec4(s0.y, s1.y, s2.y, s3.y) - d) / max(d, 0.01));
+        float r = dot(w, vec4(s0.x, s1.x, s2.x, s3.x)) / max(dot(w, vec4(1.0)), 1e-6);
+        outputColor = vec4(inputColor.rgb + uColor * (r * uDensity), inputColor.a);
       }`, {
       attributes: EffectAttribute.DEPTH,
       blendFunction: BlendFunction.NORMAL,
-      defines: new Map([['STEPS', String(steps)]]),
       uniforms: new Map<string, THREE.Uniform>([
-        ['uProjInv', new THREE.Uniform(new THREE.Matrix4())],
-        ['uCamWorld', new THREE.Uniform(new THREE.Matrix4())],
-        ['uCamPos', new THREE.Uniform(new THREE.Vector3())],
+        ['uRays', new THREE.Uniform(null)],
+        ['uRaysSize', new THREE.Uniform(new THREE.Vector2(1, 1))],
+        ['uProjInvC', new THREE.Uniform(new THREE.Matrix4())],
         ['uColor', new THREE.Uniform(new THREE.Color(1.0, 0.72, 0.42))],
         ['uDensity', new THREE.Uniform(0.0022)],
-        ['uFrame', new THREE.Uniform(0)],
       ]),
     });
     this.cam = camera;
+    this.rt = new THREE.WebGLRenderTarget(1, 1, {
+      type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false, generateMipmaps: false,
+      minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+    });
+    this.uniforms.get('uRays')!.value = this.rt.texture;
+    this.march = new THREE.ShaderMaterial({
+      depthTest: false, depthWrite: false,
+      defines: { STEPS: String(steps) },
+      uniforms: {
+        tDepth: { value: null },
+        uProjInv: { value: new THREE.Matrix4() },
+        uCamWorld: { value: new THREE.Matrix4() },
+        uCamPos: { value: new THREE.Vector3() },
+        uFrame: { value: 0 },
+      },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: /* glsl */ `
+        uniform highp sampler2D tDepth;
+        uniform mat4 uProjInv;
+        uniform mat4 uCamWorld;
+        uniform vec3 uCamPos;
+        uniform float uFrame;
+        varying vec2 vUv;
+        ${STUDY_SUN_GLSL}
+        float stIgn(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+        void main() {
+          float depth = texture2D(tDepth, vUv).r;
+          vec4 v = uProjInv * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+          vec3 vp = v.xyz / v.w;
+          float dist = length(vp);
+          vec3 rd = normalize((uCamWorld * vec4(vp, 1.0)).xyz - uCamPos);
+          // only the stretch of the ray inside the room can hold a beam: spend every step there
+          vec3 inv = 1.0 / (rd + vec3(equal(rd, vec3(0.0))) * 1e-6);
+          vec3 ta = (vec3(${f(ROOM_BOX.x0)}, ${f(ROOM_BOX.y0)}, ${f(ROOM_BOX.z0)}) - uCamPos) * inv;
+          vec3 tb = (vec3(${f(ROOM_BOX.x1)}, ${f(ROOM_BOX.y1)}, ${f(ROOM_BOX.z1)}) - uCamPos) * inv;
+          vec3 tn = min(ta, tb), tx = max(ta, tb);
+          float t0 = max(max(tn.x, tn.y), max(tn.z, 0.0));
+          float t1 = min(min(tx.x, tx.y), min(tx.z, min(dist, 520.0)));
+          float acc = 0.0;
+          if (t1 > t0) {
+            float dt = (t1 - t0) / float(STEPS);
+            float off = stIgn(gl_FragCoord.xy + uFrame * 5.588238);
+            for (int i = 0; i < STEPS; i++) {
+              vec3 p = uCamPos + rd * (t0 + dt * (float(i) + off));
+              float s = studySun(p);
+              // under the desk top: the desk is in the way
+              if (p.y < 0.0) { vec2 q = p.xz - ST_SUN.xz * (p.y / ST_SUN.y); if (abs(q.x) < 43.0 && abs(q.y) < 30.0) s = 0.0; }
+              acc += s;
+            }
+            acc *= dt;
+          }
+          float mu = dot(rd, ST_SUN);
+          float g = 0.55;
+          float phase = 0.3 + (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * mu, 1.5) * 0.08;
+          gl_FragColor = vec4(acc * phase, dist, 0.0, 1.0);
+        }`,
+    });
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+    this.quad = new THREE.Mesh(tri, this.march);
+    this.quad.frustumCulled = false;
+    this.quadScene.add(this.quad);
   }
   get color() { return this.uniforms.get('uColor')!.value as THREE.Color; }
-  setSteps(steps: number) { this.defines.set('STEPS', String(steps)); this.setChanged(); }
-  update() {
-    const c = this.cam as THREE.PerspectiveCamera;
-    this.uniforms.get('uProjInv')!.value.copy(c.projectionMatrixInverse);
-    this.uniforms.get('uCamWorld')!.value.copy(c.matrixWorld);
-    this.uniforms.get('uCamPos')!.value.setFromMatrixPosition(c.matrixWorld);
-    this.uniforms.get('uFrame')!.value = (this.uniforms.get('uFrame')!.value + 1) % 64;
+  setSteps(steps: number) { this.march.defines.STEPS = String(steps); this.march.needsUpdate = true; }
+  setDepthTexture(depthTexture: THREE.Texture) { this.march.uniforms.tDepth.value = depthTexture; }
+  setSize(width: number, height: number) {
+    const w = Math.max(1, Math.ceil(width / 2)), h = Math.max(1, Math.ceil(height / 2));
+    this.rt.setSize(w, h);
+    this.uniforms.get('uRaysSize')!.value.set(w, h);
   }
+  update(renderer: THREE.WebGLRenderer) {
+    const c = this.cam as THREE.PerspectiveCamera;
+    const u = this.march.uniforms;
+    u.uProjInv.value.copy(c.projectionMatrixInverse);
+    this.uniforms.get('uProjInvC')!.value.copy(c.projectionMatrixInverse);
+    u.uCamWorld.value.copy(c.matrixWorld);
+    u.uCamPos.value.setFromMatrixPosition(c.matrixWorld);
+    u.uFrame.value = (u.uFrame.value + 1) % 64;
+    renderer.setRenderTarget(this.rt);
+    renderer.render(this.quadScene, this.quadCam);
+  }
+  dispose() { this.rt.dispose(); this.march.dispose(); this.quad.geometry.dispose(); super.dispose(); }
 }
 
 /** Dust drifting through the room, glowing only where a sunbeam catches it. */
