@@ -33,8 +33,14 @@ const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lum
 
 export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard' }
 
+export type AbilitySlot = 'primary' | 'secondary' | 'ult';
+
 export interface GameEvents {
-  onKill(killer: Hero | null, victim: Hero, assists: Hero[]): void;
+  onKill(killer: Hero | null, victim: Hero, assists: Hero[], ab?: AbilitySlot): void;
+  /** A special went off: yours (cinematic beat) or a nearby enemy's (danger warning). */
+  onUltCast(h: Hero, near: boolean): void;
+  /** Letterboxed final-blow replay at the end of a match. */
+  onOutro(title: string, sub: string): void;
   onDamageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean, key?: number): void;
   onHitmarker(crit: boolean, kill: boolean, amount?: number): void;
   onLocalHurt(amount: number, from: THREE.Vector3 | null): void;
@@ -46,7 +52,7 @@ export interface GameEvents {
 
 /** A kill-feat banner: multi-kills, streaks, first blood, shutdowns and team wipes. */
 export interface Callout {
-  kind: 'multi' | 'streak' | 'firstBlood' | 'shutdown' | 'teamWipe' | 'wiped';
+  kind: 'multi' | 'streak' | 'firstBlood' | 'shutdown' | 'teamWipe' | 'wiped' | 'revenge' | 'clutch' | 'ultDenied' | 'longshot';
   title: string;
   sub: string;
   /** 1..5 intensity: drives color, size and the badge. */
@@ -60,6 +66,8 @@ export interface Callout {
 }
 
 const MULTI_WINDOW = 4.5;
+/** View kick per primary shot (radians). */
+const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007 };
 const MULTI = [
   null, null,
   { title: 'Double Elimination', vox: 'double' },
@@ -73,6 +81,9 @@ const STREAKS: Record<number, { title: string; vox: string; tier: number }> = {
   7: { title: 'Unstoppable', vox: 'streak7', tier: 4 },
   10: { title: 'Legendary', vox: 'streak10', tier: 5 },
 };
+
+/** The highlight the results screen celebrates. */
+export interface PlayOfGame { hero: Hero; title: string; score: number; t: number }
 
 interface Pickup { pos: THREE.Vector3; ready: boolean; t: number; mesh: THREE.Group; orb: THREE.Mesh }
 
@@ -90,6 +101,11 @@ export class Game {
   pickups: Pickup[] = [];
   private multi = new Map<number, { n: number; t: number }>();
   private firstBlood = false;
+  /** Match storyline: who leads, the biggest deficit, which calls have been made. */
+  private flow = { lead: -1, deficit: 0, behindSaid: false, mp: [false, false], oneMin: false, ot: false };
+  playOfGame: PlayOfGame | null = null;
+  /** Real seconds of brief slow motion left (your special's opening beat). */
+  private slowT = 0;
   pools = new Map<string, InstancedPool>();
   time = 0;
   matchTime = MATCH_TIME;
@@ -175,6 +191,11 @@ export class Game {
     this.matchTime = MATCH_TIME;
     this.multi.clear();
     this.firstBlood = false;
+    this.flow = { lead: -1, deficit: 0, behindSaid: false, mp: [false, false], oneMin: false, ot: false };
+    this.playOfGame = null;
+    this.finalBlow = null;
+    this.slowT = 0;
+    this.camRig.focus = null;
     this.time = 0;
     this.winner = -1;
     this.timeScale = 1;
@@ -275,6 +296,14 @@ export class Game {
     target.hp -= dmg;
     target.flashT = Math.min(1, target.flashT + (opts.crit ? 1 : 0.7));
     target.anim.hit = 1;
+    {
+      // which way the blow shoves them, in their own body frame (drives the recoil animation)
+      const dx = target.pos.x - source.pos.x, dz = target.pos.z - source.pos.z, dl = Math.hypot(dx, dz) || 1;
+      const sy = Math.sin(target.yaw), cy = Math.cos(target.yaw);
+      target.anim.hitZ = (-dx * sy - dz * cy) / dl;
+      target.anim.hitX = (dx * cy - dz * sy) / dl;
+      target.anim.hitK = clamp(dmg / 70, 0.2, 1);
+    }
     target.recentAttackers.set(source.id, this.time);
     target.lastAttacker = source;
     source.stats.damage += dmg;
@@ -353,6 +382,11 @@ export class Game {
       if (killer && id === killer.id) continue;
       if (this.time - t < 6) { const a = this.heroes.find((h) => h.id === id); if (a) { a.stats.assists++; assists.push(a); this.chargeUlt(a, 120); } }
     }
+    const ab: AbilitySlot | undefined = !killer ? undefined
+      : this.time - killer.abT.ult < 9 ? 'ult' : this.time - killer.abT.secondary < 3.5 ? 'secondary' : 'primary';
+    const revenge = !!killer && killer !== victim && killer.nemesis === victim;
+    const denied = victim.ult >= 1;
+    if (killer && killer !== victim) { if (revenge) killer.nemesis = null; victim.nemesis = killer; }
     if (killer) {
       killer.stats.kills++;
       killer.stats.streak++;
@@ -360,10 +394,11 @@ export class Game {
       this.score[killer.team]++;
       this.chargeUlt(killer, 150);
       if (killer.isLocal) this.play('kill');
-      if (killer !== victim) this.feats(killer, victim, victimStreak);
+      if (killer !== victim) this.feats(killer, victim, victimStreak, { revenge, denied, ab });
     }
     if (victim.isLocal) {
       this.camRig.mode = 'dead';
+      this.camRig.focus = killer && killer !== victim ? killer : null;
       this.events.onAnnounce('YOU WERE ELIMINATED', killer ? `by ${killer.name} · ${killer.def.name}` : '', 'red');
     }
     // death burst: a flash, a ring through the world, and the legend's light rising away
@@ -384,19 +419,86 @@ export class Game {
     screenFx.ripple(p, 4, 0.6, 0.5);
     if (killer?.isLocal && victim !== killer) { this.hitStop(0.09); screenFx.punch(0.55); screenFx.zoomPunch(0.3); screenFx.flashScreen(KILLFLASH, 0.05); }
     this.play('death', p, 0.8);
-    this.events.onKill(killer, victim, assists);
+    this.events.onKill(killer, victim, assists, ab);
     if (killer && killer !== victim) {
-      const multi = killer.stats.streak >= 2;
-      // on a multi-kill the announcer speaks first, the legend answers after
-      this.voice.after(multi ? 1.9 : 0.35, () => { if (!this.voice.say(killer, multi ? 'multiKill' : 'kill') && multi) this.voice.say(killer, 'kill'); });
+      const m = this.multi.get(killer.id);
+      const multi = !!m && m.n >= 2 && this.time - m.t < 0.01;
+      const streak = killer.stats.streak;
+      // on a feat the announcer speaks first, the legend answers after
+      const feat = multi || revenge || victimStreak >= 3 || [3, 5, 7, 10].includes(streak);
+      this.voice.after(feat ? 1.9 : 0.35, () => {
+        const v = this.voice;
+        if (multi && v.say(killer, 'multiKill')) return;
+        if (revenge && v.say(killer, 'revenge')) return;
+        if (victimStreak >= 3 && v.say(killer, 'shutdown')) return;
+        if ([3, 5, 7, 10].includes(streak) && v.say(killer, 'streak')) return;
+        if (Math.random() < 0.45 && v.rival(killer, victim)) return;
+        v.say(killer, 'kill');
+      });
     }
+    const me = this.local;
     if (victim.isLocal) this.voice.after(0.2, () => this.voice.say(victim, 'death'));
-    if (this.score[0] >= this.target || this.score[1] >= this.target) this.endMatch(this.score[0] >= this.target ? 0 : 1);
-    else if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
+    else if (me && me.alive && victim.team === me.team && victim.pos.distanceTo(me.pos) < 35) this.voice.after(0.7, () => this.voice.say(me, 'allyDown'));
+    if (me && assists.includes(me)) this.voice.after(1.1, () => this.voice.say(me, 'assist'));
+    this.trackPlay(killer, victim, ab);
+    const over = this.score[0] >= this.target || this.score[1] >= this.target || (this.matchTime <= 0 && this.score[0] !== this.score[1]);
+    if (over) {
+      this.finalBlow = killer && killer !== victim ? killer : null;
+      this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
+    } else if (killer && killer !== victim) this.scoreFlow();
+  }
+
+  /** The killer whose elimination ended the match (the outro orbits them). */
+  private finalBlow: Hero | null = null;
+
+  /** Weighs each elimination as a highlight; the best one becomes the Play of the Game. */
+  private trackPlay(killer: Hero | null, victim: Hero, ab?: AbilitySlot) {
+    if (!killer || killer === victim) return;
+    const m = this.multi.get(killer.id);
+    const n = m && this.time - m.t < 0.01 ? m.n : 1;
+    const streak = killer.stats.streak;
+    const score = n * 10 + (ab === 'ult' ? 4 : 0) + Math.min(streak, 10) * 1.5 + (killer.hp / killer.maxHp < 0.2 ? 3 : 0);
+    if (n < 2 && streak < 3) return;
+    const cur = this.playOfGame;
+    if (cur && cur.score >= score && !(cur.hero === killer && this.time - cur.t < MULTI_WINDOW)) return;
+    const abName = ab ? killer.def.abilities[ab].name : '';
+    const title = n >= 2 ? MULTI[Math.min(n, 5)]!.title : `${streak} elimination streak`;
+    this.playOfGame = { hero: killer, title: abName && n >= 2 ? `${title} · ${abName}` : title, score, t: this.time };
+  }
+
+  /** Lead changes, comebacks and match point: the announcer narrates the score. */
+  private scoreFlow() {
+    const me = this.local;
+    if (!me) return;
+    const t = me.team, a = this.score[t], e = this.score[1 - t];
+    const f = this.flow;
+    f.deficit = Math.max(f.deficit, e - a);
+    const lead = a > e ? t : e > a ? 1 - t : -1;
+    const talk = a + e >= 3;
+    if (lead !== f.lead) {
+      if (lead === t) {
+        if (f.deficit >= 3) { audio.announce('comeback', 3); this.events.onAnnounce('COMEBACK', 'Your team has taken the lead', 'blue'); }
+        else if (talk) { audio.announce('takeLead', 2); this.events.onAnnounce('LEAD TAKEN', `${a} — ${e}`, 'blue'); }
+        if (talk || f.deficit >= 3) this.voice.after(1.8, () => this.voice.say(me, 'takeLead'));
+        f.deficit = 0; f.behindSaid = false;
+      } else if (lead === 1 - t) {
+        if (talk) { audio.announce('lostLead', 2); this.events.onAnnounce('LEAD LOST', `${a} — ${e}`, 'red'); }
+      } else if (talk) { audio.announce('tied', 2); this.events.onAnnounce('ALL TIED', `${a} — ${e}`, 'gold'); }
+      f.lead = lead;
+    }
+    if (e - a >= 3 && !f.behindSaid) { f.behindSaid = true; this.voice.after(2.2, () => this.voice.say(me, 'behind')); }
+    for (const side of [t, 1 - t]) {
+      if (f.mp[side] || this.score[side] !== this.target - 1) continue;
+      f.mp[side] = true;
+      const mine = side === t;
+      audio.announce(mine ? 'matchPoint' : 'enemyMatchPoint', 3);
+      this.events.onAnnounce(mine ? 'MATCH POINT' : 'ENEMY MATCH POINT', mine ? 'One more elimination wins it' : 'Hold the line', mine ? 'gold' : 'red');
+      if (mine) this.voice.after(1.8, () => this.voice.say(me, 'matchPoint'));
+    }
   }
 
   /** Multi-kills, streaks, first blood, shutdowns and wipes: banner + announcer. */
-  private feats(killer: Hero, victim: Hero, victimStreak: number) {
+  private feats(killer: Hero, victim: Hero, victimStreak: number, x: { revenge: boolean; denied: boolean; ab?: AbilitySlot }) {
     const m = this.multi.get(killer.id);
     const n = m && this.time - m.t <= MULTI_WINDOW ? m.n + 1 : 1;
     this.multi.set(killer.id, { n, t: this.time });
@@ -417,6 +519,10 @@ export class Game {
     if (wipe) list.push({ kind: 'teamWipe', title: 'Team Wipe', vox: 'teamWipe', tier: 4, count: teamSize, prio: 9 });
     if (shutdown) list.push({ kind: 'shutdown', title: 'Shutdown', vox: 'shutdown', tier: 3, count: victimStreak, prio: 7 });
     if (first) list.push({ kind: 'firstBlood', title: 'First Blood', vox: 'firstBlood', tier: 2, count: 1, prio: 5 });
+    if (x.revenge) list.push({ kind: 'revenge', title: 'Revenge', vox: 'revenge', tier: 2, count: 1, prio: 6.5 });
+    if (x.denied) list.push({ kind: 'ultDenied', title: 'Ultimate Denied', vox: 'ultDenied', tier: 2, count: 1, prio: 5.5 });
+    if (killer.alive && killer.hp / killer.maxHp < 0.2) list.push({ kind: 'clutch', title: 'Clutch', vox: 'clutch', tier: 2, count: Math.ceil(killer.hp), prio: 4.5 });
+    if (x.ab === 'primary' && killer.pos.distanceTo(victim.pos) > 30) list.push({ kind: 'longshot', title: 'Long Shot', vox: 'longshot', tier: 1, count: Math.round(killer.pos.distanceTo(victim.pos)), prio: 4 });
     if (!list.length || !me) return;
     list.sort((a, b) => b.prio - a.prio);
 
@@ -448,11 +554,19 @@ export class Game {
     this.winner = winner;
     this.endT = 0;
     this.timeScale = 0.25;
-    this.play(winner === 0 ? 'victory' : 'defeat');
-    audio.duck(2.5, 0.6, 0.3);
     const me = this.local;
     const won = !!me && winner === me.team;
-    this.voice.after(0.45, () => audio.announce(won ? 'victory' : 'defeat', 5));
+    this.play(won ? 'victory' : 'defeat');
+    audio.duck(2.5, 0.6, 0.3);
+    // final blow replay: slow motion orbit around whoever ended it
+    const fb = this.finalBlow;
+    this.camRig.focus = fb ?? me ?? null;
+    this.camRig.mode = 'outro';
+    if (me?.alive) me.model.root.visible = true;
+    const flawless = won && this.score[1 - winner] === 0;
+    this.events.onOutro(flawless ? 'Flawless' : fb ? 'Final Elimination' : 'Time', fb ? `${fb.name} · ${fb.def.name}` : `${this.score[winner]} — ${this.score[1 - winner]}`);
+    audio.announce(flawless ? 'flawless' : 'finalKill', 6);
+    this.voice.after(0.3, () => audio.announce(won ? 'victory' : 'defeat', 5));
     if (me) this.voice.after(2.2, () => this.voice.say(me, winner === me.team ? 'victory' : 'defeat', true));
     this.events.onMatchEnd(winner);
   }
@@ -550,6 +664,7 @@ export class Game {
             this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.7, y: h.pos.y + 0.2, z: h.pos.z + Math.sin(a) * 0.7, vx: -Math.sin(a) * 2, vy: rand(2, 3.5), vz: Math.cos(a) * 2, r: HEALC.r, g: HEALC.g, b: HEALC.b, size: rand(0.18, 0.28), life: rand(0.7, 1), shape: Shape.Plus, drag: 1.5, fadeIn: 0.1 });
           }
           this.play('pickup', p.pos);
+          if (h.isLocal) this.voice.after(0.4, () => this.voice.say(h, 'heal'));
           break;
         }
       }
@@ -561,6 +676,7 @@ export class Game {
   update(rawDt: number) {
     let dt = Math.min(rawDt, 1 / 20) * this.timeScale;
     if (this.stopT > 0) { this.stopT -= rawDt; dt *= 0.06; }
+    else if (this.slowT > 0 && this.state === 'playing') { this.slowT -= rawDt; dt *= 0.4 + 0.6 * clamp(1 - this.slowT / 0.28, 0, 1); }
     globalUniforms.uTime.value += rawDt;
     this.time += dt;
     const t = globalUniforms.uTime.value;
@@ -596,6 +712,18 @@ export class Game {
     }
     if (this.state === 'playing') {
       this.matchTime -= dt;
+      const f = this.flow;
+      if (!f.oneMin && this.matchTime <= 60) {
+        f.oneMin = true;
+        audio.announce('oneMinute', 2);
+        this.events.onAnnounce('ONE MINUTE', 'remaining', 'gold');
+      }
+      if (!f.ot && this.matchTime <= 0 && this.score[0] === this.score[1]) {
+        f.ot = true;
+        audio.announce('overtime', 4);
+        this.events.onAnnounce('OVERTIME', 'Next elimination wins', 'red');
+        if (this.local) this.voice.after(1.6, () => this.voice.say(this.local, 'overtime'));
+      }
       if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
     }
     if (this.state === 'ended') {
@@ -691,12 +819,15 @@ export class Game {
     h.speedMult = 1; h.dmgMult = 1; h.dmgTakenMult = 1;
     h.kit.update(h, this, dt);
     if (!frozen && h.channel <= 0 && h.alive) {
-      if (h.input.primary && h.primaryCd <= 0) { h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); this.voice.say(h, 'primary'); }
+      if (h.input.primary && h.primaryCd <= 0) {
+        h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); h.abT.primary = this.time; this.voice.say(h, 'primary');
+        if (h.isLocal) this.camRig.recoil(RECOIL[h.def.id] ?? 0.006, rand(-1, 1) * 0.002);
+      }
       if (h.input.secondary && h.secondaryCd <= 0) {
-        if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.say(h, 'secondary'); }
+        if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.secondary = this.time; this.voice.say(h, 'secondary'); if (h.isLocal) this.camRig.recoil(0.012); }
       } else if (h.isLocal && this.input.rmbPressed && h.secondaryCd > 0) this.play('denied', undefined, 0.4);
       if (h.input.ult && h.ult >= 1) {
-        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.ult(h); this.ultCastFx(h); }
+        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); }
       } else if (h.isLocal && this.input.shiftPressed && h.ult < 1) this.play('denied', undefined, 0.4);
     }
     this.heroAmbient(h, dt);
@@ -714,6 +845,22 @@ export class Game {
     }
     this.footsteps(h, dt, wasGrounded);
     h.updateAnim(dt, this.time);
+  }
+
+  /** Your special opens with a camera beat and a breath of slow motion; a nearby enemy special warns you. */
+  private ultCine(h: Hero) {
+    const me = this.local;
+    if (!me) return;
+    if (h.isLocal) {
+      this.camRig.ultBeat();
+      this.slowT = 0.28;
+      this.events.onUltCast(h, true);
+      return;
+    }
+    if (h.team !== me.team && me.alive && h.pos.distanceTo(me.pos) < 38) {
+      this.events.onUltCast(h, true);
+      this.voice.after(2.4, () => this.voice.say(me, 'enemyUlt'));
+    } else this.events.onUltCast(h, false);
   }
 
   /** The moment a special goes off: a flare, a rune at the feet and a punch for the caster. */

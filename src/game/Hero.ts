@@ -60,6 +60,10 @@ export class Hero {
   stats = { kills: 0, deaths: 0, assists: 0, damage: 0, healing: 0, streak: 0, bestStreak: 0 };
   recentAttackers = new Map<number, number>(); // heroId -> game time
   lastAttacker: Hero | null = null;
+  /** The last legend who eliminated this one (a kill on them is revenge). */
+  nemesis: Hero | null = null;
+  /** Game time each ability was last used (credits the kill feed with the right ability). */
+  abT = { primary: -99, secondary: -99, ult: -99 };
 
   input: HeroInput = { forward: 0, strafe: 0, jump: false, primary: false, secondary: false, ult: false, yaw: 0, pitch: 0, aim: new THREE.Vector3() };
   kitState: Record<string, any> = {};

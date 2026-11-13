@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Game, Callout } from '../game/Game';
+import type { Game, Callout, AbilitySlot } from '../game/Game';
 import type { Hero } from '../game/Hero';
 import { portraits } from './portraits';
 import { settings } from '../core/settings';
@@ -12,7 +12,7 @@ const NUM_POOL = 28;
 
 interface DmgNum { el: HTMLDivElement; pos: THREE.Vector3; t: number; vx: number; live: boolean; key: number; total: number; crit: boolean; size: number }
 interface Plate { el: HTMLDivElement; bar: HTMLElement; hero: Hero; shown: boolean; frac: number }
-interface Chip { el: HTMLElement; t: HTMLElement; hero: Hero }
+interface Chip { el: HTMLElement; t: HTMLElement; hero: Hero; u: HTMLElement | null }
 
 /**
  * In-match HUD. Everything is plain DOM over the canvas, with no backdrop blur (it would
@@ -74,6 +74,9 @@ export class Hud {
         <div class="co-pips"></div>
       </div>
       <div class="intro"><small class="in-mode"></small><b class="in-title"></b><span class="in-goal"></span></div>
+      <div class="vs"><div class="vs-side ally"></div><b class="vs-x">VS</b><div class="vs-side enemy"></div></div>
+      <div class="cine"><i class="cb t"></i><i class="cb b"></i><div class="cine-t"><small></small><b></b><span></span></div></div>
+      <div class="danger"><span class="dg-av"><img alt=""></span><div><small>Enemy special</small><b></b></div></div>
       <div class="countdown"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/></svg><span></span></div>
       <div class="death hidden">
         <div class="dt-k">${icon(UI.skull)}Eliminated by</div>
@@ -115,7 +118,7 @@ export class Hud {
       lmb: '.s-lmb', rmb: '.s-rmb', rmbCd: '.s-rmb .cd', rmbNum: '.s-rmb .num', ult: '.ult', ultRing: '.ult .rc', ultPct: '.ult .pct',
       teamA: '.h-team.ally', teamE: '.h-team.enemy', scoreA: '.hs-side.ally .hs-n', scoreE: '.hs-side.enemy .hs-n',
       barA: '.hs-side.ally .hs-bar s', barE: '.hs-side.enemy .hs-bar s', timer: '.hs-time', goal: '.hs-goal',
-      nums: '.nums', plates: '.plates', scoreboard: '.scoreboard',
+      nums: '.nums', plates: '.plates', scoreboard: '.scoreboard', cine: '.cine', danger: '.danger',
     };
     for (const k in map) this.els[k] = q(map[k]);
     this.dirs = Array.from(root.querySelectorAll('.dmgdir i')).map((el) => ({ el: el as HTMLElement, t: 0, from: new THREE.Vector3() }));
@@ -174,9 +177,10 @@ export class Hud {
         const el = document.createElement('div');
         el.className = 'chip-h' + (x.isLocal ? ' me' : '');
         el.style.setProperty('--hc', x.def.color);
-        el.innerHTML = `<img src="${portraits[x.def.id] ?? ''}" alt=""><b></b>`;
+        // allies show their special charge under the portrait, like a real squad HUD
+        el.innerHTML = `<img src="${portraits[x.def.id] ?? ''}" alt=""><b></b>${ally && !x.isLocal ? '<i class="cu"><s></s></i>' : ''}`;
         row.appendChild(el);
-        this.chips.push({ el, t: el.querySelector('b') as HTMLElement, hero: x });
+        this.chips.push({ el, t: el.querySelector('b') as HTMLElement, hero: x, u: el.querySelector('.cu s') });
       }
     }
     // nameplates
@@ -203,6 +207,49 @@ export class Hud {
     (this.els.intro.querySelector('.in-title') as HTMLElement).textContent = info.label;
     (this.els.intro.querySelector('.in-goal') as HTMLElement).textContent = `First team to ${info.target} eliminations wins`;
     this.restart(this.els.intro, 'intro', 'show');
+    // the lineup: both teams slide in from their side, the local legend first
+    const vs = this.root.querySelector('.vs') as HTMLElement;
+    for (const [sel, ally] of [['.vs-side.ally', true], ['.vs-side.enemy', false]] as const) {
+      const list = g.heroes.filter((y) => (y.team === h.team) === ally).sort((a, b) => Number(b.isLocal) - Number(a.isLocal));
+      (vs.querySelector(sel) as HTMLElement).innerHTML = list.map((x, i) => `<div class="vs-c${x.isLocal ? ' me' : ''}" style="--hc:${x.def.color};--i:${i}">
+        <span class="vs-av"><img src="${portraits[x.def.id] ?? ''}" alt=""></span><b>${esc(x.name)}</b><small>${esc(x.def.name)}</small></div>`).join('');
+    }
+    vs.classList.toggle('many', g.heroes.length > 6);
+    this.restart(vs, 'vs', 'show');
+    this.root.classList.remove('outro');
+    this.els.cine.className = 'cine';
+    this.els.danger.className = 'danger';
+  }
+
+  /** Your special: letterbox bars snap in with its name. An enemy special nearby: a danger warning. */
+  ultCast(h: Hero, near: boolean) {
+    const me = this.g.local;
+    if (h === me) {
+      this.cineText('', h.def.abilities.ult.name, '', h.def.color);
+      this.restart(this.els.cine, 'cine', 'beat');
+      return;
+    }
+    if (!near || h.team === me.team) return;
+    const d = this.els.danger;
+    (d.querySelector('img') as HTMLImageElement).src = portraits[h.def.id] ?? '';
+    (d.querySelector('b') as HTMLElement).textContent = h.def.abilities.ult.name;
+    d.style.setProperty('--hc', h.def.color);
+    this.restart(d, 'danger', 'on');
+  }
+
+  /** End of match: letterbox the final-blow orbit and drop the gameplay HUD. */
+  outro(title: string, sub: string) {
+    this.root.classList.add('outro');
+    this.cineText(this.g.config!.mode + ' · ' + MODE_INFO[this.g.config!.mode].label, title, sub, this.g.local.def.color);
+    this.restart(this.els.cine, 'cine', 'hold');
+  }
+
+  private cineText(small: string, big: string, sub: string, color: string) {
+    const c = this.els.cine;
+    (c.querySelector('.cine-t small') as HTMLElement).textContent = small;
+    (c.querySelector('.cine-t b') as HTMLElement).textContent = big;
+    (c.querySelector('.cine-t span') as HTMLElement).textContent = sub;
+    c.style.setProperty('--hc', color);
   }
 
   /** Restart a CSS animation by swapping its class (one forced style flush, only on events). */
@@ -256,15 +303,15 @@ export class Hud {
     best.from.copy(from);
   }
 
-  kill(killer: Hero | null, victim: Hero, assists: Hero[] = []) {
+  kill(killer: Hero | null, victim: Hero, assists: Hero[] = [], ab?: AbilitySlot) {
     const me = this.g.local;
     // kill feed
     const el = document.createElement('div');
-    el.className = 'k' + (killer === me || victim === me || assists.includes(me) ? ' me' : '');
+    el.className = 'k' + (killer === me || victim === me || assists.includes(me) ? ' me' : '') + (ab === 'ult' ? ' ult' : '') + (killer && killer.team !== me.team ? ' foe' : '');
     const side = (h: Hero) => (h.team === me.team ? 'a' : 'e');
     const who = (h: Hero) => `<span class="kp ${side(h)}"><img src="${portraits[h.def.id] ?? ''}" alt=""><b>${esc(h.name)}</b></span>`;
     el.innerHTML = killer
-      ? `${who(killer)}${assists.length ? `<small class="ka">+${assists.length}</small>` : ''}${icon(UI.swords, 'kx')}${who(victim)}`
+      ? `${who(killer)}${assists.length ? `<small class="ka">+${assists.length}</small>` : ''}<span class="kab" style="--hc:${killer.def.color}">${icon(ab ? killer.def.abilities[ab].icon : UI.swords, 'kx')}</span>${who(victim)}`
       : `${icon(UI.skull, 'kx')}${who(victim)}`;
     this.els.feed.prepend(el);
     while (this.els.feed.children.length > 5) this.els.feed.lastElementChild!.remove();
@@ -308,7 +355,8 @@ export class Hud {
   /** Kill-feat banner: a hex badge slams in, the title wipes on with a light sweep. */
   callout(c: Callout) {
     const root = this.root.querySelector('.callout') as HTMLElement;
-    const badge = c.kind === 'multi' ? `×${c.count}` : c.kind === 'streak' ? String(c.count) : c.kind === 'firstBlood' ? '1' : c.kind === 'shutdown' ? '✕' : c.kind === 'wiped' ? '!' : String(c.count);
+    const BADGE: Partial<Record<Callout['kind'], string>> = { multi: `×${c.count}`, firstBlood: '1', shutdown: '✕', wiped: '!', revenge: '↺', ultDenied: '⊘', clutch: String(c.count), longshot: `${c.count}m` };
+    const badge = BADGE[c.kind] ?? String(c.count);
     (root.querySelector('.co-n') as HTMLElement).textContent = badge;
     const title = root.querySelector('.co-title span') as HTMLElement;
     title.textContent = c.title;
@@ -388,6 +436,10 @@ export class Hud {
       const ch = this.chips[i];
       c.cls('cd' + i, ch.el, 'dead', !ch.hero.alive);
       c.text('ct' + i, ch.t, ch.hero.alive ? '' : String(Math.max(0, Math.ceil(ch.hero.respawnT))));
+      if (ch.u) {
+        c.style('cu' + i, ch.u, 'transform', `scaleX(${(Math.floor(ch.hero.ult * 20) / 20).toFixed(2)})`);
+        c.cls('cr' + i, ch.el, 'uready', ch.hero.alive && ch.hero.ult >= 1);
+      }
     }
 
     // death card

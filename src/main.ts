@@ -61,7 +61,9 @@ async function boot() {
   // eslint-disable-next-line prefer-const
   let hud: Hud;
   const game = new Game(scene, arena, camera, input, {
-    onKill: (k, v, a) => hud.kill(k, v, a),
+    onKill: (k, v, a, ab) => hud.kill(k, v, a, ab),
+    onUltCast: (h, near) => hud.ultCast(h, near),
+    onOutro: (t, s) => hud.outro(t, s),
     onDamageNumber: (p, a, c, h, key) => hud.damageNumber(p, a, c, h, key),
     onHitmarker: (c, k, a) => hud.hitmarker(c, k, a),
     onLocalHurt: (a, from) => hud.hurt(from, a),
@@ -73,7 +75,8 @@ async function boot() {
         input.unlock();
         document.body.classList.remove('in-match');
         menu.results(game, () => startMatch(lastMode, lastHero), () => toMenu());
-      }, 3200);
+        if (game.playOfGame) setTimeout(() => audio.announce('playOfGame', 4), 500);
+      }, 4200);
     },
   });
   hud = new Hud(uiRoot, game);

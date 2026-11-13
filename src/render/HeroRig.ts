@@ -24,6 +24,10 @@ export interface AnimState {
   vy?: number;
   /** 0..1 pulse when damaged (flinch). */
   hit?: number;
+  /** Direction of the last blow's push in the body frame (x right, z forward) and its weight 0..1. */
+  hitX?: number;
+  hitZ?: number;
+  hitK?: number;
   /** Which attack gesture the next attack pulse plays (defaults to the hero's style). */
   attackKind?: AttackKind;
 }

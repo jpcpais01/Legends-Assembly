@@ -27,7 +27,14 @@ export class CameraRig {
   private tmp2 = new THREE.Vector3();
   private shoulder = 1;
   private smoothY = 0;
-  mode: 'play' | 'dead' | 'cinematic' = 'play';
+  mode: 'play' | 'dead' | 'cinematic' | 'outro' = 'play';
+  /** Who the death cam looks at (your killer) and who the outro orbits (the final blow). */
+  focus: Hero | null = null;
+  /** Visual-only view kick from firing (radians of pitch), springs back; never moves the aim. */
+  private recoilP = 0; private recoilV = 0; private recoilYaw = 0;
+  /** 0..1 ultimate beat: the boom swings out and wide for a moment when you cast your special. */
+  private beat = 0; private beatT = 0;
+  private modeT = 0;
   private orbitT = 0;
   private prevMode: CameraRig['mode'] = 'cinematic';
   private needSnap = true;
@@ -51,6 +58,8 @@ export class CameraRig {
 
   shake(amount: number) { if (settings.cameraShake) this.trauma = Math.min(1, this.trauma + amount); }
   kick(amount: number) { this.fovKick = Math.max(this.fovKick, amount); }
+  recoil(pitch: number, yaw = 0) { this.recoilV += pitch * 60; this.recoilYaw += yaw; }
+  ultBeat() { this.beatT = 0; this.beat = 1; }
 
   forward(out = new THREE.Vector3()) {
     const cp = Math.cos(this.pitch);
@@ -62,12 +71,39 @@ export class CameraRig {
 
   update(dt: number, hero: Hero, world: World) {
     const cam = this.camera;
-    if (this.mode !== this.prevMode) { if (this.mode === 'play') this.needSnap = true; this.prevMode = this.mode; }
+    if (this.mode !== this.prevMode) { if (this.mode === 'play') this.needSnap = true; this.prevMode = this.mode; this.modeT = 0; }
+    this.modeT += dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
     this.fovKick = damp(this.fovKick, 0, 6, dt);
     const targetFov = settings.fov + this.fovKick;
     if (Math.abs(cam.fov - targetFov) > 0.01) { cam.fov = damp(cam.fov, targetFov, 12, dt); cam.updateProjectionMatrix(); }
 
+    if (this.mode === 'outro') {
+      // final blow: a slow-motion orbit around whoever landed it, opening from in front of them
+      const f = this.focus ?? hero;
+      const c = f.pos;
+      const a = f.bodyYaw + Math.PI + 0.55 - this.modeT * 0.32;
+      const R = 4.6 - Math.min(1, this.modeT * 0.4) * 1.1;
+      this.tmp.set(c.x - Math.sin(a) * R, c.y + 1.7 - this.modeT * 0.08, c.z - Math.cos(a) * R);
+      const hit = world.raycast(this.tmp2.set(c.x, c.y + 1.4, c.z), this.tmp, 0.3);
+      if (hit >= 0) this.tmp.lerpVectors(this.tmp2, this.tmp, Math.max(0.15, hit - 0.05));
+      if (this.modeT < dt * 1.5) cam.position.copy(this.tmp); else cam.position.lerp(this.tmp, 1 - Math.exp(-5 * dt));
+      cam.lookAt(c.x, c.y + 1.15, c.z);
+      return;
+    }
+    if (this.mode === 'dead' && this.focus && this.focus.alive && this.focus !== hero && this.modeT < 2.6) {
+      // death cam: from over your body, swing round to look at who got you
+      const k = this.focus.center;
+      const dx = k.x - hero.pos.x, dz = k.z - hero.pos.z, dl = Math.hypot(dx, dz) || 1;
+      this.tmp.set(hero.pos.x - (dx / dl) * 3.2, hero.pos.y + 2.4, hero.pos.z - (dz / dl) * 3.2);
+      const hit = world.raycast(this.tmp2.set(hero.pos.x, hero.pos.y + 1.5, hero.pos.z), this.tmp, 0.3);
+      if (hit >= 0) this.tmp.lerpVectors(this.tmp2, this.tmp, Math.max(0.2, hit - 0.05));
+      cam.position.lerp(this.tmp, 1 - Math.exp(-3.5 * dt));
+      this.tmp2.lerpVectors(hero.center, k, Math.min(1, this.modeT * 1.6));
+      cam.lookAt(this.tmp2);
+      this.yaw = Math.atan2(-dx, -dz) + Math.PI;
+      return;
+    }
     if (this.mode === 'dead') {
       // slow orbit around where we fell
       this.orbitT += dt * 0.35;
@@ -94,8 +130,11 @@ export class CameraRig {
     // 1) head: the always-clear anchor inside the hero's own capsule
     const head = this.head.set(hero.pos.x, this.smoothY + 1.62 + vk * 0.9, hero.pos.z);
 
+    // ultimate beat: swing out fast, hold a breath, ease back in
+    if (this.beat > 0) { this.beatT += dt; this.beat = this.beatT < 0.5 ? 1 : Math.max(0, 1 - (this.beatT - 0.5) / 0.7); }
+    const bk = this.beat * this.beat * (3 - 2 * this.beat);
     // 2) shoulder: slide the over-the-shoulder offset in when a wall hugs the hero's side
-    const shoulderMax = 0.62 * this.shoulder * (1 - vk);
+    const shoulderMax = 0.62 * this.shoulder * (1 - vk) * (1 + bk * 0.6);
     const sEnd = this.tmp.copy(head).addScaledVector(right, shoulderMax + Math.sign(shoulderMax) * CAM_R);
     const st = Math.abs(shoulderMax) > 0.01 ? world.raycast(head, sEnd, 0) : -1;
     const shoulderTarget = st >= 0 ? Math.max(0, (Math.abs(shoulderMax) + CAM_R) * st - CAM_R) * Math.sign(shoulderMax) : shoulderMax;
@@ -104,7 +143,7 @@ export class CameraRig {
 
     // 3) boom: a fan of rays (center + near-plane corners) approximates a sphere cast,
     //    so the lens never pokes through a wall corner even with a coarse collision grid
-    const maxDist = this.dist + vk * 3.2 + Math.max(0, -this.pitch) * 0.6;
+    const maxDist = this.dist + vk * 3.2 + Math.max(0, -this.pitch) * 0.6 + bk * 1.5;
     let t = 1;
     for (let i = 0; i < FAN.length; i++) {
       const [ox, oy] = FAN[i];
@@ -125,6 +164,11 @@ export class CameraRig {
     cam.position.copy(desired);
     const lookAt = this.tmp.copy(cam.position).add(fwd);
     cam.lookAt(lookAt);
+    // view kick: a stiff spring so shots feel punchy and settle in a few frames
+    this.recoilV += (-this.recoilP * 900 - this.recoilV * 42) * dt;
+    this.recoilP += this.recoilV * dt;
+    this.recoilYaw *= Math.exp(-14 * dt);
+    if (Math.abs(this.recoilP) > 1e-5 || Math.abs(this.recoilYaw) > 1e-5) { cam.rotateX(this.recoilP); cam.rotateY(this.recoilYaw); }
 
     // 4) when the lens is right behind the head, hide the hero instead of filling the screen with their hair
     if (hero.alive) hero.model.root.visible = cam.position.distanceToSquared(head) > 0.55 * 0.55;
