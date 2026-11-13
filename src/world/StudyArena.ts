@@ -20,6 +20,11 @@ import * as P from './studyProps';
  */
 const DESK_HX = 43, DESK_HZ = 30; // desk top half extents in meters (1 cm of a real desk = 0.7 m)
 const FLOOR_Y = -38; // the room floor, far below the desk top
+/**
+ * Desk drop-ins that have been delivered, with a version to bump whenever the GLB changes. /models/ is cache-first
+ * on players' devices, so a new URL is what makes them fetch a model they once missed (or an updated one).
+ */
+const DROP_VER: Record<string, number> = { antique_books: 1, inkwell_quill: 1 };
 const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
 
@@ -204,7 +209,7 @@ export class StudyArena implements ArenaLike {
     const deskProps = this.handProps(M);
     const names = [...new Set(deskProps.flatMap((d) => (d.meshy ? [d.meshy.name] : [])))];
     const meshy = new Map<string, PropTemplate>();
-    (await Promise.all(names.map((n) => loadTemplate(`/models/study/${n}.glb`)))).forEach((t, i) => { if (t) meshy.set(names[i], t); });
+    (await Promise.all(names.map((n) => loadTemplate(`/models/study/${n}.glb${DROP_VER[n] ? `?v=${DROP_VER[n]}` : ''}`)))).forEach((t, i) => { if (t) meshy.set(names[i], t); });
     const tops: number[] = [];
     for (const d of deskProps) {
       const t = d.meshy && meshy.get(d.meshy.name);
@@ -387,8 +392,13 @@ export class StudyArena implements ArenaLike {
       // reading and looking
       { parts: () => P.magnifier(M), meshy: lying('magnifying_glass', 15.5), x: -19, z: 23, yaw: 0.6 },
       { parts: () => P.spectacles(M), meshy: flat('spectacles', 11), x: -8, z: -5, yaw: 0.45 },
-      { parts: () => P.hardcover(M, C(0.32, 0.04, 0.035)), meshy: lying('closed_book', 24), x: -33, z: -21, yaw: 0.12 },
-      { parts: () => P.hardcover(M, C(0.04, 0.12, 0.08), 22, 15, 2.8), meshy: lying('closed_book', 22), x: -33, z: -21, yaw: -0.08, y: 3.2 * P.U, stackOn: 18 },
+      {
+        parts: () => [
+          ...P.hardcover(M, C(0.32, 0.04, 0.035)),
+          ...P.hardcover(M, C(0.04, 0.12, 0.08), 22, 15, 2.8).map((p) => ({ ...p, geo: p.geo.clone().applyMatrix4(new THREE.Matrix4().makeRotationY(-0.2).setPosition(0, 3.2 * P.U, 0)) })),
+        ],
+        meshy: tall('antique_books', 17), x: -33, z: -21, yaw: 0.12,
+      },
       { parts: () => P.hardcover(M, C(0.06, 0.08, 0.2), 20, 14, 2.5), meshy: lying('closed_book', 20), x: 12, z: -24, yaw: 1.4 },
       { parts: () => P.scroll(M), meshy: lying('rolled_map', 30), x: -2, z: -25, yaw: 0.08 },
       // the rest of the study
