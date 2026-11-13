@@ -225,7 +225,7 @@ export class Hud {
   ultCast(h: Hero, near: boolean) {
     const me = this.g.local;
     if (h === me) {
-      this.cineText('', h.def.abilities.ult.name, '', h.def.color);
+      this.cineText('', '', '', h.def.color); // the kit already announces its name center screen
       this.restart(this.els.cine, 'cine', 'beat');
       return;
     }
