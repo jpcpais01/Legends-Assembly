@@ -570,7 +570,7 @@ export class Menu {
   private renderSettingsBody(el: HTMLElement) {
     const body = el.querySelector('.set-body') as HTMLElement;
     const row = (label: string, desc: string, control: string) => `<div class="srow"><div class="sl"><b>${label}</b><small>${desc}</small></div><div class="sc">${control}</div></div>`;
-    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
+    const toggle = (k: 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake') => `<button class="tgl${settings[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${settings[k]}"><i></i></button>`;
     const slider = (k: SliderKey) => {
       const s = SLIDERS[k];
       const v = settings[k];
@@ -601,6 +601,8 @@ export class Menu {
       html = `<h3>Interface</h3>
         ${row('HUD scale', 'Size of health, abilities and score.', slider('hudScale'))}
         ${row('Damage numbers', 'Floating numbers when you hit or heal.', toggle('damageNumbers'))}
+        ${row('Screen effects', 'Shockwave ripples, warped space and color punches on big moments.', toggle('screenFx'))}
+        ${row('Camera shake', 'Shake the camera on explosions and heavy hits.', toggle('cameraShake'))}
         ${row('Crosshair color', 'Pick what stands out best for you.', `<div class="swatches">${CROSSHAIR_COLORS.map((col) => `<button class="sw${settings.crosshairColor === col ? ' on' : ''}" data-col="${col}" style="--c:${col}" aria-label="Crosshair ${col}"></button>`).join('')}</div>`)}`;
     } else {
       html = `<h3>Profile</h3>
@@ -618,7 +620,7 @@ export class Menu {
       this.hooks.onQualityChange();
     }));
     body.querySelectorAll<HTMLButtonElement>('.tgl').forEach((b) => b.addEventListener('click', () => {
-      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles';
+      const k = b.dataset.t as 'dynamicResolution' | 'invertY' | 'showFps' | 'damageNumbers' | 'subtitles' | 'screenFx' | 'cameraShake';
       settings[k] = !settings[k];
       b.classList.toggle('on', settings[k]);
       b.setAttribute('aria-checked', String(settings[k]));

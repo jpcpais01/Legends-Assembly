@@ -12,8 +12,9 @@ import { Input } from '../core/Input';
 import { audio, type Sfx, type PlayOpts } from '../core/Audio';
 import { VoiceDirector } from '../audio/VoiceDirector';
 import { globalUniforms } from '../render/materials';
-import { clamp, pick, rand, segmentVsCapsule, shuffle } from '../core/math';
+import { clamp, pick, rand, segmentVsCapsule, shuffle, TAU } from '../core/math';
 import { settings } from '../core/settings';
+import { screenFx } from '../vfx/ScreenFx';
 
 export type Mode = '1v1' | '2v2' | '3v3' | '5v5';
 export const MODE_INFO: Record<Mode, { size: number; target: number; label: string }> = {
@@ -23,14 +24,19 @@ export const MODE_INFO: Record<Mode, { size: number; target: number; label: stri
   '5v5': { size: 5, target: 25, label: 'Assembly War' },
 };
 const MATCH_TIME = 6 * 60;
+const CRIT = new THREE.Color(4, 3, 1.1);
+const HURT = new THREE.Color(1.4, 0.12, 0.1);
+const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
+const HEALC = new THREE.Color(0.6, 3.2, 1.2);
+const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
 export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard' }
 
 export interface GameEvents {
   onKill(killer: Hero | null, victim: Hero, assists: Hero[]): void;
-  onDamageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean): void;
-  onHitmarker(crit: boolean, kill: boolean): void;
+  onDamageNumber(pos: THREE.Vector3, amount: number, crit: boolean, heal: boolean, key?: number): void;
+  onHitmarker(crit: boolean, kill: boolean, amount?: number): void;
   onLocalHurt(amount: number, from: THREE.Vector3 | null): void;
   onAnnounce(text: string, sub?: string, tone?: 'gold' | 'red' | 'blue'): void;
   onMatchEnd(winner: number): void;
@@ -71,6 +77,10 @@ export class Game {
   private lastCount = 4;
   private steps = new Map<number, number>();
   private healSfxT = 0;
+  /** Hitstop: real seconds left of near-frozen simulation after a heavy local hit. */
+  private stopT = 0;
+  private healFxT = new Map<number, number>();
+  private glowCache = new Map<string, THREE.Color>();
   private _v = new THREE.Vector3();
   private _v2 = new THREE.Vector3();
 
@@ -102,6 +112,23 @@ export class Game {
     const d = this.local.pos.distanceTo(pos);
     const k = clamp(1 - d / radius, 0, 1);
     if (k > 0) this.camRig.shake(amount * k);
+  }
+
+  /** Freeze the simulation for a few frames so heavy hits land with weight (local events only). */
+  hitStop(dur: number) { if (this.state === 'playing') this.stopT = Math.max(this.stopT, Math.min(0.12, dur)); }
+
+  /** 0..1 closeness of a world point to the local hero (for screen effects). */
+  near(pos: THREE.Vector3, radius = 30) {
+    if (!this.local) return 0;
+    return clamp(1 - this.local.pos.distanceTo(pos) / radius, 0, 1);
+  }
+
+  /** HDR glow color for a hero (their signature color). */
+  glow(h: Hero, k = 2.6) {
+    const key = h.def.id + k;
+    let c = this.glowCache.get(key);
+    if (!c) { c = new THREE.Color(h.def.color).multiplyScalar(k); this.glowCache.set(key, c); }
+    return c;
   }
 
   // ───────────────────────── match lifecycle ─────────────────────────
@@ -162,6 +189,8 @@ export class Game {
 
   clearMatch() {
     this.doom = 0;
+    this.stopT = 0;
+    screenFx.clear();
     this.voice.reset();
     for (const z of this.zones) z.dispose(z, this);
     this.zones = [];
@@ -200,7 +229,7 @@ export class Game {
   }
   los(a: THREE.Vector3, b: THREE.Vector3) { return this.world.raycast(a, b) < 0; }
 
-  damage(target: Hero, amount: number, source: Hero, opts: { crit?: boolean; knock?: THREE.Vector3; at?: THREE.Vector3; silent?: boolean } = {}) {
+  damage(target: Hero, amount: number, source: Hero, opts: { crit?: boolean; knock?: THREE.Vector3; at?: THREE.Vector3; silent?: boolean; fx?: boolean } = {}) {
     if (!target.alive || this.state === 'ended') return 0;
     if (target.team === source.team) return 0;
     if (target.spawnT < 1.6) return 0;
@@ -218,14 +247,26 @@ export class Game {
     if (opts.knock) target.applyImpulse(opts.knock);
     const at = opts.at ?? target.chest;
     const killed = target.hp <= 0.01;
+    // universal impact layer on top of each kit's own hit effects
+    if (opts.fx !== false) {
+      const k = clamp(dmg / 40, 0.3, 2.2);
+      this.vfx.impact(at, this.glow(source, 2.2), k);
+      if (opts.crit) {
+        this.vfx.flare(at, CRIT, 1.6, 0.16, rand(-0.2, 0.2));
+        this.vfx.add.spawn({ x: at.x, y: at.y, z: at.z, r: CRIT.r, g: CRIT.g, b: CRIT.b, size: 0.45, grow: 2.2, life: 0.22, shape: Shape.Star, spin: 3 });
+      }
+    }
     if (source.isLocal && !opts.silent) {
-      this.events.onDamageNumber(at, dmg, !!opts.crit, false);
-      this.events.onHitmarker(!!opts.crit, killed);
+      this.events.onDamageNumber(at, dmg, !!opts.crit, false, target.id);
+      this.events.onHitmarker(!!opts.crit, killed, dmg);
       this.play(opts.crit ? 'crit' : 'hit', undefined, 0.6);
+      if (dmg >= 55) { this.hitStop(0.03 + Math.min(0.05, dmg / 4000)); screenFx.punch(Math.min(0.6, dmg / 300)); }
     }
     if (target.isLocal) {
       this.events.onLocalHurt(dmg, source.pos);
       if (!opts.silent) this.play('hurt', undefined, 0.5);
+      if (dmg >= 30) { screenFx.punch(Math.min(0.7, dmg / 200)); screenFx.flashScreen(HURT, Math.min(0.12, dmg / 1500)); }
+      if (dmg >= 80) this.hitStop(0.05);
     }
     if (killed) this.kill(target, source);
     else if (target.isLocal && wasHealthy && target.hp / target.maxHp < 0.3) this.voice.say(target, 'lowHp');
@@ -239,6 +280,13 @@ export class Game {
     source.stats.healing += h;
     if (target !== source || h > 0) this.chargeUlt(source, h * 0.8);
     target.healGlowT = 1;
+    // rising crosses, throttled per hero
+    const last = this.healFxT.get(target.id) ?? -9;
+    if (this.time - last > 0.22 && h > 1) {
+      this.healFxT.set(target.id, this.time);
+      const c = target.center;
+      for (let i = 0; i < 2; i++) this.vfx.p({ x: c.x + rand(-0.45, 0.45), y: c.y + rand(-0.6, 0.5), z: c.z + rand(-0.45, 0.45), vy: rand(1.2, 2.2), r: HEALC.r, g: HEALC.g, b: HEALC.b, size: rand(0.16, 0.26), life: rand(0.6, 0.9), shape: Shape.Plus, fadeIn: 0.15, drag: 1 });
+    }
     if (target.isLocal && h > 4 && this.time - this.healSfxT > 0.9) { this.healSfxT = this.time; this.play('heal'); }
     return h;
   }
@@ -286,11 +334,23 @@ export class Game {
       this.camRig.mode = 'dead';
       this.events.onAnnounce('YOU WERE ELIMINATED', killer ? `by ${killer.name} · ${killer.def.name}` : '', 'red');
     }
-    // death burst
+    // death burst: a flash, a ring through the world, and the legend's light rising away
     const c = TEAM_COLORS[victim.team];
     const p = victim.center;
-    this.vfx.burst(p, new THREE.Color(c.r * 4, c.g * 4, c.b * 4), 40, 6, 0.18, 1.0, { gravity: -1 });
-    this.vfx.shockwave(victim.pos, new THREE.Color(c.r * 3, c.g * 3, c.b * 3), 4, 0.6, 0.08);
+    const tc = new THREE.Color(c.r * 4, c.g * 4, c.b * 4);
+    this.vfx.burst(p, tc, 46, 7, 0.18, 1.0, { gravity: -1 });
+    this.vfx.shockwave(victim.pos, new THREE.Color(c.r * 3, c.g * 3, c.b * 3), 4.5, 0.6, 0.08);
+    this.vfx.flare(p, tc, 3.2, 0.3);
+    this.vfx.pillar(victim.pos, new THREE.Color(c.r * 3, c.g * 3, c.b * 3), 9, 26, 0.35);
+    this.vfx.rune(victim.pos, new THREE.Color(c.r * 2.5, c.g * 2.5, c.b * 2.5), 1.6, 1.4, 2, 1, 1.6);
+    this.vfx.groundGlow(victim.pos, new THREE.Color(c.r * 1.5, c.g * 1.5, c.b * 1.5), 2.4, 1.6, 0.3);
+    for (let i = 0; i < 14; i++) {
+      const a = rand(0, TAU);
+      this.vfx.p({ x: p.x + Math.cos(a) * 0.4, y: p.y + rand(-0.6, 0.6), z: p.z + Math.sin(a) * 0.4, vx: -Math.sin(a) * 1.4, vy: rand(1.5, 3.5), vz: Math.cos(a) * 1.4, r: tc.r, g: tc.g, b: tc.b, r2: 3, g2: 3, b2: 3, size: rand(0.1, 0.2), life: rand(1, 1.8), shape: Shape.Star, spin: rand(-3, 3), drag: 0.6, fadeIn: 0.1 });
+    }
+    this.vfx.flash(p, new THREE.Color(c.r * 1.2, c.g * 1.2, c.b * 1.2), 30, 0.6, 12);
+    screenFx.ripple(p, 4, 0.6, 0.5);
+    if (killer?.isLocal && victim !== killer) { this.hitStop(0.09); screenFx.punch(0.55); screenFx.zoomPunch(0.3); screenFx.flashScreen(KILLFLASH, 0.05); }
     this.play('death', p, 0.8);
     this.events.onKill(killer, victim, assists);
     if (killer && killer !== victim) {
@@ -401,6 +461,12 @@ export class Game {
           p.ready = false; p.t = 12;
           this.vfx.burst(this._v.copy(p.pos).setY(p.pos.y + 1), new THREE.Color(0.5, 3, 1.4), 30, 5, 0.12, 0.8);
           this.vfx.shockwave(p.pos, new THREE.Color(0.4, 2.5, 1.2), 3, 0.5);
+          this.vfx.pillar(h.pos, HEALC, 5, 24, 0.6);
+          this.vfx.flare(this._v.copy(p.pos).setY(p.pos.y + 1.1), HEALC, 2, 0.25);
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * TAU;
+            this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.7, y: h.pos.y + 0.2, z: h.pos.z + Math.sin(a) * 0.7, vx: -Math.sin(a) * 2, vy: rand(2, 3.5), vz: Math.cos(a) * 2, r: HEALC.r, g: HEALC.g, b: HEALC.b, size: rand(0.18, 0.28), life: rand(0.7, 1), shape: Shape.Plus, drag: 1.5, fadeIn: 0.1 });
+          }
           this.play('pickup', p.pos);
           break;
         }
@@ -411,7 +477,8 @@ export class Game {
   // ───────────────────────── frame ─────────────────────────
 
   update(rawDt: number) {
-    const dt = Math.min(rawDt, 1 / 20) * this.timeScale;
+    let dt = Math.min(rawDt, 1 / 20) * this.timeScale;
+    if (this.stopT > 0) { this.stopT -= rawDt; dt *= 0.06; }
     globalUniforms.uTime.value += rawDt;
     this.time += dt;
     const t = globalUniforms.uTime.value;
@@ -514,8 +581,13 @@ export class Game {
         this.spawn(h);
         this.play('respawn', h.pos, 0.6);
         this.voice.say(h, 'respawn');
-        this.vfx.burst(h.center, TEAM_COLORS[h.team].clone().multiplyScalar(3), 30, 4, 0.12, 0.9, { vy: 2 });
+        const tc = TEAM_COLORS[h.team].clone().multiplyScalar(3);
+        this.vfx.burst(h.center, tc, 30, 4, 0.12, 0.9, { vy: 2 });
         this.vfx.shockwave(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(2.5), 3, 0.5);
+        this.vfx.pillar(h.pos, tc, 12, 40, 0.5);
+        this.vfx.rune(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(2.2), 1.5, 1.6, -2.2, 1, 1.25);
+        this.vfx.flare(h.center, tc, 2.4, 0.35);
+        this.vfx.groundGlow(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(1.4), 2.2, 1.4, 0.3);
       }
       h.updateAnim(dt, this.time);
       return;
@@ -541,18 +613,47 @@ export class Game {
         if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.say(h, 'secondary'); }
       } else if (h.isLocal && this.input.rmbPressed && h.secondaryCd > 0) this.play('denied', undefined, 0.4);
       if (h.input.ult && h.ult >= 1) {
-        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.ult(h); }
+        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); this.voice.ult(h); this.ultCastFx(h); }
       } else if (h.isLocal && this.input.shiftPressed && h.ult < 1) this.play('denied', undefined, 0.4);
     }
+    this.heroAmbient(h, dt);
     if (h.moveLock > 0) h.moveLock -= dt;
     if (h.channel > 0) h.channel -= dt;
     const wasGrounded = h.grounded;
     const preVy = h.vel.y;
     h.physics(dt, this.world);
-    if (wasGrounded && !h.grounded && h.vel.y > 5) this.play('jump', h.pos, 0.5);
-    else if (!wasGrounded && h.grounded && preVy < -6) this.play('land', h.pos, clamp(-preVy / 14, 0.4, 1));
+    if (wasGrounded && !h.grounded && h.vel.y > 5) { this.play('jump', h.pos, 0.5); this.vfx.dust(h.pos, 3, 0.35, 0.22, 1.2); }
+    else if (!wasGrounded && h.grounded && preVy < -6) {
+      const k = clamp(-preVy / 14, 0.4, 1);
+      this.play('land', h.pos, k);
+      this.vfx.dustRing(h.pos, 0.5 + k * 0.6, Math.round(8 + k * 10), 0.45 + k * 0.3, 0.3 + k * 0.15);
+      if (h.isLocal && k > 0.8) this.camRig.shake(0.12 * k);
+    }
     this.footsteps(h, dt, wasGrounded);
     h.updateAnim(dt, this.time);
+  }
+
+  /** The moment a special goes off: a flare, a rune at the feet and a punch for the caster. */
+  private ultCastFx(h: Hero) {
+    const gc = this.glow(h, 3);
+    this.vfx.flare(h.center, gc, 3.6, 0.35);
+    this.vfx.rune(h.pos, this.glow(h, 2.2), 2.2, 1.2, 3, 1, 1.5);
+    this.vfx.shockwave(h.pos, this.glow(h, 2), 5, 0.5, 0.08);
+    this.vfx.pillar(h.pos, gc, 7, 24, 0.5);
+    if (h.isLocal) { screenFx.zoomPunch(0.45); screenFx.punch(0.3); this.camRig.kick(4); }
+  }
+
+  /** Readability sparkles: slowed heroes get frosty motes, a ready special glows at the feet. */
+  private heroAmbient(h: Hero, dt: number) {
+    if (h.slowT > 0 && h.slowAmt > 0.05 && Math.random() < dt * 14) {
+      const a = rand(0, TAU);
+      this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.5, y: h.pos.y + rand(0.1, 1.4), z: h.pos.z + Math.sin(a) * 0.5, vx: -Math.sin(a) * 1.2, vy: rand(-0.6, -0.2), vz: Math.cos(a) * 1.2, r: SLOWC.r, g: SLOWC.g, b: SLOWC.b, size: rand(0.05, 0.1), life: rand(0.4, 0.7), shape: Shape.Star, spin: 3 });
+    }
+    if (h.ult >= 1 && Math.random() < dt * 9) {
+      const a = rand(0, TAU), r = rand(0.35, 0.6);
+      const gc = this.glow(h, 2.4);
+      this.vfx.p({ x: h.pos.x + Math.cos(a) * r, y: h.pos.y + rand(0.05, 0.4), z: h.pos.z + Math.sin(a) * r, vx: -Math.sin(a) * 0.6, vy: rand(1.2, 2.4), vz: Math.cos(a) * 0.6, r: gc.r, g: gc.g, b: gc.b, size: rand(0.05, 0.1), life: rand(0.6, 1.0), shape: Shape.Spark, stretch: 0.04, drag: 0.5 });
+    }
   }
 
   /** Footsteps: one per stride, paced by real ground speed. */
@@ -562,7 +663,11 @@ export class Game {
     if (sp < 1.2) { this.steps.set(h.id, 0.6); return; }
     let acc = (this.steps.get(h.id) ?? 0) + sp * dt;
     const stride = 0.9 + sp * 0.17;
-    if (acc >= stride) { acc -= stride; this.play('step', h.pos, h.isLocal ? 0.55 : 0.85); }
+    if (acc >= stride) {
+      acc -= stride;
+      this.play('step', h.pos, h.isLocal ? 0.55 : 0.85);
+      if (sp > 4) this.vfx.dust(h.pos, 1, 0.32, 0.16, 0.5);
+    }
     this.steps.set(h.id, acc);
   }
 

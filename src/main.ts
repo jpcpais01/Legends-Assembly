@@ -59,9 +59,9 @@ async function boot() {
   let hud: Hud;
   const game = new Game(scene, arena, camera, input, {
     onKill: (k, v, a) => hud.kill(k, v, a),
-    onDamageNumber: (p, a, c, h) => hud.damageNumber(p, a, c, h),
-    onHitmarker: (c, k) => hud.hitmarker(c, k),
-    onLocalHurt: (_a, from) => hud.hurt(from),
+    onDamageNumber: (p, a, c, h, key) => hud.damageNumber(p, a, c, h, key),
+    onHitmarker: (c, k, a) => hud.hitmarker(c, k, a),
+    onLocalHurt: (a, from) => hud.hurt(from, a),
     onAnnounce: (t, s, tone) => hud.announce(t, s, tone),
     onCountdown: (n) => hud.countdown(n),
     onMatchEnd: () => {
