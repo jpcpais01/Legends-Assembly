@@ -75,8 +75,7 @@ export async function loadTemplate(url: string): Promise<PropTemplate | null> {
     geometry.computeBoundingSphere();
     const size = geometry.boundingBox!.getSize(new THREE.Vector3());
     return { geometry, material, size };
-  } catch (e) {
-    console.warn('[props] load failed', url, e);
+  } catch {
     return null; // not delivered yet: procedural fallback stays
   }
 }
