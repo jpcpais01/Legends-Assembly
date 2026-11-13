@@ -1,0 +1,2 @@
+ual.glb: motion data from the Universal Animation Library by Quaternius (https://quaternius.com),
+licensed CC0 1.0 Universal (public domain). Trimmed for Legends Assembly by scripts/build-anim-library.mjs.
