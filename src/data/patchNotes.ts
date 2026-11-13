@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.10.1',
+    date: '2026-11-13',
+    title: 'Sculpted Desk',
+    sections: [
+      {
+        heading: 'The Giant’s Study',
+        items: [
+          'The desk props are getting fully sculpted, hand-painted models, and each one swaps in as it arrives.',
+          'Stacked books now sit exactly on top of each other whatever their thickness, and the candle keeps its flickering flame.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-11-13',
     title: 'Second Nature',

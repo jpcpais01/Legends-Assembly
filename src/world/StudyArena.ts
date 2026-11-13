@@ -36,6 +36,52 @@ const LAYOUT: [StudyProp, number, number, number, number][] = [
   ['open_book', -14, 1, 1.9, 1.2],
 ];
 
+interface DeskProp {
+  /** Hand-built stand-in. */
+  parts: () => P.Part[];
+  /** The Meshy model that replaces it once delivered. */
+  meshy?: { name: string; cm: number; fit: 'len' | 'h'; collide: boolean };
+  x: number; z: number; yaw: number; y?: number;
+  /** Sit on top of entry #n (for stacks of Meshy models of unknown thickness). */
+  stackOn?: number;
+  /** Light a candle flame on its top. */
+  flame?: boolean;
+}
+
+/**
+ * Fit a 1 m tall template to a real size: lay long thin things down if they were modeled standing, turn the long side
+ * along x, scale to `size` meters (longest horizontal side, or height), and sit it on y = 0 centered.
+ */
+function fitTemplate(t: PropTemplate, fit: 'len' | 'h', size: number) {
+  const m = new THREE.Matrix4();
+  const s = t.size;
+  if (fit === 'len' && s.y > Math.max(s.x, s.z)) m.premultiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2));
+  const bb = new THREE.Box3().setFromBufferAttribute(t.geometry.getAttribute('position') as THREE.BufferAttribute).applyMatrix4(m);
+  let sz = bb.getSize(new THREE.Vector3());
+  if (fit === 'len' && sz.z > sz.x) {
+    m.premultiply(new THREE.Matrix4().makeRotationY(Math.PI / 2));
+    bb.setFromBufferAttribute(t.geometry.getAttribute('position') as THREE.BufferAttribute).applyMatrix4(m);
+    sz = bb.getSize(new THREE.Vector3());
+  }
+  const k = size / (fit === 'len' ? Math.max(sz.x, sz.z) : sz.y);
+  const c = bb.getCenter(new THREE.Vector3());
+  m.premultiply(new THREE.Matrix4().makeTranslation(-c.x, -bb.min.y, -c.z)).premultiply(new THREE.Matrix4().makeScale(k, k, k));
+  return { m, height: sz.y * k };
+}
+
+/** Highest point near the middle of a candle model (in the fitted frame): where the wick is. */
+function candleTop(g: THREE.BufferGeometry, m: THREE.Matrix4) {
+  const p = g.getAttribute('position');
+  const v = new THREE.Vector3(), best = new THREE.Vector3(0, -Infinity, 0);
+  const bb = new THREE.Box3().setFromBufferAttribute(p as THREE.BufferAttribute).applyMatrix4(m);
+  const r = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) * 0.12;
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i).applyMatrix4(m);
+    if (Math.hypot(v.x, v.z) < r && v.y > best.y) best.copy(v);
+  }
+  return best.y > -Infinity ? best : new THREE.Vector3(0, bb.max.y, 0);
+}
+
 const SUN_DIR = new THREE.Vector3(0.72, 0.58, 0.32).normalize();
 
 function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, repeat = 1, srgb = true) {
@@ -154,12 +200,30 @@ export class StudyArena implements ArenaLike {
     statics.push({ geo: desk.woodGeo, mat: wood, m: I, collide: false });
     statics.push({ geo: desk.brassGeo, mat: M.brass, m: I, collide: false });
 
-    // hand-built props: [parts, x, z, yaw]
-    const putParts = (parts: P.Part[], x: number, z: number, yaw: number, y = 0) => {
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(1, 1, 1));
-      for (const p of parts) statics.push({ geo: p.geo, mat: p.mat, m, collide: p.collide ?? true });
-    };
-    for (const [parts, x, z, yaw, y] of this.handProps(M)) putParts(parts, x, z, yaw, y ?? 0);
+    // desk clutter: the Meshy model when it has been delivered, otherwise the hand-built stand-in
+    const deskProps = this.handProps(M);
+    const names = [...new Set(deskProps.flatMap((d) => (d.meshy ? [d.meshy.name] : [])))];
+    const meshy = new Map<string, PropTemplate>();
+    (await Promise.all(names.map((n) => loadTemplate(`/models/study/${n}.glb`)))).forEach((t, i) => { if (t) meshy.set(names[i], t); });
+    const tops: number[] = [];
+    for (const d of deskProps) {
+      const t = d.meshy && meshy.get(d.meshy.name);
+      const below = d.stackOn !== undefined ? tops[d.stackOn] : NaN;
+      const y = t && !Number.isNaN(below) ? below : d.y ?? 0;
+      const world = new THREE.Matrix4().compose(new THREE.Vector3(d.x, y, d.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), d.yaw), new THREE.Vector3(1, 1, 1));
+      if (t && d.meshy) {
+        const fit = fitTemplate(t, d.meshy.fit, d.meshy.cm * P.U);
+        statics.push({ geo: t.geometry, mat: t.material, m: world.clone().multiply(fit.m), collide: d.meshy.collide });
+        tops.push(y + fit.height);
+        if (d.flame) {
+          const f = candleTop(t.geometry, fit.m);
+          for (const p of P.flame(M)) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(new THREE.Matrix4().makeTranslation(f.x, f.y, f.z)), collide: false });
+        }
+      } else {
+        for (const p of d.parts()) statics.push({ geo: p.geo, mat: p.mat, m: world, collide: p.collide ?? true });
+        tops.push(NaN);
+      }
+    }
 
     const place = (name: StudyProp, x: number, z: number, h: number, yaw: number, y = 0, collide = true) => {
       const t = this.T[name];
@@ -291,41 +355,48 @@ export class StudyArena implements ArenaLike {
     this.buildRoom(hx, hz);
   }
 
-  /** The hand-built desk clutter: [parts, x, z, yaw]. Big flat things first so smaller ones sit on them. */
-  private handProps(M: P.PropMaterials): [P.Part[], number, number, number, number?][] {
+  /**
+   * The desk clutter. Each entry is a Meshy model (public/models/study/<meshy>.glb) fitted to a real-world size in
+   * centimeters, with the hand-built version as the stand-in until that model is delivered.
+   * fit 'len' = longest horizontal side (things that lie flat), 'h' = height. Big flat things first.
+   */
+  private handProps(M: P.PropMaterials): DeskProp[] {
     const C = (r: number, g: number, b: number) => new THREE.Color(r, g, b);
+    const flat = (name: string, cm: number) => ({ name, cm, fit: 'len' as const, collide: false });
+    const lying = (name: string, cm: number) => ({ name, cm, fit: 'len' as const, collide: true });
+    const tall = (name: string, cm: number) => ({ name, cm, fit: 'h' as const, collide: true });
     return [
       // papers
-      [P.paperSheet(M, 0, 1, 0), -2, -8, 0.22],
-      [P.paperSheet(M, 1, 2, 1), 13, 9, -0.42],
-      [P.paperSheet(M, 2, 3, 0), -29, -13, 1.32],
-      [P.indexCards(M), -26, 5, 0.5],
-      [P.envelope(M), 24, 24, -0.18],
-      [P.decal(M, 0, 13), 27.5, 9.5, 0],
-      [P.decal(M, 1, 9), -13.5, -15.5, 0.7],
-      [P.decal(M, 0, 11), -17, 14, 2.1],
+      { parts: () => P.paperSheet(M, 0, 1, 0), meshy: flat('paper_einstein', 27.9), x: -2, z: -8, yaw: 0.22 },
+      { parts: () => P.paperSheet(M, 1, 2, 1), meshy: flat('letter_vangogh', 27.9), x: 13, z: 9, yaw: -0.42 },
+      { parts: () => P.paperSheet(M, 2, 3, 0), meshy: flat('music_sheet_yeat', 27.9), x: -29, z: -13, yaw: 1.32 },
+      { parts: () => P.indexCards(M), meshy: flat('index_cards', 13.5), x: -26, z: 5, yaw: 0.5 },
+      { parts: () => P.envelope(M), meshy: flat('envelope_wax_seal', 22), x: 24, z: 24, yaw: -0.18 },
+      { parts: () => P.decal(M, 0, 13), x: 27.5, z: 9.5, yaw: 0 },
+      { parts: () => P.decal(M, 1, 9), x: -13.5, z: -15.5, yaw: 0.7 },
+      { parts: () => P.decal(M, 0, 11), x: -17, z: 14, yaw: 2.1 },
       // writing things
-      [P.inkwell(M), -17, -20, 0.3],
-      [P.fountainPen(M), 3.5, -12, -0.28],
-      [P.pencil(M, C(0.95, 0.66, 0.05)), -6, 15, 0.5],
-      [P.pencil(M, C(0.03, 0.2, 0.1), 13.5), 16, -1, 2.25],
-      [P.ruler(M), 1, 25, -0.05],
-      [P.paperClip(M), -1, -17, 0.9],
-      [P.paperClip(M), 22, 21, 2.6],
-      [P.paperClip(M), -23, -16, -0.4],
+      { parts: () => P.inkwell(M), meshy: tall('inkwell_quill', 26), x: -17, z: -20, yaw: 0.3 },
+      { parts: () => P.fountainPen(M), meshy: lying('fountain_pen', 14.2), x: 3.5, z: -12, yaw: -0.28 },
+      { parts: () => P.pencil(M, C(0.95, 0.66, 0.05)), meshy: flat('pencil', 18.5), x: -6, z: 15, yaw: 0.5 },
+      { parts: () => P.pencil(M, C(0.03, 0.2, 0.1), 13.5), meshy: flat('pencil', 16), x: 16, z: -1, yaw: 2.25 },
+      { parts: () => P.ruler(M), meshy: flat('ruler', 30.5), x: 1, z: 25, yaw: -0.05 },
+      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: -1, z: -17, yaw: 0.9 },
+      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: 22, z: 21, yaw: 2.6 },
+      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: -23, z: -16, yaw: -0.4 },
       // reading and looking
-      [P.magnifier(M), -19, 23, 0.6],
-      [P.spectacles(M), -8, -5, 0.45],
-      [P.hardcover(M, C(0.32, 0.04, 0.035)), -33, -21, 0.12],
-      [P.hardcover(M, C(0.04, 0.12, 0.08), 22, 15, 2.8), -33, -21, -0.08, 3.2 * P.U],
-      [P.hardcover(M, C(0.06, 0.08, 0.2), 20, 14, 2.5), 12, -24, 1.4],
-      [P.scroll(M), -2, -25, 0.08],
+      { parts: () => P.magnifier(M), meshy: lying('magnifying_glass', 15.5), x: -19, z: 23, yaw: 0.6 },
+      { parts: () => P.spectacles(M), meshy: flat('spectacles', 11), x: -8, z: -5, yaw: 0.45 },
+      { parts: () => P.hardcover(M, C(0.32, 0.04, 0.035)), meshy: lying('closed_book', 24), x: -33, z: -21, yaw: 0.12 },
+      { parts: () => P.hardcover(M, C(0.04, 0.12, 0.08), 22, 15, 2.8), meshy: lying('closed_book', 22), x: -33, z: -21, yaw: -0.08, y: 3.2 * P.U, stackOn: 18 },
+      { parts: () => P.hardcover(M, C(0.06, 0.08, 0.2), 20, 14, 2.5), meshy: lying('closed_book', 20), x: 12, z: -24, yaw: 1.4 },
+      { parts: () => P.scroll(M), meshy: lying('rolled_map', 30), x: -2, z: -25, yaw: 0.08 },
       // the rest of the study
-      [P.teacup(M), 37, -11, 0.4],
-      [P.candle(M), 37, -25, 0],
-      [P.coins(M), 12, 20, 0],
-      [P.brushJar(M), -38, -6, 0.2],
-      [P.hourglass(M), 3, 17, 0.5],
+      { parts: () => P.teacup(M), meshy: tall('teacup_saucer', 7.3), x: 37, z: -11, yaw: 0.4 },
+      { parts: () => P.candle(M), meshy: tall('candle_holder', 13), x: 37, z: -25, yaw: 0, flame: true },
+      { parts: () => P.coins(M), meshy: tall('coin_stack', 1.9), x: 12, z: 20, yaw: 0 },
+      { parts: () => P.brushJar(M), meshy: tall('brush_jar', 22), x: -38, z: -6, yaw: 0.2 },
+      { parts: () => P.hourglass(M), meshy: tall('hourglass', 15), x: 3, z: 17, yaw: 0.5 },
     ];
   }
 

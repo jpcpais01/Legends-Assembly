@@ -601,6 +601,14 @@ export function candle(M: PropMaterials) {
   return k.parts;
 }
 
+/** Just a wick and flame, sitting at y = 0 (for the Meshy candle). */
+export function flame(M: PropMaterials) {
+  const k = new Kit(M);
+  k.add(paint(new THREE.CylinderGeometry(0.07, 0.08, 0.9, 6).translate(0, 0.2, 0), new THREE.Color(0.05, 0.04, 0.03)), M.paint, false);
+  k.add(lathe([[0, 0.4], [0.36, 0.75], [0.44, 1.2], [0.32, 2.0], [0, 3.0]], 12), M.flame, false);
+  return k.parts;
+}
+
 /** Cloth-bound hardcover: boards, rounded spine with gilt bands, and a page block with real page edges. */
 export function hardcover(M: PropMaterials, cloth: THREE.Color, L = 24, W = 16, H = 3.2) {
   const k = new Kit(M);
