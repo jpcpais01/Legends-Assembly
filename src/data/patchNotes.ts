@@ -19,13 +19,31 @@ export const PATCH_NOTES: PatchNote[] = [
           'Walking, jogging and sprinting blend smoothly with speed, and the stride matches how fast you move, so feet plant on the ground instead of sliding.',
           'Strafing turns the hips into the run while the shoulders stay on target, and backpedaling steps backwards for real.',
           'Jumps push off and tuck in the air, landings absorb the drop (lighter when you land running), and turning on the spot takes small steps.',
-          'Attacks are real throws, swings and casts on the upper body while the legs keep running.',
+          'Attacks are real throws, swings, jabs and casts on the upper body while the legs keep running, with either hand, and the striking arm reaches straight down your crosshair.',
           'Taking damage makes heroes flinch from the hit, and eliminations play a proper fall.',
         ],
       },
       {
         heading: 'Credits',
         items: ['Motion capture from the Universal Animation Library by Quaternius (CC0).'],
+      },
+    ],
+  },
+  {
+    version: '0.8.1',
+    date: '2026-11-13',
+    title: 'Clean Slate',
+    sections: [
+      {
+        heading: 'Cleaner menus',
+        items: [
+          'The home screen is now one clear column: pick a mode, hit Play, and set bot skill and arena right below. Nothing overlaps anymore, on any screen size.',
+          'Removed the extra cards and the clock from the home screen. What’s New now lives in a small link at the bottom left.',
+          'Hero select keeps your legend’s info, the roster and Lock In in their own spaces, so the ability list never runs into the roster.',
+          'How to Play drops the keyboard picture and keeps one simple list of controls.',
+          'Smaller laptops and short windows get compact layouts for every menu, the pause screen and the match results.',
+          'Fixed the tab highlight sometimes looking too wide when the menu first opened.',
+        ],
       },
     ],
   },
