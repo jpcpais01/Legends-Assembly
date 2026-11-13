@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.8.1',
+    date: '2026-11-13',
+    title: 'Clean Slate',
+    sections: [
+      {
+        heading: 'Cleaner menus',
+        items: [
+          'The home screen is now one clear column: pick a mode, hit Play, and set bot skill and arena right below. Nothing overlaps anymore, on any screen size.',
+          'Removed the extra cards and the clock from the home screen. What’s New now lives in a small link at the bottom left.',
+          'Hero select keeps your legend’s info, the roster and Lock In in their own spaces, so the ability list never runs into the roster.',
+          'How to Play drops the keyboard picture and keeps one simple list of controls.',
+          'Smaller laptops and short windows get compact layouts for every menu, the pause screen and the match results.',
+          'Fixed the tab highlight sometimes looking too wide when the menu first opened.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-11-12',
     title: 'Feel Every Hit',

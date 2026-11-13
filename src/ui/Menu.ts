@@ -91,7 +91,6 @@ export class Menu {
   private hintsEl: HTMLElement;
   private visible = false;
   private locking = false;
-  private clockTimer = 0;
   private overlay: HTMLElement | null = null;
   private pauseEl: HTMLElement | null = null;
   private resultsEl: HTMLElement | null = null;
@@ -112,19 +111,19 @@ export class Menu {
       <div class="m-shade"></div>
       <header class="m-top">
         <div class="brand">${logoMark()}<div class="wm"><b>Legends</b><span>Assembly</span></div></div>
-        <nav class="tabs"><kbd class="kq">Q</kbd>${TABS.map((t) => `<button class="tab" data-p="${t.id}">${t.label}</button>`).join('')}<kbd class="ke">E</kbd><i class="tab-ink"></i></nav>
+        <nav class="tabs">${TABS.map((t) => `<button class="tab" data-p="${t.id}">${t.label}</button>`).join('')}<i class="tab-ink"></i></nav>
         <div class="m-status">
           <div class="me"><span class="me-av"><img alt=""></span><div><b class="me-name"></b><small class="me-main"></small></div></div>
-          <span class="m-sep"></span><time class="clock"></time>
-        </div>
+                  </div>
       </header>
       <main class="m-host"></main>
-      <footer class="m-foot"><span class="m-ver">v${VERSION} · ${esc(PATCH_NOTES[0].title)}</span><span class="m-hints"></span></footer>`;
+      <footer class="m-foot"><button class="m-ver" data-hover>${icon(UI.spark)}<b>What's new</b><span>v${VERSION} · ${esc(PATCH_NOTES[0].title)}</span></button><span class="m-hints"></span></footer>`;
     parent.appendChild(this.root);
     this.pageHost = this.root.querySelector('.m-host') as HTMLElement;
     this.tabsEl = this.root.querySelector('.tabs') as HTMLElement;
     this.ink = this.root.querySelector('.tab-ink') as HTMLElement;
     this.hintsEl = this.root.querySelector('.m-hints') as HTMLElement;
+    this.root.querySelector('.m-ver')!.addEventListener('click', () => { audio.play('uiTab'); this.go('news'); });
 
     this.tabsEl.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => {
       b.addEventListener('mouseenter', () => audio.play('uiHover'));
@@ -140,6 +139,7 @@ export class Menu {
     });
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('resize', () => this.placeInk());
+    document.fonts?.ready.then(() => this.placeInk());
     this.applyHeroTint();
     this.refreshProfile();
   }
@@ -149,12 +149,9 @@ export class Menu {
   show(on: boolean) {
     this.visible = on;
     this.root.classList.toggle('hidden', !on);
-    clearInterval(this.clockTimer);
     if (on) {
       this.locking = false;
       this.go('home', true);
-      this.tickClock();
-      this.clockTimer = window.setInterval(() => this.tickClock(), 15000);
     }
   }
 
@@ -162,10 +159,6 @@ export class Menu {
   closePanel() { this.closeOverlay(); }
 
   get lastMode() { return this.mode; }
-
-  private tickClock() {
-    (this.root.querySelector('.clock') as HTMLElement).textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
 
   private refreshProfile() {
     const d = HEROES[this.hero];
@@ -264,32 +257,15 @@ export class Menu {
   // ───────────────────────── home ─────────────────────────
 
   private renderHome(el: HTMLElement) {
-    const note = PATCH_NOTES[0];
-    const d = HEROES[this.hero];
     el.innerHTML = `
-      <div class="tiles" role="listbox" aria-label="Game mode">${MODES.map((m) => this.tileHtml(m)).join('')}</div>
-      <div class="home-main"></div>
-      <div class="home-cards">
-        <button class="card c-news" data-a="news" data-hover>
-          <span class="card-k">${icon(UI.spark)}What's new</span>
-          <b>v${note.version} · ${esc(note.title)}</b>
-          <p>${note.sections[0].items[0]}</p>
-        </button>
-        <button class="card c-main" data-a="legends" data-hover>
-          <span class="cm-av"><img src="${portraits[d.id] ?? ''}" alt=""></span>
-          <span class="cm-tx"><span class="card-k">Your legend</span><b>${d.name}</b><small>${icon(ROLE_ICONS[d.role])}${d.role} · ${d.title}</small></span>
-        </button>
-        <button class="card c-learn" data-a="learn" data-hover>
-          <span class="card-k">${icon(UI.book)}How to play</span>
-          <b>Controls and tips</b>
-          <span class="mini-keys"><kbd>LMB</kbd><kbd>RMB</kbd><kbd>SHIFT</kbd></span>
-        </button>
+      <div class="home-col">
+        <div class="tiles" role="listbox" aria-label="Game mode">${MODES.map((m) => this.tileHtml(m)).join('')}</div>
+        <div class="home-main"></div>
       </div>
       <div class="spot"></div>`;
     el.querySelectorAll<HTMLButtonElement>('.tile').forEach((b) => {
       b.addEventListener('click', () => this.setMode(b.dataset.m as Mode));
     });
-    el.querySelectorAll<HTMLButtonElement>('.card').forEach((b) => b.addEventListener('click', () => { audio.play('uiTab'); this.go(b.dataset.a as Page); }));
     this.renderHomeMain(el);
     this.renderSpot(el);
   }
@@ -318,7 +294,7 @@ export class Menu {
     const main = el.querySelector('.home-main') as HTMLElement;
     main.style.setProperty('--mc', c.c1);
     main.innerHTML = `
-      <div class="eyebrow"><span class="chip">${this.mode}</span>Game mode · vs bots</div>
+      <div class="eyebrow"><span class="chip">${this.mode}</span>vs bots</div>
       <h1 class="mode-title">${info.label}</h1>
       <p class="mode-desc">${c.desc}</p>
       <div class="mode-meta">
@@ -326,16 +302,16 @@ export class Menu {
         <span>${icon(UI.clock)}6 min, then overtime</span>
         <span>${icon(UI.users)}${info.size} per team</span>
       </div>
-      <div class="home-cta">
-        <button class="btn-play" data-hover>
-          <span class="bp-ic">${icon(UI.play)}</span>
-          <span class="bp-t"><b>Play</b><small>Choose your legend</small></span>
-          <kbd>Enter</kbd>
-        </button>
-        <div class="diff-wrap"><small>${icon(UI.bot)}Bot skill</small>
+      <button class="btn-play" data-hover>
+        <span class="bp-ic">${icon(UI.play)}</span>
+        <span class="bp-t"><b>Play</b><small>Choose your legend</small></span>
+        <kbd>Enter</kbd>
+      </button>
+      <div class="opts">
+        <div class="opt"><small>${icon(UI.bot)}Bot skill</small>
           <div class="seg">${DIFFS.map((d) => `<button data-d="${d}" class="${settings.botDifficulty === d ? 'on' : ''}">${d}</button>`).join('')}</div>
         </div>
-        <div class="diff-wrap"><small>${icon(UI.book)}Arena</small>
+        <div class="opt"><small>${icon(UI.target)}Arena</small>
           <div class="seg">${ARENAS.map(([k, n]) => `<button data-arena="${k}" class="${settings.arena === k ? 'on' : ''}">${n}</button>`).join('')}</div>
         </div>
       </div>`;
@@ -380,12 +356,14 @@ export class Menu {
         <div><small><span class="chip">${this.mode}</span>${info.label} · ${settings.botDifficulty} bots</small><h2>Choose your legend</h2></div>
       </header>` : ''}
       <div class="sel-info"></div>
-      <div class="roster">
-        <button class="r-arrow" data-dir="-1" aria-label="Previous legend">${icon(UI.chevL)}</button>
-        ${HERO_LIST.map((h) => this.rosterCard(h)).join('')}
-        <button class="r-arrow" data-dir="1" aria-label="Next legend">${icon(UI.chevR)}</button>
+      <div class="sel-bar">
+        <div class="roster">
+          <button class="r-arrow" data-dir="-1" aria-label="Previous legend">${icon(UI.chevL)}</button>
+          ${HERO_LIST.map((h) => this.rosterCard(h)).join('')}
+          <button class="r-arrow" data-dir="1" aria-label="Next legend">${icon(UI.chevR)}</button>
+        </div>
+        <button class="btn-lock" data-hover><span class="bl-t">${forPlay ? 'Lock in' : 'Play'}</span><small class="bl-s"></small><kbd>Enter</kbd></button>
       </div>
-      <button class="btn-lock" data-hover><span class="bl-t">${forPlay ? 'Lock in' : 'Play'}</span><small class="bl-s"></small><kbd>Enter</kbd></button>
       <div class="lock-fx"><i></i><b class="lock-name"></b><span>Locked in</span></div>`;
     el.querySelector('.back')?.addEventListener('click', () => { audio.play('uiBack'); this.go('home'); });
     el.querySelectorAll<HTMLButtonElement>('.rc').forEach((b) => b.addEventListener('click', () => this.setHero(b.dataset.h as HeroId)));
@@ -473,18 +451,6 @@ export class Menu {
       <div class="learn-wrap">
         <div class="glass learn-ctl">
           <h2 class="pg-h">Controls</h2>
-          <div class="kb-visual">
-            <div class="kb">
-              <div class="kr">${key('Tab', 'w15 hot2')}${key('Q')}${key('W', 'hot')}${key('E')}${key('R')}</div>
-              <div class="kr">${key('Caps', 'w18 dimk')}${key('A', 'hot')}${key('S', 'hot')}${key('D', 'hot')}${key('F')}</div>
-              <div class="kr">${key('Shift', 'w22 hot3')}${key('Z')}${key('X')}${key('C')}${key('V')}</div>
-              <div class="kr">${key('Esc', 'w15 hot2')}${key('Space', 'w40 hot')}</div>
-            </div>
-            <div class="mouse">
-              <svg viewBox="0 0 80 120" aria-hidden="true"><path class="mb l" d="M40 8 C20 8 8 20 8 40 V48 H39 V8Z"/><path class="mb r" d="M41 8 C60 8 72 20 72 40 V48 H41Z"/><path class="mbody" d="M8 50 H72 V78 C72 100 58 112 40 112 C22 112 8 100 8 78Z"/><rect x="37" y="18" width="6" height="14" rx="3" class="wheel"/></svg>
-              <span class="ml">LMB</span><span class="mr">RMB</span>
-            </div>
-          </div>
           <div class="binds">
             ${bind(key('W') + key('A') + key('S') + key('D'), 'Move', 'Strafe, run and dodge')}
             ${bind(key('Space'), 'Jump', 'Hop over cover and projectiles')}
