@@ -780,6 +780,8 @@ export const RECIPES = {
   },
 
   // ── sample-only (ElevenLabs; silent if the files are missing) ──
+  engineHigh: { dur: 3, level: 0.32, loop: true, reverb: 0.05, sampleOnly: true },
+  skid: { dur: 2, level: 0.26, loop: true, reverb: 0.05, sampleOnly: true },
   gravityCollapse: { dur: 1.1, level: 0.75, reverb: 0.25, sampleOnly: true },
   ambStudy: { dur: 20, level: 0.16, loop: true, reverb: 0, sampleOnly: true },
   ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true },

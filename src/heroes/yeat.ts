@@ -132,6 +132,10 @@ interface TruckState {
   expect: number;
   roll: number;
   engine: LoopHandle | null;
+  /** Full-throttle layer crossfaded over the cruising engine, and the tire squeal in hard turns. */
+  engineHi: LoopHandle | null;
+  skidSnd: LoopHandle | null;
+  skidAmt: number;
   /** Truck footprint in meters (from its bounding box). */
   len: number;
   wid: number;
@@ -301,11 +305,13 @@ function startTonka(h: Hero, g: Game) {
   const f = h.forward;
   const size = addHeadlights(group);
   const tail = [-1, 1].map(() => g.vfx.trail({ color: new THREE.Color(3.2, 0.25, 0.3), endColor: new THREE.Color(0.8, 0.05, 0.1), width: 0.06, life: 0.22, style: TrailStyle.Smooth, minDist: 0.35 }));
-  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
+  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, engineHi: null, skidSnd: null, skidAmt: 0, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
   h.kitState.truck = st;
   if (h.isLocal) g.camRig.vehicle = 1;
   g.play('tonka', h.pos, 1.1);
   st.engine = g.loop('engineLoop', h.pos, 0);
+  st.engineHi = g.loop('engineHigh', h.pos, 0);
+  st.skidSnd = g.loop('skid', h.pos, 0);
   const c = h.center;
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 14, 1.1, 0.9, 0.6);
   g.vfx.burst(c, YELLOW, 40, 9, 0.12, 0.5);
@@ -416,9 +422,18 @@ function updateTonka(h: Hero, g: Game, dt: number) {
     const cf = g.camRig.forward(_v1);
     hl.opacity = Math.min(1, Math.max(0.12, -(cf.x * dir.x + cf.z * dir.z) * 1.4 + 0.1));
   }
-  // engine pitch follows speed (fades in under the transform sound)
+  // engine follows speed (fades in under the transform sound). With the recorded layers the
+  // cruising engine hands over to a full-throttle one, so pitch only has to move a little.
   const sk = st.speed / TONKA_MAX;
-  st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
+  const fadeIn = Math.min(1, st.t / 0.6);
+  if (st.engineHi) {
+    const hi = Math.min(1, Math.max(0, (sk - 0.35) / 0.55));
+    st.engine?.set(h.pos, 0.82 + sk * 0.4, fadeIn * (0.75 - hi * 0.45));
+    st.engineHi.set(h.pos, 0.86 + sk * 0.24, fadeIn * hi * 0.95);
+  } else st.engine?.set(h.pos, 0.7 + sk * 1.35, fadeIn * (0.55 + sk * 0.6));
+  const squeal = turning > 0.8 && st.speed > 9 ? Math.min(1, (turning - 0.8) * 0.9) * Math.min(1, st.speed / 18) : 0;
+  st.skidAmt += (squeal - st.skidAmt) * Math.min(1, dt * (squeal > st.skidAmt ? 14 : 6));
+  st.skidSnd?.set(h.pos, 0.92 + st.skidAmt * 0.16, st.skidAmt * 0.8);
   // dust from the rear wheels + exhaust
   if (Math.random() < dt * 30) {
     const back = _v1.copy(h.pos).addScaledVector(dir, -1.1);
@@ -432,6 +447,8 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   if (!st) return;
   h.kitState.truck = null;
   st.engine?.stop(crashed ? 0.08 : 0.35);
+  st.engineHi?.stop(crashed ? 0.08 : 0.3);
+  st.skidSnd?.stop(0.15);
   for (const t of st.tail) t?.stop();
   if (h.isLocal) { g.camRig.vehicle = 0; screenFx.zoomHold = 0; }
   h.model.root.remove(st.group);
