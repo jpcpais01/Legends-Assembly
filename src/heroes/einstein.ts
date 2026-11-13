@@ -464,7 +464,7 @@ export const EINSTEIN: HeroDef = {
   color: '#7fd3ff',
   accent: '#b48cff',
   maxHp: 250,
-  modelUrl: '/models/heroes/einstein.glb',
+  modelUrl: '/models/heroes/einstein.glb?v=2', // bump ?v= whenever the file changes: models are cached forever on players' devices
   motion: 'scholar',
   speed: 6.0,
   secondaryCd: 10,

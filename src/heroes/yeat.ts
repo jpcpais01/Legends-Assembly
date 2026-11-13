@@ -683,7 +683,7 @@ export const YEAT: HeroDef = {
   color: '#ff3d7f',
   accent: '#ffcf5a',
   maxHp: 350,
-  modelUrl: '/models/heroes/yeat.glb',
+  modelUrl: '/models/heroes/yeat.glb?v=2', // bump ?v= whenever the file changes: models are cached forever on players' devices
   motion: 'swagger',
   held: { prop: 'golden_bell', hand: 'R', size: 0.15, pos: [0, -0.1, 0.03], rot: [0, 0, 0], ring: true },
   speed: 6.3,
