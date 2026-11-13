@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.12.1',
+    version: '0.12.3',
     date: '2026-11-13',
     title: 'Smooth Light',
     sections: [
@@ -24,6 +24,40 @@ export const PATCH_NOTES: PatchNote[] = [
         heading: 'Fixes',
         items: [
           'Fixed black holes appearing on shiny gold and glossy surfaces (the pocket watch, the pencil, the globe) when they caught the sun. They now gleam the way they should.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.12.2',
+    date: '2026-11-13',
+    title: 'Toxic Toll',
+    sections: [
+      {
+        heading: 'Yeat: The Bell',
+        items: [
+          'The Bell is now almost twice as big, and its blast radius grows from 6 m to 8 m.',
+          'A toxic green cloudbank rolls in overhead and the bell breaks through it, pouring green smoke down onto its target while the ground starts to rumble.',
+          'The toll blows a ring of toxic smoke off the bell and sends a sound wave sweeping across the arena.',
+          'On the way down it tears through its own smoke, spitting sparks off its lip.',
+          'The landing is a toxic mushroom cloud: a column of green and black smoke, a cap spreading over it and a skirt rolling across the floor, with layered shockwaves, a green light pillar, sparks, heavier camera shake and a big BRRRT.',
+          'Green fog keeps leaking out from under the bell after it lands.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.12.1',
+    date: '2026-11-13',
+    title: 'Horsepower',
+    sections: [
+      {
+        heading: 'Yeat · Tonka',
+        items: [
+          'Tonka has all-new sound. The transform is a crisp run of ratchets and servos that slams shut with a heavy metal clunk.',
+          'The engine now has two layers: a throaty V8 rumble while cruising that builds into a full-throttle roar as the truck hits top speed. No more chipmunk revving.',
+          'Tires squeal when you throw the truck into a hard turn.',
+          'Ramming someone lands a much heavier crunch.',
         ],
       },
     ],

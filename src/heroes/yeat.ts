@@ -132,6 +132,10 @@ interface TruckState {
   expect: number;
   roll: number;
   engine: LoopHandle | null;
+  /** Full-throttle layer crossfaded over the cruising engine, and the tire squeal in hard turns. */
+  engineHi: LoopHandle | null;
+  skidSnd: LoopHandle | null;
+  skidAmt: number;
   /** Truck footprint in meters (from its bounding box). */
   len: number;
   wid: number;
@@ -301,11 +305,13 @@ function startTonka(h: Hero, g: Game) {
   const f = h.forward;
   const size = addHeadlights(group);
   const tail = [-1, 1].map(() => g.vfx.trail({ color: new THREE.Color(3.2, 0.25, 0.3), endColor: new THREE.Color(0.8, 0.05, 0.1), width: 0.06, life: 0.22, style: TrailStyle.Smooth, minDist: 0.35 }));
-  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
+  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, engineHi: null, skidSnd: null, skidAmt: 0, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
   h.kitState.truck = st;
   if (h.isLocal) g.camRig.vehicle = 1;
   g.play('tonka', h.pos, 1.1);
   st.engine = g.loop('engineLoop', h.pos, 0);
+  st.engineHi = g.loop('engineHigh', h.pos, 0);
+  st.skidSnd = g.loop('skid', h.pos, 0);
   const c = h.center;
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 14, 1.1, 0.9, 0.6);
   g.vfx.burst(c, YELLOW, 40, 9, 0.12, 0.5);
@@ -416,9 +422,18 @@ function updateTonka(h: Hero, g: Game, dt: number) {
     const cf = g.camRig.forward(_v1);
     hl.opacity = Math.min(1, Math.max(0.12, -(cf.x * dir.x + cf.z * dir.z) * 1.4 + 0.1));
   }
-  // engine pitch follows speed (fades in under the transform sound)
+  // engine follows speed (fades in under the transform sound). With the recorded layers the
+  // cruising engine hands over to a full-throttle one, so pitch only has to move a little.
   const sk = st.speed / TONKA_MAX;
-  st.engine?.set(h.pos, 0.7 + sk * 1.35, Math.min(1, st.t / 0.6) * (0.55 + sk * 0.6));
+  const fadeIn = Math.min(1, st.t / 0.6);
+  if (st.engineHi) {
+    const hi = Math.min(1, Math.max(0, (sk - 0.35) / 0.55));
+    st.engine?.set(h.pos, 0.82 + sk * 0.4, fadeIn * (0.75 - hi * 0.45));
+    st.engineHi.set(h.pos, 0.86 + sk * 0.24, fadeIn * hi * 0.95);
+  } else st.engine?.set(h.pos, 0.7 + sk * 1.35, fadeIn * (0.55 + sk * 0.6));
+  const squeal = turning > 0.8 && st.speed > 9 ? Math.min(1, (turning - 0.8) * 0.9) * Math.min(1, st.speed / 18) : 0;
+  st.skidAmt += (squeal - st.skidAmt) * Math.min(1, dt * (squeal > st.skidAmt ? 14 : 6));
+  st.skidSnd?.set(h.pos, 0.92 + st.skidAmt * 0.16, st.skidAmt * 0.8);
   // dust from the rear wheels + exhaust
   if (Math.random() < dt * 30) {
     const back = _v1.copy(h.pos).addScaledVector(dir, -1.1);
@@ -432,6 +447,8 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   if (!st) return;
   h.kitState.truck = null;
   st.engine?.stop(crashed ? 0.08 : 0.35);
+  st.engineHi?.stop(crashed ? 0.08 : 0.3);
+  st.skidSnd?.stop(0.15);
   for (const t of st.tail) t?.stop();
   if (h.isLocal) { g.camRig.vehicle = 0; screenFx.zoomHold = 0; }
   h.model.root.remove(st.group);
@@ -448,10 +465,34 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
 
 // ───────────────────────── The Bell ─────────────────────────
 const DOOM = new THREE.Color(0.6, 3.2, 0.9);
+/** Bell height (m). Everything about the drop scales off this. */
+const BELL_H = 9.5;
+const BS = BELL_H / 5.4;
+/** Blast radius on landing. */
+const BELL_R = 8;
+const TOX_DARK = new THREE.Color(0.05, 0.16, 0.05);
+const TOX = new THREE.Color(0.16, 0.55, 0.12);
+const TOX_GLOW = new THREE.Color(0.12, 0.7, 0.16);
+/**
+ * Toxic green cloud: a dark alpha body (some near-black, rager style) with a faint additive glow puff inside it
+ * so it reads as radioactive. One instanced draw per blend mode, like every other particle.
+ */
+function toxicCloud(g: Game, x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number, glow = 0.5) {
+  const black = Math.random() < 0.3;
+  const c = black ? TOX_DARK : TOX;
+  g.vfx.pa({
+    x, y, z, vx, vy, vz, r: c.r, g: c.g, b: c.b, a: black ? 0.6 : 0.5, r2: 0.03, g2: 0.08, b2: 0.03,
+    size: size * rand(0.8, 1.2), grow: 2.2, life: life * rand(0.8, 1.2), drag: 1.6, shape: Shape.Smoke, spin: rand(-0.6, 0.6), fadeIn: 0.12, rot: rand(0, TAU),
+  });
+  if (glow > 0 && Math.random() < glow) g.vfx.p({
+    x, y, z, vx, vy, vz, r: TOX_GLOW.r, g: TOX_GLOW.g, b: TOX_GLOW.b, r2: 0.02, g2: 0.15, b2: 0.03,
+    size: size * 0.75, grow: 2, life: life * 0.7, drag: 1.6, shape: Shape.Smoke, spin: rand(-0.6, 0.6), fadeIn: 0.1, rot: rand(0, TAU),
+  });
+}
 let bellTemplate: THREE.Object3D | null = null;
 /** Colossal bronze bell hanging from its yoke; origin at the hanging point, bell below (−y). */
 function buildBell(): THREE.Object3D {
-  const H = 5.4;
+  const H = BELL_H;
   const meshy = propMesh('giant_bell', H);
   if (meshy) { meshy.position.y = -H; const g = new THREE.Group(); g.add(meshy); return g; }
   if (!bellTemplate) {
@@ -502,8 +543,9 @@ function dropTheBell(h: Hero, g: Game) {
   const bell = buildBell();
   const pivot = new THREE.Group();
   pivot.add(bell);
-  const HANG = 15; // hanging point height above the ground while it swings
-  pivot.position.set(pos.x, pos.y + HANG + 22, pos.z);
+  const HANG = 15 + BELL_H; // hanging point height above the ground while it swings (mouth ~15 m up)
+  const DROP_IN = 34;
+  pivot.position.set(pos.x, pos.y + HANG + DROP_IN, pos.z);
   g.scene.add(pivot);
   g.play('bellSummon', null, 0.75);
   if (h.isLocal) g.events.onAnnounce('THE BELL', 'It tolls for them', 'red');
@@ -512,10 +554,15 @@ function dropTheBell(h: Hero, g: Game) {
   let vy = 0, rang = false, landT = 0, runeT = 0, gust = false;
   const groundAt = pos.clone();
   const rims: (Trail | null)[] = [null, null];
-  const mouthAt = (out: THREE.Vector3) => { pivot.updateMatrixWorld(); return pivot.localToWorld(out.set(0, -4.6, 0)); };
-  g.vfx.flash(pos.clone().setY(pos.y + 8), new THREE.Color(0.4, 1.6, 0.5), 40, 3, 30);
+  const mouthAt = (out: THREE.Vector3) => { pivot.updateMatrixWorld(); return pivot.localToWorld(out.set(0, -BELL_H * 0.85, 0)); };
+  g.vfx.flash(pos.clone().setY(pos.y + 12), new THREE.Color(0.4, 1.6, 0.5), 60, 3, 45);
+  // the sky splits: a toxic cloudbank rolls in where the bell will come through
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * TAU, r = rand(4, 9);
+    toxicCloud(g, pos.x + Math.cos(a) * r, pos.y + HANG + rand(6, 12), pos.z + Math.sin(a) * r, Math.cos(a) * 2, rand(-0.5, 0.5), Math.sin(a) * 2, rand(3.5, 5), 3.2, 0.6);
+  }
   const zone: Zone = {
-    owner: h, team: h.team, pos: groundAt, radius: 6, t: 0, dur: 6.5, dead: false, kind: 'theBell',
+    owner: h, team: h.team, pos: groundAt, radius: BELL_R, t: 0, dur: 6.5, dead: false, kind: 'theBell',
     update(z, g, dt) {
       // doom sky: dark & sickly green while the bell is up, fading after it lands
       const doom = phase === 'landed' ? Math.max(0, 1 - (landT - 0.6) / 1.6) : Math.min(1, z.t / 0.6);
@@ -528,25 +575,32 @@ function dropTheBell(h: Hero, g: Game) {
       }
       // warning circle
       if (phase !== 'landed' && Math.random() < dt * 10) {
-        g.vfx.add.spawn({ x: groundAt.x, y: groundAt.y + 0.06, z: groundAt.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 6.2 * 0.2, grow: 10, life: 0.5, shape: Shape.Ring, flat: true, aux: 0.05, fadeIn: 0.05, rot: 0 });
+        g.vfx.add.spawn({ x: groundAt.x, y: groundAt.y + 0.06, z: groundAt.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: (BELL_R + 0.2) * 0.2, grow: 10, life: 0.5, shape: Shape.Ring, flat: true, aux: 0.05, fadeIn: 0.05, rot: 0 });
       }
       // rune lock-on that follows the victim and tightens as the bell commits
       runeT -= dt;
       if (phase !== 'landed' && runeT <= 0) {
         runeT = 0.16;
         const tight = phase === 'fall' ? 1 : Math.min(1, z.t / 1.75);
-        g.vfx.rune(groundAt, new THREE.Color(DOOM.r * 0.8, DOOM.g * 0.8, DOOM.b * 0.8), 12.4 - tight * 2, 0.34, 1.2 + tight * 3, 0.55 + tight * 0.45);
+        g.vfx.rune(groundAt, new THREE.Color(DOOM.r * 0.8, DOOM.g * 0.8, DOOM.b * 0.8), BELL_R * 2.1 - tight * 2, 0.34, 1.2 + tight * 3, 0.55 + tight * 0.45);
       }
       // the bell's sickly glow and the embers it sheds
       if (phase !== 'landed') {
         const mouth = mouthAt(_v1);
-        if (Math.random() < dt * 20) g.vfx.flare(mouth, new THREE.Color(0.8, 3, 1.1), 3.5, 0.12, rand(-0.3, 0.3));
-        if (Math.random() < dt * 25) g.vfx.p({ x: mouth.x + rand(-2.4, 2.4), y: mouth.y + rand(0, 3), z: mouth.z + rand(-2.4, 2.4), vx: rand(-0.4, 0.4), vy: rand(-3, -1), vz: rand(-0.4, 0.4), r: 1.2, g: 3.6, b: 1.3, r2: 0.1, g2: 0.5, b2: 0.15, size: rand(0.06, 0.13), life: rand(0.8, 1.4), shape: Shape.Dot });
+        if (Math.random() < dt * 20) g.vfx.flare(mouth, new THREE.Color(0.8, 3, 1.1), 3.5 * BS, 0.12, rand(-0.3, 0.3));
+        // toxic smoke pours out of the mouth and spills down toward the target
+        if (Math.random() < dt * 12) {
+          const a = rand(0, TAU), r = rand(1, 3.6) * BS;
+          toxicCloud(g, mouth.x + Math.cos(a) * r, mouth.y + rand(-0.5, 1), mouth.z + Math.sin(a) * r, Math.cos(a) * 1.5, rand(-3, -1.2), Math.sin(a) * 1.5, rand(2, 3.2), 2.2, 0.5);
+        }
+        // the ground under it starts to rumble
+        g.shake(groundAt, dt * 0.5, 40);
+        if (Math.random() < dt * 30) g.vfx.p({ x: mouth.x + rand(-2.4, 2.4) * BS, y: mouth.y + rand(0, 3) * BS, z: mouth.z + rand(-2.4, 2.4) * BS, vx: rand(-0.4, 0.4), vy: rand(-3, -1), vz: rand(-0.4, 0.4), r: 1.2, g: 3.6, b: 1.3, r2: 0.1, g2: 0.5, b2: 0.15, size: rand(0.06, 0.13), life: rand(0.8, 1.4), shape: Shape.Dot });
       }
       if (phase === 'descend') {
         const k = Math.min(1, z.t / 0.75);
         const e = 1 - Math.pow(1 - k, 3);
-        pivot.position.set(groundAt.x, groundAt.y + HANG + 22 * (1 - e), groundAt.z);
+        pivot.position.set(groundAt.x, groundAt.y + HANG + DROP_IN * (1 - e), groundAt.z);
         if (k >= 1) phase = 'swing';
       } else if (phase === 'swing') {
         const s = Math.min(1, (z.t - 0.75) / 1.0);
@@ -554,36 +608,52 @@ function dropTheBell(h: Hero, g: Game) {
         pivot.rotation.z = Math.sin(s * TAU) * 0.5 * (1 - s * 0.3);
         if (!rang && s > 0.27) {
           rang = true;
-          const mouth = _v1.copy(pivot.position).setY(pivot.position.y - 4.5);
+          const mouth = _v1.copy(pivot.position).setY(pivot.position.y - BELL_H * 0.83);
           g.play('bigBell', mouth, 2);
           audio.duck(2.5, 0.8, 0.35);
-          g.vfx.flash(mouth, new THREE.Color(0.5, 1.6, 0.6), 120, 1.2, 40);
-          for (let i = 0; i < 3; i++) g.vfx.add.spawn({ x: mouth.x, y: mouth.y, z: mouth.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 1.2 + i, grow: 12, life: 0.9 + i * 0.25, shape: Shape.Ring, aux: 0.04, fadeIn: 0.01, rot: 0 });
-          g.shake(groundAt, 0.5, 60);
+          g.vfx.flash(mouth, new THREE.Color(0.5, 1.6, 0.6), 160, 1.2, 60);
+          for (let i = 0; i < 4; i++) g.vfx.add.spawn({ x: mouth.x, y: mouth.y, z: mouth.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: (1.2 + i) * BS, grow: 12, life: 0.9 + i * 0.25, shape: Shape.Ring, aux: 0.04, fadeIn: 0.01, rot: 0 });
+          // a flat sound ring that sweeps out across the whole arena
+          g.vfx.add.spawn({ x: mouth.x, y: mouth.y, z: mouth.z, r: DOOM.r, g: DOOM.g, b: DOOM.b, size: 2, grow: 22, life: 1.1, shape: Shape.Ring, flat: true, aux: 0.03, fadeIn: 0.01, rot: 0 });
+          // and the toll blows a ring of toxic smoke off the bell's lip
+          for (let i = 0; i < 18; i++) {
+            const a = (i / 18) * TAU;
+            toxicCloud(g, mouth.x + Math.cos(a) * 3 * BS, mouth.y, mouth.z + Math.sin(a) * 3 * BS, Math.cos(a) * 9, rand(-1, 1), Math.sin(a) * 9, 2.6, 1.8, 0.7);
+          }
+          g.shake(groundAt, 0.65, 80);
           // the toll itself: air ripples outward, notes scatter, dust flattens under it
           screenFx.ripple(mouth, 22, 1.4, 1.3);
           screenFx.punch(0.6 * g.near(groundAt, 60));
           g.vfx.flare(mouth, new THREE.Color(1.6, 4, 1.8), 10, 0.4);
-          for (let i = 0; i < 16; i++) {
-            const a = (i / 16) * TAU;
+          for (let i = 0; i < 20; i++) {
+            const a = (i / 20) * TAU;
             g.vfx.p({ x: mouth.x, y: mouth.y, z: mouth.z, vx: Math.cos(a) * rand(6, 10), vy: rand(-1, 3), vz: Math.sin(a) * rand(6, 10), r: DOOM.r, g: DOOM.g, b: DOOM.b, size: rand(0.5, 0.8), life: rand(0.9, 1.3), drag: 1.8, shape: Shape.Note, spin: rand(-2, 2), fadeIn: 0.05 });
           }
-          g.vfx.dustRing(groundAt, 3, 26, 1.3, 0.35);
+          g.vfx.dustRing(groundAt, 4, 26, 1.6, 0.35);
         }
         if (s >= 1) {
           phase = 'fall'; pivot.rotation.z = 0; g.play('bellWhistle', groundAt, 1.3);
-          for (let i = 0; i < 2; i++) rims[i] = g.vfx.trail({ color: new THREE.Color(1.2, 3.6, 1.4), endColor: new THREE.Color(0.1, 0.6, 0.2), width: 0.35, life: 0.3, style: TrailStyle.Energy, minDist: 0.5 });
+          for (let i = 0; i < 2; i++) rims[i] = g.vfx.trail({ color: new THREE.Color(1.2, 3.6, 1.4), endColor: new THREE.Color(0.1, 0.6, 0.2), width: 0.6, life: 0.35, style: TrailStyle.Energy, minDist: 0.5 });
         }
       } else if (phase === 'fall') {
-        vy += 70 * dt;
+        vy += 85 * dt;
         pivot.position.y -= vy * dt;
         pivot.updateMatrixWorld();
-        rims[0]?.push(pivot.localToWorld(_v1.set(-2.7, -5.2, 0)));
-        rims[1]?.push(pivot.localToWorld(_v1.set(2.7, -5.2, 0)));
+        rims[0]?.push(pivot.localToWorld(_v1.set(-2.7 * BS, -BELL_H * 0.96, 0)));
+        rims[1]?.push(pivot.localToWorld(_v1.set(2.7 * BS, -BELL_H * 0.96, 0)));
+        // it tears through its own smoke, shedding sparks off the lip
+        if (Math.random() < dt * 40) {
+          const a = rand(0, TAU), lip = pivot.localToWorld(_v1.set(0, -BELL_H * 0.95, 0));
+          g.vfx.p({ x: lip.x + Math.cos(a) * 2.7 * BS, y: lip.y, z: lip.z + Math.sin(a) * 2.7 * BS, vx: Math.cos(a) * 4, vy: vy * 0.3, vz: Math.sin(a) * 4, r: 1.6, g: 4, b: 1.4, r2: 3, g2: 2, b2: 0.6, size: rand(0.05, 0.09), life: rand(0.3, 0.6), gravity: 10, drag: 1, stretch: 0.05, shape: Shape.Spark });
+        }
+        if (Math.random() < dt * 10) {
+          const top = pivot.localToWorld(_v1.set(rand(-2, 2) * BS, -BELL_H * 0.3, rand(-2, 2) * BS));
+          toxicCloud(g, top.x, top.y, top.z, 0, rand(2, 5), 0, 2.4, 1.4, 0.4);
+        }
         // the air under it gets shoved out just before it lands
-        if (!gust && pivot.position.y - 5.4 - groundAt.y < 5) { gust = true; g.vfx.dustRing(groundAt, 2.5, 22, 1.1, 0.35); }
-        if (pivot.position.y - 5.4 <= groundAt.y) {
-          pivot.position.y = groundAt.y + 5.4 - 0.25;
+        if (!gust && pivot.position.y - BELL_H - groundAt.y < 6) { gust = true; g.vfx.dustRing(groundAt, 3.5, 22, 1.5, 0.35); }
+        if (pivot.position.y - BELL_H <= groundAt.y) {
+          pivot.position.y = groundAt.y + BELL_H - 0.35;
           phase = 'landed';
           landT = 0;
           for (const r of rims) r?.stop();
@@ -593,9 +663,14 @@ function dropTheBell(h: Hero, g: Game) {
         landT += dt;
         if (landT > 2.2) {
           pivot.position.y -= dt * 2.5; // sink into the earth
-          if (Math.random() < dt * 16) g.vfx.dust(groundAt.clone().add(new THREE.Vector3(rand(-2.6, 2.6), 0, rand(-2.6, 2.6))), 1, 0.8, 0.35, 0.8);
+          if (Math.random() < dt * 16) g.vfx.dust(groundAt.clone().add(new THREE.Vector3(rand(-2.6, 2.6) * BS, 0, rand(-2.6, 2.6) * BS)), 1, 1.1, 0.35, 0.8);
         }
-        if (landT < 1.6 && Math.random() < dt * 30) g.vfx.embers(groundAt, new THREE.Color(1.2, 4, 1.4), new THREE.Color(0.05, 0.4, 0.1), 1, 4, 2);
+        if (landT < 1.6 && Math.random() < dt * 30) g.vfx.embers(groundAt, new THREE.Color(1.2, 4, 1.4), new THREE.Color(0.05, 0.4, 0.1), 1, 4 * BS, 2);
+        // toxic fog keeps leaking out from under the rim and rolling across the floor
+        if (landT < 2.8 && Math.random() < dt * 10) {
+          const a = rand(0, TAU), r = 2.8 * BS;
+          toxicCloud(g, groundAt.x + Math.cos(a) * r, groundAt.y + 0.6, groundAt.z + Math.sin(a) * r, Math.cos(a) * 3, rand(0.2, 0.8), Math.sin(a) * 3, 2.4, 2.4, 0.35);
+        }
         if (landT > 3.2) z.t = z.dur;
       }
     },
@@ -605,7 +680,7 @@ function dropTheBell(h: Hero, g: Game) {
 }
 
 function impact(h: Hero, g: Game, at: THREE.Vector3) {
-  const R = 6;
+  const R = BELL_R;
   for (const e of g.enemiesNear(h.team, at, R)) {
     const d = Math.hypot(e.pos.x - at.x, e.pos.z - at.z);
     const dmg = Math.round(230 - 110 * Math.min(1, d / R));
@@ -615,24 +690,45 @@ function impact(h: Hero, g: Game, at: THREE.Vector3) {
   }
   g.play('bellDrop', at, 1.6);
   audio.duck(1.2, 0.85, 0.4);
-  g.vfx.shockwave(at, DOOM, 14, 0.8, 0.1);
-  g.vfx.shockwave(at, new THREE.Color(3, 2.4, 1.2), 9, 0.5, 0.18);
-  g.vfx.smoke(at, new THREE.Color(0.5, 0.45, 0.38), 40, 2.2, 1.8, 0.65);
-  g.vfx.burst(at.clone().setY(at.y + 0.5), new THREE.Color(1.5, 1.2, 0.6), 80, 16, 0.14, 0.8, { gravity: 18 });
-  g.vfx.sparks(at.clone().setY(at.y + 0.3), new THREE.Color(3, 2.5, 1), 50, 16);
-  g.vfx.flash(at.clone().setY(at.y + 2), new THREE.Color(1, 1.3, 0.6), 140, 0.8, 30);
-  g.shake(at, 1, 45);
+  // three shockwaves at different speeds read as one rolling, layered blast
+  g.vfx.shockwave(at, DOOM, 24, 1.1, 0.06);
+  g.vfx.shockwave(at, DOOM, 16, 0.75, 0.1);
+  g.vfx.shockwave(at, new THREE.Color(3, 2.4, 1.2), 11, 0.5, 0.18);
+  // and an upright ring that blows out through the players
+  g.vfx.shockwave(at.clone().setY(at.y + 3), new THREE.Color(1, 3, 1.1), 18, 0.7, 0.05, false);
+  g.vfx.smoke(at, new THREE.Color(0.5, 0.45, 0.38), 24, 2.6, 1.8, 0.6);
+  // toxic mushroom: a column punching up, a cap spreading over it, a skirt rolling across the floor
+  for (let i = 0; i < 14; i++) {
+    const a = rand(0, TAU), r = rand(0, 2.5);
+    toxicCloud(g, at.x + Math.cos(a) * r, at.y + rand(1, 6), at.z + Math.sin(a) * r, Math.cos(a) * 1.5, rand(6, 13), Math.sin(a) * 1.5, rand(2.6, 3.6), 2.6, 0.6);
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * TAU + rand(-0.2, 0.2);
+    toxicCloud(g, at.x + Math.cos(a) * 3, at.y + rand(11, 15), at.z + Math.sin(a) * 3, Math.cos(a) * 5, rand(1, 3), Math.sin(a) * 5, rand(3.5, 4.5), 3, 0.5);
+  }
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * TAU + rand(-0.1, 0.1);
+    toxicCloud(g, at.x + Math.cos(a) * 3, at.y + 0.7, at.z + Math.sin(a) * 3, Math.cos(a) * rand(14, 20), rand(0.3, 1.5), Math.sin(a) * rand(14, 20), rand(2.4, 3.2), 2.8, 0.5);
+  }
+  g.vfx.burst(at.clone().setY(at.y + 0.5), new THREE.Color(1.5, 1.2, 0.6), 80, 20, 0.14, 0.8, { gravity: 18 });
+  g.vfx.sparks(at.clone().setY(at.y + 0.3), new THREE.Color(3, 2.5, 1), 50, 20);
+  g.vfx.sparks(at.clone().setY(at.y + 0.3), new THREE.Color(1.4, 4.5, 1.4), 60, 24);
+  g.vfx.pillar(at, new THREE.Color(0.8, 3.6, 1), 22, 34, 2.4);
+  g.vfx.flash(at.clone().setY(at.y + 2), new THREE.Color(1, 1.3, 0.6), 180, 0.8, 40);
+  g.vfx.flash(at.clone().setY(at.y + 6), new THREE.Color(0.3, 1.6, 0.4), 90, 2.2, 50);
+  g.vfx.glyph('BRRRT', at.clone().setY(at.y + BELL_H + 2), { color: '#eaffd8', glow: '#2bff4a', scale: 4, dur: 1.4, vy: 1.6 });
+  g.shake(at, 1, 70);
   // crater, shrapnel and a shock that bends the whole frame
-  g.vfx.crack(at, 11, 9, 0.9);
-  g.vfx.scorch(at, 14, 10, 0.55);
-  g.vfx.groundGlow(at, new THREE.Color(0.5, 2.4, 0.7), 9, 1.6, 0.2);
+  g.vfx.crack(at, 15, 9, 0.9);
+  g.vfx.scorch(at, 19, 10, 0.55);
+  g.vfx.groundGlow(at, new THREE.Color(0.5, 2.4, 0.7), 13, 2, 0.25);
   g.vfx.debris(at.clone().setY(at.y + 0.3), new THREE.Color(0.26, 0.22, 0.18), 34, 13, 0.24, 11);
   g.vfx.debris(at.clone().setY(at.y + 0.3), new THREE.Color(0.35, 1.0, 0.4), 10, 10, 0.16, 9);
-  g.vfx.dustRing(at, 4.5, 34, 2, 0.55, new THREE.Color(0.5, 0.46, 0.38));
-  g.vfx.flare(at.clone().setY(at.y + 1.5), new THREE.Color(2.6, 4, 2.2), 14, 0.4);
+  g.vfx.dustRing(at, 6, 34, 2.6, 0.55, new THREE.Color(0.5, 0.46, 0.38));
+  g.vfx.flare(at.clone().setY(at.y + 1.5), new THREE.Color(2.6, 4, 2.2), 22, 0.45);
   g.vfx.embers(at, new THREE.Color(1.4, 4, 1.4), new THREE.Color(0.05, 0.4, 0.1), 40, 5, 3);
-  screenFx.ripple(at.clone().setY(at.y + 1), 16, 1.7, 0.9);
-  const prox = Math.max(g.near(at, 40), h.isLocal ? 0.6 : 0);
+  screenFx.ripple(at.clone().setY(at.y + 1), 22, 1.7, 1);
+  const prox = Math.max(g.near(at, 55), h.isLocal ? 0.6 : 0);
   screenFx.punch(0.9 * prox);
   screenFx.zoomPunch(0.6 * prox);
   screenFx.flashScreen(new THREE.Color(0.8, 1.4, 0.8), 0.35 * prox);
@@ -694,7 +790,7 @@ export const YEAT: HeroDef = {
   abilities: {
     primary: { key: 'LMB', name: 'Bell Ring', desc: 'Blast a spread of golden sound rings. Brutal up close, falls off at range.', stat: '7 × 10 dmg · close range', icon: ICONS.bell },
     secondary: { key: 'RMB', name: 'Tonka', desc: 'Turn into a speeding toy truck that keeps accelerating but turns wide. Ram an enemy for massive damage.', stat: 'up to 140 dmg · 4.5 s · 9 s cd', icon: ICONS.tonka },
-    ult: { key: 'SHIFT', name: 'The Bell', desc: 'The sky turns dark and green as a colossal bell appears above your target, tolls once, then crashes down.', stat: '230 dmg center · 6 m', icon: ICONS.theBell },
+    ult: { key: 'SHIFT', name: 'The Bell', desc: 'The sky turns toxic green as a colossal bell breaks through the clouds above your target, tolls once, then crashes down in a mushroom of green smoke.', stat: '230 dmg center · 8 m', icon: ICONS.theBell },
   },
   look: { build: buildYeat },
   createKit: () => new YeatKit(),
