@@ -10,14 +10,17 @@ import { QUALITY, settings } from '../core/settings';
 import { damp, lerp, mulberry32 } from '../core/math';
 import { HERO_RADIUS } from '../game/Hero';
 import type { ArenaLike } from './types';
+import { bakeWoodMaps, buildDeskGeometry, makeDeskWoodMaterial } from './studyDesk';
+import * as P from './studyProps';
 
 /**
  * The Giant's Study: toy-sized legends fight on top of a colossal scholar's desk.
  * The desk top is the floor (y = 0). Everything on it is real collision built from the meshes
  * (HeightGrid), the room around it is a far backdrop.
  */
-const DESK_W = 86; // desk width in meters
-const STUDY_PROPS = ['study_desk', 'book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
+const DESK_HX = 43, DESK_HZ = 30; // desk top half extents in meters (1 cm of a real desk = 0.7 m)
+const FLOOR_Y = -38; // the room floor, far below the desk top
+const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
 
 /** Where things go on the desk: [prop, x, z, height (m), yaw]. Heights follow real object sizes at the desk's scale. */
@@ -106,6 +109,7 @@ export class StudyArena implements ArenaLike {
     this.world.ground = () => 0;
     this.world.bounds = { kind: 'rect', hx: 40, hz: 27 };
     this.world.spawns = [new THREE.Vector3(-36, 0, 0), new THREE.Vector3(36, 0, 0)];
+    this.renderer = renderer;
     this.applyQuality();
     this.ready = this.load();
   }
@@ -130,32 +134,32 @@ export class StudyArena implements ArenaLike {
     return rt.texture;
   }
 
+  private renderer: THREE.WebGLRenderer;
+
   private async load() {
     const loaded = await Promise.all(STUDY_PROPS.map((n) => loadTemplate(`/models/study/${n}.glb`)));
     STUDY_PROPS.forEach((n, i) => { const t = loaded[i]; if (t) this.T[n] = t; });
-    const desk = this.T.study_desk;
-    let S = DESK_W, topN = 0.44;
-    if (desk) {
-      S = DESK_W / desk.size.x;
-      topN = findTopPlane(desk.geometry);
-    }
-    const deskH = S; // template is 1 m tall
-    const topY = topN * deskH;
-    this.floorY = -topY;
-    const hx = (desk ? desk.size.x : 1.21) * S / 2, hz = (desk ? desk.size.z : 0.85) * S / 2;
-    // playable: the leather top inside the trim
-    this.world.bounds = { kind: 'rect', hx: hx - 2.2, hz: hz - 2.2 };
+    const hx = DESK_HX, hz = DESK_HZ;
+    this.floorY = FLOOR_Y;
+    // playable: the top inside the rounded edge
+    this.world.bounds = { kind: 'rect', hx: hx - 1.6, hz: hz - 1.6 };
     const grid = new HeightGrid(-hx, -hz, hx, hz, 0.5, 0);
     const statics: { geo: THREE.BufferGeometry; mat: THREE.Material; m: THREE.Matrix4; collide: boolean }[] = [];
 
-    if (desk) {
-      const m = new THREE.Matrix4().makeScale(S, S, S).premultiply(new THREE.Matrix4().makeTranslation(0, -topY, 0));
-      statics.push({ geo: desk.geometry, mat: desk.material, m, collide: true });
-    } else {
-      // fallback desk slab so the arena is playable without the model
-      const g = new THREE.BoxGeometry(hx * 2, topY, hz * 2).translate(0, -topY / 2, 0);
-      statics.push({ geo: g, mat: new THREE.MeshStandardMaterial({ color: 0x5a2e16, roughness: 0.6 }), m: new THREE.Matrix4(), collide: false });
-    }
+    // the desk: code-built walnut top, apron, drawers and turned legs
+    const wood = makeDeskWoodMaterial(bakeWoodMaps(this.renderer));
+    const M = P.propMaterials();
+    const desk = buildDeskGeometry(hx, hz, FLOOR_Y);
+    const I = new THREE.Matrix4();
+    statics.push({ geo: desk.woodGeo, mat: wood, m: I, collide: false });
+    statics.push({ geo: desk.brassGeo, mat: M.brass, m: I, collide: false });
+
+    // hand-built props: [parts, x, z, yaw]
+    const putParts = (parts: P.Part[], x: number, z: number, yaw: number, y = 0) => {
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(1, 1, 1));
+      for (const p of parts) statics.push({ geo: p.geo, mat: p.mat, m, collide: p.collide ?? true });
+    };
+    for (const [parts, x, z, yaw, y] of this.handProps(M)) putParts(parts, x, z, yaw, y ?? 0);
 
     const place = (name: StudyProp, x: number, z: number, h: number, yaw: number, y = 0, collide = true) => {
       const t = this.T[name];
@@ -268,7 +272,9 @@ export class StudyArena implements ArenaLike {
       const geo = geos.length === 1 ? geos[0] : mergeGeometries(geos, false)!;
       geo.computeBoundingSphere();
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = !M.noShadow.has(mat);
+      mesh.receiveShadow = mat !== M.flame;
+      if (mat.transparent) mesh.renderOrder = 2;
       this.scene.add(mesh);
     }
     grid.finalize();
@@ -277,12 +283,50 @@ export class StudyArena implements ArenaLike {
 
     // spawns at the two short ends, pads and pickups on clear ground
     const sp = new THREE.Vector3();
-    this.world.spawns = [grid.openSpot(-20, 0, 9, sp).clone(), grid.openSpot(34, 0, 9, sp).clone()];
+    this.world.spawns = [grid.openSpot(-34, 0, 9, sp).clone(), grid.openSpot(34, 0, 9, sp).clone()];
     for (const [x, z] of [[-8, -15], [18, 15], [-8, 17], [18, -13]]) this.healthPadPositions.push(grid.openSpot(x, z, 7, new THREE.Vector3(), 3).clone());
     for (const p of this.healthPadPositions) p.y = this.world.heightAt(p.x, p.z);
     grid.openSpot(6, -2, 8, this.showcasePos, 4);
     this.buildSpawns();
     this.buildRoom(hx, hz);
+  }
+
+  /** The hand-built desk clutter: [parts, x, z, yaw]. Big flat things first so smaller ones sit on them. */
+  private handProps(M: P.PropMaterials): [P.Part[], number, number, number, number?][] {
+    const C = (r: number, g: number, b: number) => new THREE.Color(r, g, b);
+    return [
+      // papers
+      [P.paperSheet(M, 0, 1, 0), -2, -8, 0.22],
+      [P.paperSheet(M, 1, 2, 1), 13, 9, -0.42],
+      [P.paperSheet(M, 2, 3, 0), -29, -13, 1.32],
+      [P.indexCards(M), -26, 5, 0.5],
+      [P.envelope(M), 24, 24, -0.18],
+      [P.decal(M, 0, 13), 27.5, 9.5, 0],
+      [P.decal(M, 1, 9), -13.5, -15.5, 0.7],
+      [P.decal(M, 0, 11), -17, 14, 2.1],
+      // writing things
+      [P.inkwell(M), -17, -20, 0.3],
+      [P.fountainPen(M), 3.5, -12, -0.28],
+      [P.pencil(M, C(0.95, 0.66, 0.05)), -6, 15, 0.5],
+      [P.pencil(M, C(0.03, 0.2, 0.1), 13.5), 16, -1, 2.25],
+      [P.ruler(M), 1, 25, -0.05],
+      [P.paperClip(M), -1, -17, 0.9],
+      [P.paperClip(M), 22, 21, 2.6],
+      [P.paperClip(M), -23, -16, -0.4],
+      // reading and looking
+      [P.magnifier(M), -19, 23, 0.6],
+      [P.spectacles(M), -8, -5, 0.45],
+      [P.hardcover(M, C(0.32, 0.04, 0.035)), -33, -21, 0.12],
+      [P.hardcover(M, C(0.04, 0.12, 0.08), 22, 15, 2.8), -33, -21, -0.08, 3.2 * P.U],
+      [P.hardcover(M, C(0.06, 0.08, 0.2), 20, 14, 2.5), 12, -24, 1.4],
+      [P.scroll(M), -2, -25, 0.08],
+      // the rest of the study
+      [P.teacup(M), 37, -11, 0.4],
+      [P.candle(M), 37, -25, 0],
+      [P.coins(M), 12, 20, 0],
+      [P.brushJar(M), -38, -6, 0.2],
+      [P.hourglass(M), 3, 17, 0.5],
+    ];
   }
 
   private buildSpawns() {
@@ -323,20 +367,21 @@ export class StudyArena implements ArenaLike {
       c.fillStyle = '#d9c7a6'; c.fillRect(0, 0, 256, 256);
       for (let k = 0; k < 900; k++) { c.fillStyle = `rgba(${120 + rnd() * 60},${100 + rnd() * 40},${70 + rnd() * 30},0.08)`; const r = 2 + rnd() * 14; c.beginPath(); c.arc(rnd() * 256, rnd() * 256, r, 0, 7); c.fill(); }
     }, 6);
-    const spines = canvasTex(512, 256, (c) => {
-      c.fillStyle = '#2a170c'; c.fillRect(0, 0, 512, 256);
-      for (let row = 0; row < 2; row++) {
-        let x = 0;
-        while (x < 512) {
-          const w = 10 + rnd() * 18, h = 80 + rnd() * 40;
-          const hue = [0, 20, 30, 110, 210, 350][Math.floor(rnd() * 6)];
-          c.fillStyle = `hsl(${hue},${35 + rnd() * 30}%,${18 + rnd() * 22}%)`;
-          c.fillRect(x, row * 128 + 128 - h, w - 1, h);
-          c.fillStyle = 'rgba(220,180,90,0.6)'; c.fillRect(x + 1, row * 128 + 128 - h + 10, w - 3, 2); c.fillRect(x + 1, row * 128 + 120, w - 3, 2);
-          x += w;
-        }
-      }
+    // one leather spine (gilt bands, title label, worn edges); each book tints it with its own color
+    const spines = canvasTex(128, 512, (c) => {
+      c.fillStyle = '#d8d8d8'; c.fillRect(0, 0, 128, 512);
+      for (let k = 0; k < 400; k++) { c.fillStyle = `rgba(0,0,0,${rnd() * 0.06})`; c.fillRect(rnd() * 128, rnd() * 512, 2 + rnd() * 6, 1 + rnd() * 3); }
+      const sh = c.createLinearGradient(0, 0, 128, 0);
+      sh.addColorStop(0, 'rgba(0,0,0,0.45)'); sh.addColorStop(0.18, 'rgba(0,0,0,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.12)'); sh.addColorStop(0.82, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.45)');
+      c.fillStyle = sh; c.fillRect(0, 0, 128, 512);
+      c.fillStyle = '#e2b860';
+      for (const y of [34, 48, 452, 466]) c.fillRect(0, y, 128, 6);
+      c.fillStyle = 'rgba(20,12,6,0.75)'; c.fillRect(14, 120, 100, 120);
+      c.strokeStyle = '#e2b860'; c.lineWidth = 3; c.strokeRect(18, 124, 92, 112);
+      c.fillStyle = '#e2b860'; for (let i = 0; i < 3; i++) c.fillRect(30, 150 + i * 26, 68 - i * 14, 6);
+      for (const y of [300, 360]) { c.fillRect(20, y, 88, 3); }
     }, 1);
+    spines.wrapS = spines.wrapT = THREE.ClampToEdgeWrapping;
     const rugTex = canvasTex(512, 512, (c) => {
       c.fillStyle = '#6b1d16'; c.fillRect(0, 0, 512, 512);
       c.strokeStyle = '#c99a4a'; c.lineWidth = 10; c.strokeRect(24, 24, 464, 464);
@@ -350,7 +395,7 @@ export class StudyArena implements ArenaLike {
     const wallMat = new THREE.MeshStandardMaterial({ map: plaster, roughness: 0.95 });
     const brick = new THREE.MeshStandardMaterial({ color: 0x7a3a24, roughness: 0.9 });
     const stone = new THREE.MeshStandardMaterial({ color: 0x6d6258, roughness: 0.95 });
-    const bookMat = new THREE.MeshStandardMaterial({ map: spines, roughness: 0.85 });
+    const bookMat = new THREE.MeshStandardMaterial({ map: spines, roughness: 0.62 });
 
     // floor + rug
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(RX * 2, RZ * 2).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: plank, roughness: 0.7 }));
@@ -393,18 +438,59 @@ export class StudyArena implements ArenaLike {
     for (let i = -3; i <= 3; i++) box(darkWood, RX * 2, 5, 6, 0, CEIL - 2.5, i * 30);
     box(darkWood, 7, 6, RZ * 2, 0, CEIL - 5.5, 0);
 
-    // bookshelves along the long walls
+    // bookshelves along the long walls, filled with instanced books (one draw call)
+    const bookXf: THREE.Matrix4[] = [], bookCol: THREE.Color[] = [];
+    const palette = [[0.32, 0.05, 0.04], [0.06, 0.14, 0.09], [0.07, 0.09, 0.22], [0.36, 0.2, 0.08], [0.16, 0.08, 0.04], [0.42, 0.33, 0.18], [0.1, 0.06, 0.12], [0.25, 0.03, 0.08]];
+    const q = new THREE.Quaternion(), e = new THREE.Euler();
+    const shelfBooks = (x0: number, x1: number, y: number, back: number, side: number) => {
+      let x = x0 + rnd() * 0.6;
+      while (x < x1 - 1) {
+        if (rnd() < 0.05) { x += 2 + rnd() * 3; continue; } // gap
+        if (rnd() < 0.05 && x < x1 - 9) {
+          // a short pile lying flat
+          const n = 2 + Math.floor(rnd() * 3); let yy = y;
+          const L = 7 + rnd() * 2;
+          for (let i = 0; i < n; i++) {
+            const t = 1.2 + rnd() * 0.8, d = 8 + rnd() * 2;
+            e.set(0, (rnd() - 0.5) * 0.2, 0); q.setFromEuler(e);
+            bookXf.push(new THREE.Matrix4().compose(new THREE.Vector3(x + L / 2, yy + t / 2, back - side * d / 2), q, new THREE.Vector3(L, t, d)));
+            bookCol.push(new THREE.Color(...palette[Math.floor(rnd() * palette.length)] as [number, number, number]).multiplyScalar(0.7 + rnd() * 0.6));
+            yy += t;
+          }
+          x += L + 0.6;
+          continue;
+        }
+        const t = 1.0 + rnd() * 1.5, hgt = 8 + rnd() * 4.4, d = 8 + rnd() * 3;
+        const lean = rnd() < 0.06 ? (rnd() - 0.5) * 0.5 : 0;
+        e.set(0, side > 0 ? Math.PI : 0, lean); q.setFromEuler(e);
+        const cxb = x + t / 2 + Math.abs(lean) * hgt * 0.5;
+        bookXf.push(new THREE.Matrix4().compose(new THREE.Vector3(cxb, y + hgt / 2 * Math.cos(lean), back - side * d / 2), q, new THREE.Vector3(t, hgt, d)));
+        bookCol.push(new THREE.Color(...palette[Math.floor(rnd() * palette.length)] as [number, number, number]).multiplyScalar(0.7 + rnd() * 0.6));
+        x += t + Math.abs(lean) * hgt + 0.05 + rnd() * 0.15;
+      }
+    };
     for (const side of [-1, 1]) {
       for (const cx of [-70, -26, 26, 70]) {
         if (side < 0 && cx === 70) continue; // the door
         const z = side * (RZ - 8), w = 38, h = 92;
-        box(darkWood, w, h, 14, cx, F + h / 2, z);
+        // open case: back, sides, plinth and crown, real books on every shelf
+        box(darkWood, w, h, 1.2, cx, F + h / 2, z + side * 6.4);
+        for (const sx of [-1, 1]) box(darkWood, 1.6, h, 14, cx + sx * (w / 2 - 0.8), F + h / 2, z);
+        box(darkWood, w, 7.4, 14, cx, F + 3.7, z);
+        box(wood, w + 2, 2.4, 15.5, cx, F + h + 1.2, z);
         for (let s = 0; s < 6; s++) {
           const y = F + 8 + s * 14;
-          add(bookMat, new THREE.PlaneGeometry(w - 3, 12).rotateY(side > 0 ? Math.PI : 0).translate(cx, y + 6, z - side * 7.2));
-          box(wood, w, 1.2, 14.5, cx, y - 0.6, z);
+          box(wood, w - 2, 1.2, 14.5, cx, y - 0.6, z);
+          shelfBooks(cx - w / 2 + 2, cx + w / 2 - 2, y, z + side * 6, side);
         }
       }
+    }
+    {
+      const books = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), bookMat, bookXf.length);
+      bookXf.forEach((m, i) => { books.setMatrixAt(i, m); books.setColorAt(i, bookCol[i]); });
+      books.receiveShadow = true;
+      books.computeBoundingSphere();
+      this.scene.add(books);
     }
     // ── fireplace wall (-x): brick chimney breast to the ceiling, stone surround, mantel with candles, map above
     const brickTex = canvasTex(512, 512, (c) => {
@@ -589,24 +675,6 @@ export class StudyArena implements ArenaLike {
     if (a.fire) a.fire.scale.set(1, 0.85 + this.flick * 0.25 + Math.sin(time * 7.3) * 0.04, 0.92 + Math.sin(time * 5.1) * 0.06);
     for (let i = 0; i < a.beacons.length; i++) { const bc = a.beacons[i]; bc.rotation.y = time * 0.8; bc.position.y = 6.5 + Math.sin(time * 1.4 + i) * 0.35; }
   }
-}
-
-/** Height (0..1 of a 1 m tall template) of the dominant up-facing plane: the desk top. */
-function findTopPlane(g: THREE.BufferGeometry) {
-  const p = g.getAttribute('position'), n = g.getAttribute('normal');
-  g.computeBoundingBox();
-  const bb = g.boundingBox!;
-  const hist = new Map<number, number>();
-  for (let i = 0; i < p.count; i++) {
-    if (n.getY(i) < 0.95) continue;
-    const x = p.getX(i), z = p.getZ(i);
-    if (Math.abs(x) > (bb.max.x - bb.min.x) * 0.35 || Math.abs(z) > (bb.max.z - bb.min.z) * 0.35) continue;
-    const k = Math.round(p.getY(i) * 400);
-    hist.set(k, (hist.get(k) ?? 0) + 1);
-  }
-  let best = 0, bestK = 176;
-  for (const [k, c] of hist) if (c > best) { best = c; bestK = k; }
-  return bestK / 400;
 }
 
 /** Ring of a globe stand: center + inner radius from the upper part of the template. */
