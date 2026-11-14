@@ -48,6 +48,8 @@ export class GltfHeroModel implements HeroModel {
   private heldMesh: THREE.Object3D | null = null;
   private heldGrip: THREE.Group | null = null;
   private heldRest = new THREE.Euler();
+  /** Swappable hand items (HeroDef.items), shown one at a time by AnimState.item. */
+  private items = new Map<string, THREE.Object3D>();
   private ringT = 1;
   private lastAttack = 0;
   private disposed = false;
@@ -128,6 +130,26 @@ export class GltfHeroModel implements HeroModel {
           this.heldGrip = held.ring ? grip : null;
           this.heldRest.copy(grip.rotation);
         }
+        for (const it of def.items ?? []) {
+          const t = it.prop ? PROPS[it.prop] : undefined;
+          const grip = new THREE.Group();
+          grip.name = `item_${it.id}`;
+          if (t) {
+            const m = new THREE.Mesh(t.geometry, t.material);
+            m.scale.setScalar((it.size ?? 1) / Math.max(t.size.x, t.size.y, t.size.z));
+            m.castShadow = true;
+            grip.position.set(...(it.pos ?? [0, 0, 0]));
+            grip.rotation.set(...(it.rot ?? [0, 0, 0]));
+            grip.add(m);
+          } else {
+            const o = it.build();
+            o.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
+            grip.add(o);
+          }
+          grip.visible = false;
+          (it.hand === 'L' ? bones.handL : bones.handR).add(grip);
+          this.items.set(it.id, grip);
+        }
       } else if (res.animations.length) {
         this.mixer = new THREE.AnimationMixer(obj);
         const find = (re: RegExp) => res.animations.find((a) => re.test(a.name));
@@ -167,6 +189,7 @@ export class GltfHeroModel implements HeroModel {
         stretchArm(this.handR!, this.handRest[1], s.stretchR ?? 0, s.fistR ?? 1);
       }
       if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
+      if (this.items.size) for (const [id, o] of this.items) o.visible = id === s.item && this.fx.uDissolve.value < 0.25;
       if (this.heldGrip) {
         // a fresh attack rings the bell: a quick damped clapper swing about the grip
         if (s.attack > this.lastAttack + 0.3) this.ringT = 0;
@@ -200,6 +223,8 @@ export class GltfHeroModel implements HeroModel {
     const h = side === 'L' ? this.handL : this.handR;
     if (h && this.obj && this.animator) h.scale.setScalar(Math.max(1e-3, s));
   }
+
+  itemObject(id: string) { return this.items.get(id) ?? null; }
 
   handWorld(side: 'L' | 'R', out: THREE.Vector3) {
     const h = side === 'L' ? this.handL : this.handR;

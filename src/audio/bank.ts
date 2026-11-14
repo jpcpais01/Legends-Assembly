@@ -1,6 +1,7 @@
 import { Synth, semi, mulberry } from './synth';
 import { IRONMAN_RECIPES, IRONMAN_ULT_SFX, IRONMAN_BAKE } from './bankIronman';
 import { MARLEY_RECIPES, MARLEY_ULT_SFX, MARLEY_BAKE } from './bankMarley';
+import { STEVE_RECIPES, STEVE_ULT_SFX, STEVE_BAKE } from './bankSteve';
 
 /**
  * The sound bank. Each recipe is a small sound-design patch rendered offline once
@@ -1346,11 +1347,12 @@ export const RECIPES = {
     },
   },
   ...IRONMAN_RECIPES,
+  ...STEVE_RECIPES,
   ...MARLEY_RECIPES,
 } satisfies Record<string, Recipe>;
 
 // Specials carry across the whole arena and are never ducked by the moment they create.
-for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', 'staticCharge', 'staticBlast', 'steamWhistle', 'calliope', 'bigSplash', ...IRONMAN_ULT_SFX, ...MARLEY_ULT_SFX] as const) {
+for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', 'staticCharge', 'staticBlast', 'steamWhistle', 'calliope', 'bigSplash', ...IRONMAN_ULT_SFX, ...STEVE_ULT_SFX, ...MARLEY_ULT_SFX] as const) {
   Object.assign(RECIPES[k], { bus: 'ult', ref: 18, rolloff: 0.035 });
 }
 
@@ -1366,6 +1368,7 @@ export const BAKE_ORDER: Sfx[] = [
   'commMickey', 'stepMickey', 'spudThrow', 'spudBonk', 'spudBounce', 'holeDive', 'holeTravel', 'holePop', 'steamWhistle', 'paddleChug', 'calliope', 'bigSplash',
   ...IRONMAN_BAKE,
   ...MARLEY_BAKE,
+  ...STEVE_BAKE,
 ];
 
 function hashName(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; }

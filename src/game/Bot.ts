@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, marley: 68 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, marley: 30 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, steve: 60, marley: 68 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, steve: 40, marley: 30 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -80,7 +80,9 @@ export class Bot {
       if (bestD === Infinity) goal.copy(g.world.spawns[h.team]);
       combat = !!t && vis;
     } else if (t) {
-      const range = h.def.botRange;
+      // Steve closes in to sword range on a weakened target, and some Steves just like the sword
+      const brawl = h.def.id === 'steve' && ((h.kitState.botBrawl ??= Math.random() < 0.4) || t.hp < t.maxHp * 0.45);
+      const range = brawl ? 2.6 : h.def.botRange;
       const away = h.pos.clone().sub(t.pos).setY(0);
       const d = away.length();
       if (d > 0.01) away.divideScalar(d);
@@ -197,6 +199,18 @@ export class Bot {
       else if (t && vis && h.grounded && tDist > 7 && Math.random() < dt * 0.35) ks.botHoverT = rand(0.9, 1.7);
     }
 
+    // Steve swaps weapons by range: the sword when they're on top of him, the bow otherwise. Sword in hand, he
+    // hops before swinging so the blow lands on the way down (a crit)
+    if (h.def.id === 'steve' && t) {
+      const ks = h.kitState, w = ks.weapon ?? 'sword';
+      const want = tDist < 5.5 ? 'sword' : tDist > 8 ? 'bow' : w;
+      if (want !== w && (ks.botSwapT ?? 0) < g.time) { h.kit.swap?.(h, g, 0, want === 'sword' ? 0 : 1); ks.botSwapT = g.time + 1.2; }
+      if (w === 'sword') {
+        inp.primary = inp.primary && tDist < 3.7 && (h.grounded ? Math.random() < 0.6 : h.vel.y < -0.5);
+        if (tDist < 4.5 && h.grounded && vis && Math.random() < dt * 1.5) inp.jump = true;
+      }
+    }
+
     // ── abilities
     this.abilityT -= dt;
     if (this.abilityT > 0 || !t) return;
@@ -271,6 +285,13 @@ export class Bot {
           for (const a of g.alliesNear(h.team, h.pos, 12)) if (a.hp / a.maxHp < 0.6) hurt++;
           if (hurt >= 2 || enemiesClose(12) >= 2 || (hurt >= 1 && enemiesClose(12) >= 1)) inp.ult = true;
         }
+        break;
+      }
+      case 'steve': {
+        // Build Up: cover when hurt in a ranged fight, or high ground to shoot from
+        if (h.secondaryCd <= 0 && vis && tDist > 7 && tDist < 26 && (lowHp || Math.random() < 0.25)) inp.secondary = true;
+        // the dragon wants a fight to circle: a tough target or a group near the crosshair
+        if (h.ult >= 1 && vis && tDist < 26 && (t.hp > 110 || g.enemiesNear(h.team, t.pos, 8).length >= 2)) inp.ult = true;
         break;
       }
       case 'blitzcrank': {

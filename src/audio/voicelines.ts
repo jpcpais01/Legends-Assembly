@@ -35,6 +35,55 @@ const R = (vs: HeroId, ...texts: string[]): Line[] => texts.map((text, i) => ({ 
 export const spoken = (t: string) => t.replace(/\[[^\]]*\]\s*/g, '').trim();
 
 export const VOICES: Record<HeroId, HeroVoice> = {
+  steve: {
+    short: 'Steve',
+    // plain and close, a touch of crunch: a quiet builder, not a showman
+    chain: { hp: 120, lp: 11000, drive: 0.06, slap: 0, slapMix: 0, reverb: 0.08, rate: 1, gain: 1.05 },
+    tts: { voice: 'iP95p4xoKVk53GoZ742B', direction: '[calm, friendly young builder, understated, dry humour]', stability: 0.5, style: 0.45 },
+    lines: {
+      matchStart: L('matchStart', 'Alright. Day one. Let\'s get to work.', '[calm] Sword\'s sharp, bow\'s strung. Ready.', 'New world, same plan: build, fight, survive.', '[dry] Nobody touch my blocks.'),
+      primary: L('primary', 'Hyah!', '[calm] Got you lined up.', 'Steady... and loose.'),
+      secondary: L('secondary', 'Building up!', '[calm] One wall, coming up.', 'Need cover? I\'ve got blocks.', 'High ground, here we go.'),
+      secondaryHit: L('secondaryHit', 'Good wall. Good wall.', '[pleased] Bounced right off it.'),
+      ult: L('ult', '[intense] The End is here!', '[shouting] Dragon! Go!', '[intense] Out of the portal, big guy!'),
+      ultEnemy: L('ultEnemy', '[intense] Look up!', '[shouting] Run, it\'s hungry!'),
+      kill: L('kill', 'Crafted. Done.', '[dry] Back to spawn with you.', 'That\'s one less creeper.', '[calm] Mined.', 'And they\'re out.', '[pleased] Easy, like punching a tree.', 'Respawn point\'s that way.'),
+      multiKill: L('multiKill', '[excited] Full inventory of knockouts!', '[laughs] Stack of them!', 'Two for one. Efficient.'),
+      death: L('death', '[groans] Lost all my stuff...', '[sighs] Should\'ve built a roof.', '[strained] Fell in lava. Basically.'),
+      respawn: L('respawn', 'Back at spawn. Let\'s try that again.', '[calm] New life, new plan.', 'Okay. Gear up.'),
+      ultReady: L('ultReady', '[calm] The portal\'s humming. Dragon\'s ready.', 'I can feel the End calling.', '[excited] Dragon egg\'s about to hatch.'),
+      lowHp: L('lowHp', '[alarmed] Hearts are low! Need food!', '[strained] Half a heart left!', '[panicked] Gotta dig in!'),
+      victory: L('victory', '[pleased] Victory. Time to build a trophy room.', 'We won. Who wants cake?', '[calm] Game beaten. Credits roll.'),
+      defeat: L('defeat', '[sighs] Back to the drawing board. And the crafting table.', 'Next world will go better.'),
+      assist: L('assist', 'Nice. Teamwork.', 'I softened them up.', 'Good hit.'),
+      revenge: L('revenge', '[dry] I remember your face. It\'s blocky too, right?', 'Payback, one block at a time.', '[calm] Even now.'),
+      streak: L('streak', '[excited] On a roll! Nobody stop me!', 'Look at that tally.', '[pleased] Speedrun pace.'),
+      heal: L('heal', 'Ah, golden apple.', 'Hearts back up.'),
+      takeLead: L('takeLead', 'We\'re ahead. Keep building.', '[calm] Lead\'s ours. Don\'t get greedy.'),
+      behind: L('behind', '[serious] We\'re behind. Time to dig in.', 'Okay. New strategy.'),
+      matchPoint: L('matchPoint', '[intense] One more and we win!', 'Match point. Let\'s finish it.'),
+      overtime: L('overtime', 'Overtime? Night\'s falling, stay close.', 'Extra time. I\'m good with that.'),
+      enemyUlt: L('enemyUlt', '[alarmed] Big one incoming!', '[shouting] Take cover!'),
+      allyDown: L('allyDown', 'We lost one!', '[serious] Man down. I\'ll cover.'),
+      shutdown: L('shutdown', '[dry] Streak broken. Like a block.', 'Your run ends here.'),
+    },
+    rival: {
+      einstein: R('einstein', '[dry] Physics? I just stack blocks.', 'Science is great. Swords are faster.'),
+      yeat: R('yeat', 'Your bell\'s getting smelted.', '[dry] Should\'ve put the truck in a garage.'),
+      vangogh: R('vangogh', 'Nice painting. I\'ll hang it in my house.', '[calm] Starry night, meet the End.'),
+      blitzcrank: R('blitzcrank', 'Just a fancy iron golem.', '[dry] I\'ve fought bigger furnaces.'),
+      luffy: R('luffy', 'Stretchy. Still goes down.', '[laughs] Should\'ve brought a boat.'),
+      ironman: R('ironman', '[dry] Iron armor. Cute. Mine\'s diamond.', 'I mine that stuff, you know.'),
+      mickey: R('mickey', 'Back to the cartoon, little guy.', '[calm] Square beats round.'),
+      steve: R('steve', 'Hey, I\'m the original!', '[dry] Nice skin. Default, though.'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Doc, can you explain how a block floats in the air?', reply: 'I cannot. And it bothers me deeply.' },
+      { id: 'vs_ironman', vs: 'ironman', text: 'Nice armor. I could craft that with enough iron.', reply: 'You really couldn\'t. But I admire the confidence.' },
+      { id: 'vs_luffy', vs: 'luffy', text: 'Want to go treasure hunting? I know where the diamonds are.', reply: 'Diamonds?! Yeah! Can we eat them?' },
+      { id: 'vs_mickey', vs: 'mickey', text: 'You\'re not blocky at all. How do you even move?', reply: 'Rubber hose, pal! Bend anywhere!' },
+    ],
+  },
   yeat: {
     short: 'Yeat',
     // a little grit, a slapback and a touch of pitch-down: produced, not studio-clean
@@ -403,7 +452,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
   },
 };
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, marley: 7 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, steve: 7, marley: 8 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).

@@ -29,7 +29,7 @@ import { Menu } from './ui/Menu';
 import { MenuStage } from './world/MenuStage';
 import { Subtitles } from './ui/Subtitles';
 import { renderPortraits } from './ui/portraits';
-import { warmupEinstein, warmupYeat, warmupVanGogh, warmupBlitzcrank, warmupLuffy, warmupIronMan, warmupMickey, warmupMarley, HERO_LIST, HEROES } from './heroes';
+import { warmupEinstein, warmupYeat, warmupVanGogh, warmupBlitzcrank, warmupLuffy, warmupIronMan, warmupMickey, warmupSteve, warmupMarley, HERO_LIST, HEROES } from './heroes';
 import { warmupHeroModels } from './render/GltfHeroModel';
 import type { HeroId } from './game/types';
 import type { Mode, Lineup } from './game/Game';
@@ -106,7 +106,7 @@ async function boot() {
   /** Compile every hero, ability and effect shader against an arena's lights, so the first fight doesn't hitch. */
   async function warmScene(sc: THREE.Scene, firstFrame = false) {
     const heroModels = await warmupHeroModels(HERO_LIST);
-    const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...warmupBlitzcrank(game), ...warmupLuffy(game), ...warmupIronMan(game), ...warmupMickey(game), ...warmupMarley(game), ...heroModels.map((m) => m.root)];
+    const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...warmupBlitzcrank(game), ...warmupLuffy(game), ...warmupIronMan(game), ...warmupMickey(game), ...warmupSteve(game), ...warmupMarley(game), ...heroModels.map((m) => m.root)];
     const warmGroup = new THREE.Group();
     warm.forEach((m) => { m.position.set(0, -50, 0); warmGroup.add(m); });
     warmGroup.add(new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, blending: THREE.AdditiveBlending })));
@@ -324,7 +324,7 @@ async function boot() {
     game.setShowcase(hero, stage);
     stage.setHero(HEROES[hero].color, HEROES[hero].accent);
   }
-  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, startMatch: (m: Mode, h: HeroId) => startMatch(m, h) });
+  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, startMatch: (m: Mode, h: HeroId, l?: Lineup) => startMatch(m, h, l) });
   showcase(menu.hero);
   try { await renderer.gl.compileAsync(stage.scene, camera); } catch { renderer.gl.compile(stage.scene, camera); }
 

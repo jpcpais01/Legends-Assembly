@@ -47,6 +47,12 @@ export interface AnimState {
   fistR?: number;
   /** 0..1: hold a guitar slung on its strap: fretting hand on the neck, picking hand over the strings (Bob Marley). */
   guitar?: number;
+  /** Which held item is out (HeroDef.items ids); the others are hidden. */
+  item?: string;
+  /** 0..1 archer's stance: the bow arm straight down the crosshair, the string hand back toward the cheek. */
+  bow?: number;
+  /** 0..1 how far the string is drawn (moves the string hand from the bow to the cheek). */
+  bowDraw?: number;
 }
 
 export interface HeroModel {
@@ -57,6 +63,8 @@ export interface HeroModel {
   headWorld(out: THREE.Vector3): THREE.Vector3;
   /** Shrink a hand away (its owner fired it off on a chain) and bring it back with 1. */
   setHandScale?(side: 'L' | 'R', s: number): void;
+  /** The object shown for a held item (HeroDef.items), once the model is up. */
+  itemObject?(id: string): THREE.Object3D | null;
   dispose(): void;
 }
 
