@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { HeroDef, HeroKit, Projectile } from '../game/types';
 import type { Hero } from '../game/Hero';
-import { HERO_RADIUS } from '../game/Hero';
 import type { Game } from '../game/Game';
 import { InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
@@ -426,7 +425,7 @@ class IronManKit implements HeroKit {
       b.tickT -= 0.1;
       for (const e of g.heroes) {
         if (!e.alive || e.team === h.team) continue;
-        const t = segmentVsCapsule(o, end, e.pos.x, e.pos.z, e.pos.y + 0.1, e.pos.y + 1.7, HERO_RADIUS + BEAM_R);
+        const t = segmentVsCapsule(o, end, e.pos.x, e.pos.z, e.pos.y + 0.1, e.pos.y + e.hitH + 0.05, e.hitR + BEAM_R);
         if (t < 0) continue;
         const at = _v1.lerpVectors(o, end, t).clone();
         g.damage(e, 10, h, { at, fx: false, knock: b.dir.clone().setY(0).multiplyScalar(1.4) });

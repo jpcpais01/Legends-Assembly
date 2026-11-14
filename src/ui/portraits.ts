@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HERO_LIST } from '../heroes';
-import { ProceduralHeroModel, type HeroModel } from '../render/HeroRig';
-import { GltfHeroModel } from '../render/GltfHeroModel';
+import type { HeroModel } from '../render/HeroRig';
+import { createHeroModel } from '../render/GltfHeroModel';
 import type { HeroId } from '../game/types';
 
 /** Studio-lit 3D portraits of every hero, rendered once at boot into data URLs for the UI. */
@@ -28,16 +28,16 @@ export async function renderPortraits(gl: THREE.WebGLRenderer, env: THREE.Textur
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d')!;
   for (const def of HERO_LIST) {
-    let model: HeroModel;
-    if (def.modelUrl) { const g = new GltfHeroModel(def, new THREE.Color(def.color)); await g.ready; model = g; }
-    else model = new ProceduralHeroModel(def.look, new THREE.Color(def.color));
+    const model: HeroModel = createHeroModel(def, new THREE.Color(def.color));
+    await model.ready;
     model.fx.uRim.value = 0.6;
     model.update(0.016, { speed: 0, fwd: 0, side: 0, grounded: true, pitch: 0.05, attack: 0, attackSide: 1, cast: 0, levitate: 0, dash: 0, dead: false, time: 1 });
     model.root.rotation.y = 0.35;
     scene.add(model.root);
     rim.color.set(def.color);
-    cam.position.set(0.25, 1.48, 2.6);
-    cam.lookAt(0, 1.32, 0);
+    const pf = def.body?.portrait;
+    cam.position.set(...(pf?.cam ?? [0.25, 1.48, 2.6]));
+    cam.lookAt(...(pf?.look ?? [0, 1.32, 0]));
     scene.background = null;
     gl.setRenderTarget(rt);
     gl.setClearColor(0x000000, 0);

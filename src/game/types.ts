@@ -2,10 +2,10 @@ import type * as THREE from 'three';
 import type { MotionStyle } from '../render/RigAnimator';
 import type { Hero } from './Hero';
 import type { Game } from './Game';
-import type { RigLook } from '../render/HeroRig';
+import type { RigLook, HeroModel } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey' | 'trex';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
@@ -55,11 +55,31 @@ export interface HeroDef {
     ring?: boolean;
   };
   look: RigLook;
+  /** Big bodies (the T-Rex): hit capsule, world collision radius, where the chest is, how the camera frames them. */
+  body?: HeroBody;
+  /** Non-humanoid legends build their own model (the T-Rex's dinosaur rig) instead of the humanoid GLB pipeline. */
+  createModel?(rim: THREE.Color): HeroModel;
   /** Rubber limbs (Luffy): hand skin weights are sharpened at load so a stretched arm carries the whole fist. */
   rubber?: boolean;
   createKit(): HeroKit;
   /** Difficulty / stats for UI bars, 0..1. */
   ratings: { damage: number; mobility: number; support: number; difficulty: number };
+}
+
+export interface HeroBody {
+  /** Hit capsule radius and top (metres above the feet). Humans: 0.45 and 1.65. */
+  hitR: number;
+  hitH: number;
+  /** Radius for walls and props. */
+  worldR: number;
+  /** Heights of the body centre and the chest (effects and line-of-sight aim here). */
+  centerY: number;
+  chestY: number;
+  /** Camera pivot height and extra boom length. */
+  camY: number;
+  camDist: number;
+  /** Hero portrait framing: camera position and look-at point, model at the origin facing the camera. */
+  portrait?: { cam: [number, number, number]; look: [number, number, number] };
 }
 
 export interface HeroInput {

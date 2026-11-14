@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeHeroFxUniforms, patchRigMaterial, type HeroFxUniforms } from './materials';
 import { RigAnimator, STYLE_ATTACK, type AttackKind, type MotionStyle } from './RigAnimator';
+import type { BeastPose } from './TrexModel';
 
 export { RigAnimator, STYLE_ATTACK };
 
@@ -45,6 +46,8 @@ export interface AnimState {
   armReach?: 'fore' | 'upper';
   fistL?: number;
   fistR?: number;
+  /** Non-humanoid legends (the T-Rex): what the beast's body is doing, set by its kit. */
+  beast?: BeastPose;
 }
 
 export interface HeroModel {
@@ -55,6 +58,8 @@ export interface HeroModel {
   headWorld(out: THREE.Vector3): THREE.Vector3;
   /** Shrink a hand away (its owner fired it off on a chain) and bring it back with 1. */
   setHandScale?(side: 'L' | 'R', s: number): void;
+  /** Resolves once a loaded model is showing. */
+  ready?: Promise<void>;
   dispose(): void;
 }
 

@@ -128,7 +128,8 @@ export class CameraRig {
     const vk = this.vehicleK;
 
     // 1) head: the always-clear anchor inside the hero's own capsule
-    const head = this.head.set(hero.pos.x, this.smoothY + 1.62 + vk * 0.9, hero.pos.z);
+    const body = hero.def.body;
+    const head = this.head.set(hero.pos.x, this.smoothY + (body?.camY ?? 1.62) + vk * 0.9, hero.pos.z);
 
     // ultimate beat: swing out fast, hold a breath, ease back in
     if (this.beat > 0) { this.beatT += dt; this.beat = this.beatT < 0.5 ? 1 : Math.max(0, 1 - (this.beatT - 0.5) / 0.7); }
@@ -143,7 +144,7 @@ export class CameraRig {
 
     // 3) boom: a fan of rays (center + near-plane corners) approximates a sphere cast,
     //    so the lens never pokes through a wall corner even with a coarse collision grid
-    const maxDist = this.dist + vk * 3.2 + Math.max(0, -this.pitch) * 0.6 + bk * 1.5;
+    const maxDist = this.dist + (body?.camDist ?? 0) + vk * 3.2 + Math.max(0, -this.pitch) * 0.6 + bk * 1.5;
     let t = 1;
     for (let i = 0; i < FAN.length; i++) {
       const [ox, oy] = FAN[i];

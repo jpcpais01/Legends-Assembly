@@ -6,9 +6,10 @@ import { BLITZCRANK } from './blitzcrank';
 import { LUFFY } from './luffy';
 import { IRONMAN } from './ironman';
 import { MICKEY } from './mickey';
+import { TREX } from './trex';
 
-export const HEROES: Record<HeroId, HeroDef> = { einstein: EINSTEIN, yeat: YEAT, vangogh: VANGOGH, blitzcrank: BLITZCRANK, luffy: LUFFY, ironman: IRONMAN, mickey: MICKEY };
-export const HERO_LIST: HeroDef[] = [EINSTEIN, YEAT, VANGOGH, BLITZCRANK, LUFFY, IRONMAN, MICKEY];
+export const HEROES: Record<HeroId, HeroDef> = { einstein: EINSTEIN, yeat: YEAT, vangogh: VANGOGH, blitzcrank: BLITZCRANK, luffy: LUFFY, ironman: IRONMAN, mickey: MICKEY, trex: TREX };
+export const HERO_LIST: HeroDef[] = [EINSTEIN, YEAT, VANGOGH, BLITZCRANK, LUFFY, IRONMAN, MICKEY, TREX];
 export { warmupEinstein } from './einstein';
 export { warmupYeat } from './yeat';
 export { warmupVanGogh } from './vangogh';
@@ -16,3 +17,4 @@ export { warmupBlitzcrank } from './blitzcrank';
 export { warmupLuffy } from './luffy';
 export { warmupIronMan } from './ironman';
 export { warmupMickey } from './mickey';
+export { warmupTrex } from './trex';

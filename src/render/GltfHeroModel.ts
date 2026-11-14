@@ -247,7 +247,13 @@ function rubberHands(mesh: THREE.SkinnedMesh, hands: THREE.Object3D[]) {
 
 /** Loads every hero GLB once (fills the cache) and returns posed instances so the main scene can pre-compile their shaders. */
 export async function warmupHeroModels(defs: HeroDef[]) {
-  const models = defs.filter((d) => d.modelUrl).map((d) => new GltfHeroModel(d, new THREE.Color(d.color)));
+  const models = defs.filter((d) => d.modelUrl || d.createModel).map((d) => createHeroModel(d, new THREE.Color(d.color)));
   await Promise.all(models.map((m) => m.ready));
   return models;
+}
+
+/** The model a legend wears: its own (non-humanoid) model, the rigged Meshy GLB, or the procedural stand-in. */
+export function createHeroModel(def: HeroDef, rim: THREE.Color): HeroModel {
+  if (def.createModel) return def.createModel(rim);
+  return def.modelUrl ? new GltfHeroModel(def, rim) : new ProceduralHeroModel(def.look, rim);
 }
