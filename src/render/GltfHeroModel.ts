@@ -98,7 +98,7 @@ export class GltfHeroModel implements HeroModel {
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         // the procedural animator only stands in when the motion library could not be loaded
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
-        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: def.motion === 'swagger' ? 'ring' : def.motion === 'artist' ? 'stroke' : 'flick' });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: def.motion === 'swagger' ? 'ring' : def.motion === 'artist' ? 'stroke' : def.motion === 'cartoon' ? 'throw' : 'flick', bounce: def.motion === 'cartoon' ? 1 : 0 });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {

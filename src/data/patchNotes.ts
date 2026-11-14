@@ -8,6 +8,31 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.18.0',
+    date: '2026-11-14',
+    title: 'Steamboat Willie',
+    sections: [
+      {
+        heading: 'New legend: Mickey Mouse, The Original Toon (Duelist)',
+        items: [
+          'Mickey joins the roster as he first appeared in 1928: black and white ink, pie-cut eyes, big shoes and a bounce in every step. He even bops along to a tune only he can hear while standing still.',
+          'Spud Shot (LMB): lob potatoes that drop right onto your crosshair. Headshots land with a BONK! and 50% more damage, and a miss bounces once to try again.',
+          'Portable Hole (RMB): slap a hole on the floor, dive in with a slide whistle and burrow up to 16 m to where you aim. You pop out with a stomp that bonks everyone nearby into the air. Great for escaping, and even better for jumping someone.',
+          'Steamboat Willie (SHIFT): pull the whistle cord and the whole match turns into a scratchy 1928 black-and-white cartoon, while a giant paddle steamer comes chugging down your crosshair and launches everyone in its path. A calliope plays it in.',
+          'Bots play Mickey too: they burrow under you for the stomp, escape through holes when hurt, and line up the steamboat on groups.',
+        ],
+      },
+      {
+        heading: 'Sound',
+        items: ['Mickey brings a full cartoon sound set: slide whistles, woodblock bonks, rubbery bounces, a riverboat steam whistle, a chugging paddle wheel and an original calliope tune.'],
+      },
+      {
+        heading: 'Coming soon',
+        items: ["Mickey's final model and his potato and steamboat models are on the way. His voice lines show as subtitles until they're recorded."],
+      },
+    ],
+  },
+  {
     version: '0.16.2',
     date: '2026-11-14',
     title: 'Museum Treasures',

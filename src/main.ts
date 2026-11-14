@@ -26,7 +26,7 @@ import { Menu } from './ui/Menu';
 import { MenuStage } from './world/MenuStage';
 import { Subtitles } from './ui/Subtitles';
 import { renderPortraits } from './ui/portraits';
-import { warmupEinstein, warmupYeat, warmupVanGogh, HERO_LIST, HEROES } from './heroes';
+import { warmupEinstein, warmupYeat, warmupVanGogh, warmupMickey, HERO_LIST, HEROES } from './heroes';
 import { warmupHeroModels } from './render/GltfHeroModel';
 import type { HeroId } from './game/types';
 import type { Mode, Lineup } from './game/Game';
@@ -95,7 +95,7 @@ async function boot() {
 
   await progress(85, 'Warming up the shaders');
   const heroModels = await warmupHeroModels(HERO_LIST);
-  const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...heroModels.map((m) => m.root)];
+  const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...warmupMickey(game), ...heroModels.map((m) => m.root)];
   const warmGroup = new THREE.Group();
   warm.forEach((m) => { m.position.set(0, -50, 0); warmGroup.add(m); });
   const spr = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, blending: THREE.AdditiveBlending }));

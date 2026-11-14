@@ -68,6 +68,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Impasto Shot splashes. Aim at feet and walls to hit groups.',
     'Allies inside The Starry Night are healed, so pull fights into the dome.',
   ],
+  mickey: [
+    'Spud Shot lobs onto the crosshair. Aim at heads for a bonk, or at the floor in front of a group for the bounce.',
+    'Portable Hole is an escape and an opener: pop out right under an enemy to bonk them into the air.',
+    'Steamboat Willie runs straight down your crosshair. Line it up along a corridor full of enemies.',
+  ],
 };
 
 const QUALITY_COPY: Record<QualityLevel, string> = {

@@ -188,7 +188,9 @@ export class VoiceDirector {
     } else {
       const words = text.split(/\s+/).length;
       dur = Math.min(4.2, Math.max(1.6, 0.8 + words * 0.3));
-      audio.play('comm', null, 1, { variant: VOICE_INDEX[h.def.id] });
+      // heroes newer than the recorded stinger set get their own procedural one
+      if (h.def.id === 'mickey') audio.play('commMickey', null, 1);
+      else audio.play('comm', null, 1, { variant: VOICE_INDEX[h.def.id] });
     }
     this.busyUntil = this.time + dur + 0.25;
     this.busyPrio = prio;

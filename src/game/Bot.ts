@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, mickey: 42 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, mickey: 28 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -214,6 +214,32 @@ export class Bot {
         }
         if (h.ult >= 1 && (enemiesClose(11) >= 2 || (enemiesClose(10) >= 1 && g.alliesNear(h.team, h.pos, 10).length >= 2))) inp.ult = true;
         else if (h.ult >= 1 && enemiesClose(8) >= 1 && hpFrac < 0.5) inp.ult = true;
+        break;
+      }
+      case 'mickey': {
+        if (h.secondaryCd <= 0) {
+          if (lowHp && tDist < 12) {
+            // escape: burrow away from the threat
+            const away = h.pos.clone().sub(t.pos).setY(0).normalize();
+            inp.aim.copy(h.pos).addScaledVector(away, 14);
+            inp.secondary = true;
+          } else if (vis && tDist > 4 && tDist < 17 && Math.random() < 0.4) {
+            // pop out right under the target for the stomp
+            inp.aim.copy(t.pos);
+            inp.secondary = true;
+          }
+        }
+        if (h.ult >= 1 && vis && tDist < 40) {
+          // the boat runs straight down the crosshair: count who stands in its lane
+          const f = h.forward, sd = new THREE.Vector3(-f.z, 0, f.x);
+          let lane = 0;
+          for (const e of g.heroes) {
+            if (!e.alive || e.team === h.team) continue;
+            const rx = e.pos.x - h.pos.x, rz = e.pos.z - h.pos.z, al = rx * f.x + rz * f.z;
+            if (al > 0 && al < 55 && Math.abs(rx * sd.x + rz * sd.z) < 3.5) lane++;
+          }
+          if (lane >= 2 || (lane >= 1 && t.hp > 110)) inp.ult = true;
+        }
         break;
       }
     }

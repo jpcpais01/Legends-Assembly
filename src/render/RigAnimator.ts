@@ -31,7 +31,7 @@ interface LegRig { hip: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object
 const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
 export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss';
-export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist';
+export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'cartoon';
 
 /**
  * One key of an attack gesture, for the attacking arm. Angles in radians, side-relative:

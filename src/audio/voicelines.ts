@@ -164,10 +164,48 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_vangogh', vs: 'vangogh', text: 'Another Vincent? Which of us is the forgery?', reply: 'Let the canvas decide.' },
     ],
   },
+  mickey: {
+    short: 'Mickey',
+    // an old optical soundtrack: band-limited, a little crackly drive and a bright, sped-up lilt
+    chain: { hp: 260, lp: 6200, drive: 0.22, slap: 0, slapMix: 0, reverb: 0.1, rate: 1.06, gain: 1.05 },
+    // a designed/premade cheerful high-pitched cartoon voice (never a clone): pick one on the account when recording
+    tts: { voice: 'TBD', direction: '[cheerful, high-pitched 1920s cartoon mouse, bouncy and polite]', stability: 0.35, style: 0.75 },
+    lines: {
+      matchStart: L('matchStart', '[cheerful] Hot dog! Let\'s have some fun, pals!', '[excited] All aboard! Next stop, victory!', '[whistles] Ha-ha! Ready when you are, fellas!'),
+      primary: L('primary', 'Catch!', '[laughs] Heads up!', 'Spud\'s up!'),
+      secondary: L('secondary', 'Down the hatch!', '[giggles] Now you see me...', 'Pardon me, comin\' through!'),
+      secondaryHit: L('secondaryHit', '[laughs] Surprise!', 'Boing!', 'Peekaboo!'),
+      ult: L('ult', '[shouting] Toot toot! All aboard!', '[excited] Full steam ahead!', '[shouting] Steamboat comin\' through!'),
+      ultEnemy: L('ultEnemy', '[shouting] Clear the deck, fellas!', '[excited] Here comes the steamboat!'),
+      kill: L('kill', '[laughs] Ha-ha! Gotcha!', 'Oh boy, that was swell!', 'Spud-tacular!', '[giggles] Sorry, pal!', 'Out like a light!', 'That\'s how we do it on the river!'),
+      multiKill: L('multiKill', '[excited] Gee whiz, look at \'em all!', '[laughing] Hot dog! What a show!', '[excited] Swell! Who\'s next?'),
+      death: L('death', '[groans] Aw, gee...', '[annoyed] Oh, nuts.', '[dizzy] Ooh, I\'m seein\' stars...'),
+      respawn: L('respawn', 'I\'m back, pals!', '[cheerful] Can\'t keep a good mouse down!', '[laughs] Ha-ha! Round two!'),
+      ultReady: L('ultReady', '[excited] Steam\'s up! Ready to sail!', 'Boiler\'s hot! Just say the word!'),
+      lowHp: L('lowHp', '[nervous] Uh-oh, I\'m in a pickle!', '[panicked] Yikes! Help, fellas!'),
+      victory: L('victory', '[cheerful] Hot dog! We did it!', '[laughs] Ha-ha! What a swell game!'),
+      defeat: L('defeat', '[sighs] Aw, shucks.', 'Gosh... we\'ll get \'em next time.'),
+      assist: L('assist', 'Swell teamwork!', 'Nice one, pal!'),
+      revenge: L('revenge', '[smug] Remember me, pal?', '[laughs] Payback, cartoon style!'),
+      streak: L('streak', '[excited] Oh boy, I\'m on a roll!', '[laughs] Can\'t stop this mouse!'),
+    },
+    rival: {
+      einstein: R('einstein', 'Sorry, professor! Spuds beat science!', '[laughs] Bonk! Relatively speaking!'),
+      yeat: R('yeat', 'Nice bell, pal! My whistle\'s louder!', '[giggles] Ding dong, you\'re gone!'),
+      vangogh: R('vangogh', '[laughs] Now that\'s a cartoon, Vincent!', 'Gosh, sorry about the frame!'),
+      mickey: R('mickey', 'Hey! There\'s only one of me!'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Say, professor! Can your physics explain a portable hole?', reply: 'No. And it troubles me deeply.' },
+      { id: 'vs_yeat', vs: 'yeat', text: 'Swell bell, pal! Wanna hear my whistle?', reply: 'Bro sound like a teapot.' },
+      { id: 'vs_vangogh', vs: 'vangogh', text: 'Mr. Van Gogh, could you paint me in color?', reply: 'Never. You are perfect in black and white.' },
+      { id: 'vs_mickey', vs: 'mickey', text: 'Two of me? Gosh, which one\'s the original?', reply: 'Me! I\'ve been doin\' this since 1928!' },
+    ],
+  },
 };
 
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, mickey: 3 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).
