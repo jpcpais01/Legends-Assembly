@@ -8,6 +8,19 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.3',
+    date: '2026-11-14',
+    title: 'Clear Skies',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'Fixed the painted sky panels on the upper walls: a bright glassy wedge no longer cuts diagonally across the clouds.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.2',
     date: '2026-11-14',
     title: 'Best Light Forward',
