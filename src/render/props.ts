@@ -18,14 +18,14 @@ export interface PropTemplate {
   glass?: THREE.BufferGeometry;
 }
 
-export type PropName = 'palette' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell' | 'rocket_fist' | 'luffy_hat' | 'steamboat' | 'potato';
-export const PROP_NAMES: PropName[] = ['palette', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell', 'rocket_fist', 'luffy_hat', 'steamboat', 'potato'];
+export type PropName = 'palette' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell' | 'rocket_fist' | 'luffy_hat' | 'steamboat' | 'potato' | 'micro_missile';
+export const PROP_NAMES: PropName[] = ['palette', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell', 'rocket_fist', 'luffy_hat', 'steamboat', 'potato', 'micro_missile'];
 export const PROPS: Partial<Record<PropName, PropTemplate>> = {};
 /**
  * Bump a prop's version whenever its GLB changes: /models/ is cache-first on players' devices, so an
  * unversioned URL can keep serving an old copy (or keep a failed load failing) indefinitely.
  */
-const PROP_VER: Partial<Record<PropName, number>> = { tonka_truck: 2, giant_bell: 2, golden_bell: 2 };
+const PROP_VER: Partial<Record<PropName, number>> = { tonka_truck: 2, giant_bell: 2, golden_bell: 2, luffy_hat: 2 };
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
