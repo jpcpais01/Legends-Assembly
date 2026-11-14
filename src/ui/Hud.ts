@@ -5,6 +5,7 @@ import { portraits } from './portraits';
 import { settings } from '../core/settings';
 import { MODE_INFO } from '../game/Game';
 import { esc, icon, ROLE_ICONS, UI, DomCache, mmss, splitName } from './uikit';
+import { itemIcon } from '../heroes/steveArt';
 
 const RING = 2 * Math.PI * 44; // ult ring circumference (r = 44 in a 100 viewBox)
 const DEATH_RING = 2 * Math.PI * 26;
@@ -43,6 +44,7 @@ export class Hud {
   private lastScore = [-1, -1];
   private healT = 0;
   private healing = false;
+  private stItem = '';
 
   constructor(parent: HTMLElement, g: Game) {
     this.g = g;
@@ -178,6 +180,14 @@ export class Hud {
         ch.insertAdjacentHTML('beforeend', `<i class="arm" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`);
       }
     }
+    // Steve: a two-slot hotbar over the LMB tile (wheel or 1 / 2 to swap) and a bow draw meter under the crosshair
+    this.root.querySelector('.st-hot')?.remove();
+    this.stItem = '';
+    if (d.id === 'steve') {
+      ch.insertAdjacentHTML('beforeend', '<i class="st-draw"><s></s></i>');
+      this.els.lmb.insertAdjacentHTML('beforeend', `<div class="st-hot">${(['sword', 'bow'] as const).map((w, i) =>
+        `<span class="st-s" data-w="${w}"><img src="${itemIcon(w)}" alt=""><b>${i + 1}</b></span>`).join('')}<small>${icon(UI.mouse)}</small></div>`);
+    }
     const info = MODE_INFO[g.config!.mode];
     this.els.goal.textContent = `First to ${info.target}`;
     // team chips (ally on the left, enemies on the right)
@@ -232,6 +242,27 @@ export class Hud {
     this.root.classList.remove('outro');
     this.els.cine.className = 'cine';
     this.els.danger.className = 'hud-warn';
+  }
+
+  /** Steve's hotbar selection, the LMB tile showing the held item, and the bow draw meter. */
+  private updateSteve(h: Hero) {
+    const c = this.c;
+    const w: string = h.kitState.weapon ?? 'sword';
+    if (w !== this.stItem) {
+      this.stItem = w;
+      for (const el of this.root.querySelectorAll<HTMLElement>('.st-hot .st-s')) el.classList.toggle('on', el.dataset.w === w);
+      (this.els.lmb.querySelector('.sl-ic') as HTMLElement).innerHTML = `<img class="st-ic" src="${itemIcon(w === 'bow' ? 'bow' : 'sword')}" alt="">`;
+      (this.els.lmb.querySelector('.sl-n') as HTMLElement).textContent = w === 'bow' ? 'Bow' : 'Diamond Sword';
+      const hot = this.root.querySelector('.st-hot') as HTMLElement | null;
+      if (hot) this.restart(hot, 'st-hot', 'pop');
+    }
+    const k = h.kitState.draw != null ? (h.anim.bowDraw ?? 0) : 0;
+    const meter = this.els.crosshair.querySelector('.st-draw') as HTMLElement | null;
+    if (meter) {
+      c.style('stdk', meter, '--f', k.toFixed(2));
+      c.cls('stdo', meter, 'on', k > 0 && h.alive);
+      c.cls('stdf', meter, 'full', k >= 0.999);
+    }
   }
 
   /** Your special: letterbox bars snap in with its name. An enemy special nearby: a danger warning. */
@@ -425,6 +456,8 @@ export class Hud {
       if (fs) { c.style('imf', fs, '--f', fuel.toFixed(2)); c.cls('imfo', fs, 'on', fuel < 0.995 && h.alive); }
     }
 
+    if (h.def.id === 'steve') this.updateSteve(h);
+
     // abilities
     const rmbCd = h.secondaryCd > 0;
     const rmbFrac = rmbCd ? h.secondaryCd / h.def.secondaryCd : 0;
@@ -434,7 +467,8 @@ export class Hud {
     if (this.rmbWasCd && !rmbCd) this.restart(E.rmb, 'slot s-rmb', 'flash');
     this.rmbWasCd = rmbCd;
     c.cls('lmba', E.lmb, 'active', h.alive && h.input.primary);
-    if (h.primaryCd > this.lastPrimaryCd + 0.01) this.xKick = Math.min(1, this.xKick + 0.5);
+    // (a held bow draw parks primaryCd very high: that is not a shot)
+    if (h.primaryCd > this.lastPrimaryCd + 0.01 && h.primaryCd < 50) this.xKick = Math.min(1, this.xKick + 0.5);
     this.lastPrimaryCd = h.primaryCd;
     this.xKick = Math.max(0, this.xKick - dt * 5);
     c.style('xk', E.crosshair, 'transform', `scale(${(1 + this.xKick * 0.35).toFixed(3)})`);

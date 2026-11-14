@@ -7,6 +7,9 @@ export class Input {
   lmb = false;
   rmb = false;
   lmbPressed = false;
+  /** Mouse wheel notches this frame (+1 = scrolled down / toward you). */
+  wheel = 0;
+  private wheelAcc = 0;
   rmbPressed = false;
   locked = false;
   /** True when the browser gave us raw (unaccelerated) mouse input. */
@@ -55,6 +58,13 @@ export class Input {
       if (e.button === 0) this.lmb = false;
       if (e.button === 2) this.rmb = false;
     });
+    window.addEventListener('wheel', (e) => {
+      if (!this.locked) return;
+      // trackpads send many small deltas: count a notch per ~50 px, mice send one per click
+      this.wheelAcc += e.deltaMode === 0 ? e.deltaY / 50 : e.deltaY;
+      const n = Math.trunc(this.wheelAcc);
+      if (n) { this.wheel += Math.sign(n); this.wheelAcc = 0; }
+    }, { passive: true });
     window.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       const was = this.locked;
@@ -112,5 +122,6 @@ export class Input {
     this.mouseDY = 0;
     this.lmbPressed = false;
     this.rmbPressed = false;
+    this.wheel = 0;
   }
 }
