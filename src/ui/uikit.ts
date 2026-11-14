@@ -14,6 +14,9 @@ export const ROLE_ICONS: Record<Role, string> = {
 };
 
 export const UI = {
+  crown: '<path d="M4 17.5l-1-9 5 4 4-6.5 4 6.5 5-4-1 9z"/><path d="M4.5 20.5h15"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  swap: '<path d="M6 8h13l-3.5-3.5M18 16H5l3.5 3.5"/>',
   play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
