@@ -11,7 +11,7 @@ import { settings } from '../core/settings';
 const MAX_SRC = 4;
 
 interface Ripple { pos: THREE.Vector3; radius: number; strength: number; t: number; dur: number }
-export interface Lens { pos: THREE.Vector3; radius: number; strength: number; alive: boolean }
+export interface Lens { pos: THREE.Vector3; radius: number; strength: number; alive: boolean; heat?: boolean }
 
 class ScreenFxState {
   ripples: Ripple[] = [];
@@ -39,6 +39,13 @@ class ScreenFxState {
   lens(pos: THREE.Vector3, radius: number, strength: number): Lens {
     const l = { pos: pos.clone(), radius, strength, alive: true };
     this.lenses.push(l);
+    return l;
+  }
+
+  /** A persistent heat-haze source: the air shimmers inside its radius (strength ~0..1). */
+  heat(pos: THREE.Vector3, radius: number, strength: number): Lens {
+    const l = this.lens(pos, radius, strength);
+    l.heat = true;
     return l;
   }
 
@@ -85,7 +92,7 @@ export const screenFx = new ScreenFxState();
 
 const frag = /* glsl */ `
   uniform vec4 uSrc[${MAX_SRC}];   // xy = screen uv, z = radius (uv, y units), w = strength
-  uniform vec4 uKind[${MAX_SRC}];  // x = 0 ripple / 1 lens, y = ring width, z = swirl
+  uniform vec4 uKind[${MAX_SRC}];  // x = 0 ripple / 1 lens / 2 heat haze, y = ring width, z = swirl
   uniform float uAspect;
   uniform float uCA;
   uniform float uZoom;
@@ -111,6 +118,13 @@ const frag = /* glsl */ `
         float w = x * exp(-x * x * 1.6);
         off -= dir * w * s.w * k.y;
         bend += abs(w) * s.w;
+      } else if (k.x > 1.5) {
+        // heat haze: the air boils inside the radius (no colour fringing)
+        float f = smoothstep(s.z, s.z * 0.15, r);
+        vec2 q = uv * vec2(uAspect, 1.0) * 70.0;
+        float t = mod(uFilmT, 600.0);
+        vec2 w = vec2(sin(q.y * 1.3 + t * 9.0 + sin(q.x * 0.7 + t * 5.0)), cos(q.x * 1.1 - t * 8.0 + sin(q.y * 0.9 - t * 6.0)));
+        off += w * f * s.w * 0.0035;
       } else {
         // lens: compress what's behind the singularity into a bright Einstein ring, and twist it
         float f = smoothstep(s.z, 0.0, r);
@@ -231,7 +245,7 @@ export class ImpactEffect extends Effect {
       this.kind[n].set(kind, kind === 0 ? Math.max(0.01, ru * 0.22) : 0, swirl, 0);
       n++;
     };
-    for (const l of screenFx.lenses) put(l.pos, l.radius, l.strength, 1, 0.8);
+    for (const l of screenFx.lenses) put(l.pos, l.radius, l.strength, l.heat ? 2 : 1, 0.8);
     for (const r of screenFx.ripples) {
       const k = r.t / r.dur;
       const e = 1 - Math.pow(1 - k, 2.2);
