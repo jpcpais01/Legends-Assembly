@@ -309,7 +309,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Luffy',
     // bright and bouncy: a little room, no grit
     chain: { hp: 120, lp: 14500, drive: 0, slap: 0, slapMix: 0, reverb: 0.14, rate: 1.03, gain: 1.05 },
-    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cheerful young pirate, loud, fearless, always grinning]', stability: 0.3, style: 0.75 },
+    tts: { voice: 'bVMeCyTHy58xNoL34h3p', direction: '[cheerful young pirate, loud, fearless, always grinning]', stability: 0.3, style: 0.75 },
     lines: {
       matchStart: L('matchStart', '[excited] Alright! Let\'s go have an adventure!', '[laughs] Shishishi! This is gonna be fun!', 'I\'m not losing to anybody!', '[hungry] Can we eat after this? Okay, let\'s fight!'),
       primary: L('primary', 'Gum-Gum Pistol!', '[shouting] Pistol!'),

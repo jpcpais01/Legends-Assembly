@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.21.4',
+    version: '0.21.5',
     date: '2026-11-14',
     title: 'Iron Man Speaks',
     sections: [
@@ -17,6 +17,19 @@ export const PATCH_NOTES: PatchNote[] = [
         items: [
           'Iron Man now talks: a cocky, quick-witted voice for his abilities, eliminations, Unibeam call-outs, victories and defeats, instead of subtitles only.',
           'He trades fully voiced banter and rival lines with Einstein, Yeat, Van Gogh, Blitzcrank, Luffy and even another Iron Man.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.21.4',
+    date: '2026-11-14',
+    title: 'Gum-Gum Voice',
+    sections: [
+      {
+        heading: 'Luffy',
+        items: [
+          'Luffy finally speaks! Every line is now fully voiced: his battle cries for Gum-Gum Pistol, Rocket and Gear Fifth, his trash talk, his reactions when he takes a hit or loses a teammate, and his banter with the other legends.',
         ],
       },
     ],
