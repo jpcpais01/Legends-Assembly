@@ -8,6 +8,23 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.0',
+    date: '2026-11-14',
+    title: 'Brass Knuckles',
+    sections: [
+      {
+        heading: 'Blitzcrank',
+        items: [
+          'Blitzcrank has his real body: a towering brass steam golem with a boiler for a chest, smokestacks on his back and giant fists that hang to the floor. Every plate moves like solid metal, with no bending or stretching where there should not be any.',
+          'Rocket Grab is now his own arm: the arm rod telescopes out of his shoulder and fires the whole forearm and fist at the target, venting steam and crackling with sparks along the way, then reels it back in. The separate flying fist and chain are gone.',
+          'He walks upright like a quarter ton of machinery instead of tipping forward.',
+          'Blitzcrank now speaks: a deep, polite steam-robot voice for his abilities, eliminations, victories and defeats, instead of subtitles only.',
+          'All his punches, the grab, Static Field and his heavy footsteps now use recorded sound effects.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.6',
     date: '2026-11-14',
     title: 'Iron Man Speaks',

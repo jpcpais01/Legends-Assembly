@@ -73,6 +73,8 @@ const B = Object.fromEntries(RIG_BONES.map((n, i) => [n, i]));
 const j3 = (k) => V(...J[k]);
 const E = j3('elbowL'), H = j3('handL');
 const foreDir = H.clone().sub(E).normalize();
+/** The upper-arm rod (left side): x, z of its axis and its radius, between the forearm (y 0.92, the rod's narrowest point) and the shoulder joint inside the pad (so the stretched rod starts right at the pivot instead of leaving a gap). */
+const ROD = [0.69, -0.16, 0.14];
 const _p = V(0, 0, 0);
 
 /** Weights for one vertex as [[bone, w], ...]. */
@@ -81,13 +83,18 @@ function weigh(x, y, z) {
   // the forearms hug the legs and the belly, so near them only geometry in front of the body counts as arm
   const arm = y < 0.15 ? ax > 0.4 : y < 0.8 ? ax > 0.4 || (ax > 0.33 && z > 0.02) : ax > 0.46 || (y < 1 && ax > 0.3 && z > 0.3);
   if (arm) {
-    // shoulder pad on the collarbone, the slim upper-arm rod (it telescopes during the Rocket Grab) on the
-    // shoulder, then the forearm, then the fist past the wrist plane
-    const pad = smooth(y, 1.1, 1.12);
-    const up = smooth(y, 0.86, 0.88);
+    // above the elbow only the slim upper-arm rod rides the shoulder bone (it telescopes during the Rocket Grab);
+    // the pad and hoses around it hang from the collarbone and the flank of the ball stays with the chest
+    const up = y > 0.92 ? 1 : 0; // a hard joint: a blend here would smear into a sheet when the rod telescopes
+    if (up > 0) {
+      const rod = y < J.shoulderL[1] && Math.hypot(ax - ROD[0], z - ROD[1]) < ROD[2];
+      const top = rod ? B[`shoulder${s}`] : ax < 0.52 && y < 1.11 ? B.chest : B[`clavicle${s}`];
+      return [[top, up], [B[`elbow${s}`], 1 - up]];
+    }
+    // the forearm, then the fist past the wrist plane
     const t = _p.set(ax, y, z).sub(H).dot(foreDir);
-    const fist = smooth(t, -0.03, 0.03) * (1 - up);
-    return [[B[`clavicle${s}`], pad], [B[`shoulder${s}`], up - pad], [B[`elbow${s}`], (1 - up) - fist], [B[`hand${s}`], fist]];
+    const fist = smooth(t, -0.03, 0.03);
+    return [[B[`elbow${s}`], 1 - fist], [B[`hand${s}`], fist]];
   }
   if (y < 0.5) {
     // legs: thigh, shin, foot
@@ -100,6 +107,9 @@ function weigh(x, y, z) {
   return [[B.hips, 1 - ch], [B.chest, ch]];
 }
 
+/** Arm parts move away from the body (and the rod telescopes), so faces bridging the two are dropped. */
+const ARM = new Set(['shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'handL', 'handR'].map((n) => B[n]));
+const BODY = new Set(['chest', 'hips', 'clavicleL', 'clavicleR'].map((n) => B[n]));
 const counts = new Map();
 for (const p of prims) {
   const a = p.getAttribute('POSITION'), n = a.getCount(), e = [0, 0, 0];
@@ -126,6 +136,10 @@ for (const p of prims) {
       const L = Math.max(pa.distanceTo(pb), pb.distanceTo(pc), pc.distanceTo(pa));
       const area = u.subVectors(pb, pa).cross(w.subVectors(pc, pa)).length() / 2;
       if (L > 0.1 || (L > 0.03 && area < 0.04 * L * L)) { dropped++; continue; }
+      // the arm rod slides out of the pad during the Rocket Grab and the forearms swing clear of the ball: faces
+      // joining an arm part to the body would stretch into fins, and the pad hides the small holes they leave
+      const set = new Set([Jt[i0 * 4], Jt[i1 * 4], Jt[i2 * 4]]);
+      if ([...set].some((b) => ARM.has(b)) && [...set].some((b) => BODY.has(b))) { dropped++; continue; }
     }
     keep.push(i0, i1, i2);
   }

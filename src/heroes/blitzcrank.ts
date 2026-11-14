@@ -84,6 +84,9 @@ function bodyArcs(g: Game, c: THREE.Vector3, r: number, h: number, count: number
 
 // ───────────────────────── telescoping arm ─────────────────────────
 
+/** Wrist to knuckles on his model: the hand bone is aimed this far short of the grab point. */
+const FIST_LEN = 0.35;
+
 interface Grab {
   phase: 'out' | 'pull' | 'back';
   t: number;
@@ -93,6 +96,8 @@ interface Grab {
   dist: number;
   target: Hero | null;
   trail: Trail | null;
+  /** Where the hand goes: just behind the fist's knuckles, so the fist itself lands on gr.pos. */
+  aim: THREE.Vector3;
 }
 
 // ───────────────────────── kit ─────────────────────────
@@ -132,7 +137,7 @@ class BlitzcrankKit implements HeroKit {
     g.vfx.sparks(sh, BRASS, 10, 8, dir);
     for (let i = 0; i < 6; i++) g.vfx.pa({ x: sh.x, y: sh.y, z: sh.z, vx: -dir.x * rand(1, 3) + rand(-1, 1), vy: rand(0, 1.5), vz: -dir.z * rand(1, 3) + rand(-1, 1), r: STEAM.r, g: STEAM.g, b: STEAM.b, a: 0.3, size: rand(0.3, 0.5), grow: 3, life: rand(0.6, 0.9), drag: 2, shape: Shape.Smoke, rot: rand(0, TAU) });
     const trail = g.vfx.trail({ color: FIRE, endColor: new THREE.Color(0.5, 0.25, 0.1), width: 0.09, life: 0.18, style: TrailStyle.Smooth, minDist: 0.3 });
-    st.grab = { phase: 'out', t: 0, pos: sh.clone(), prev: sh.clone(), dir, dist: 0, target: null, trail } satisfies Grab;
+    st.grab = { phase: 'out', t: 0, pos: sh.clone(), prev: sh.clone(), dir, dist: 0, target: null, trail, aim: sh.clone() } satisfies Grab;
     if (h.isLocal) g.camRig.kick(2);
     return true;
   }
@@ -236,7 +241,7 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
   gr.t += dt;
   const sh = h.muzzle('R', new THREE.Vector3());
   // the punch lands first, then the upper arm telescopes out behind the whole forearm and fist
-  h.anim.armTarget = gr.pos;
+  h.anim.armTarget = gr.aim;
   h.anim.armReach = 'upper';
   h.anim.armTargetW = clamp((gr.t - 0.05) / 0.06, 0, 1);
   gr.prev.copy(gr.pos);
@@ -305,6 +310,7 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
     gr.pos.addScaledVector(d, step / l);
     gr.dir.copy(d).multiplyScalar(-1 / l);
   }
+  gr.aim.copy(gr.pos).addScaledVector(gr.dir, -FIST_LEN);
   armFx(h, g, dt, gr, sh);
 }
 
