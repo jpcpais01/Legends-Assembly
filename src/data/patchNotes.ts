@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.23.1',
+    date: '2026-11-14',
+    title: 'Old Masters',
+    sections: [
+      {
+        heading: 'The Grand Museum',
+        items: [
+          'The green bells and the other placeholder art are gone. Every frame in the hall now holds a real masterpiece, and no two frames repeat.',
+          'On show: The Night Watch, the Mona Lisa, The Birth of Venus, Las Meninas, Girl with a Pearl Earring, The Kiss, The Arnolfini Portrait, Impression, Sunrise, The Starry Night, The Scream, Woman with a Parasol and The Swing.',
+          'Each frame widens or narrows a little to fit its painting, so the works are shown close to their true proportions.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-11-14',
     title: 'Steve Joins the Fight',
