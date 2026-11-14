@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.7',
+    date: '2026-11-14',
+    title: 'Treasures of the Grand Museum',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'Four glass display cases now hold a golden pharaoh mask each. The glass catches the hall in its reflections, and the cases are solid cover.',
+          'Two antique brass orreries stand near the spawns, their planets slowly orbiting a golden sun.',
+          'A seated marble colossus on a carved throne watches over each corner of the hall.',
+          'The roped sarcophagi moved a little closer to the spawn doors.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.6',
     date: '2026-11-14',
     title: 'Clean Shave',
