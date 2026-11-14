@@ -56,10 +56,13 @@ async function loadOne(name: PropName): Promise<void> {
   else console.warn(`[props] ${name} failed to load, using the procedural fallback`);
 }
 
-/** Load any static GLB as one baked geometry + material (feet on y=0, centered on x/z, 1 m tall). Null if missing. */
-export async function loadTemplate(url: string): Promise<PropTemplate | null> {
+/**
+ * Load any static GLB as one baked geometry + material (feet on y=0, centered on x/z, 1 m tall). Null if missing.
+ * `from` is a loader with extra decoders (the museum's KTX2 textures).
+ */
+export async function loadTemplate(url: string, from: GLTFLoader = loader): Promise<PropTemplate | null> {
   try {
-    const gltf = await loader.loadAsync(url);
+    const gltf = await from.loadAsync(url);
     gltf.scene.updateMatrixWorld(true);
     const geos: THREE.BufferGeometry[] = [], lens: THREE.BufferGeometry[] = [];
     let material: THREE.Material | null = null;

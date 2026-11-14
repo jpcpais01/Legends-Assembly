@@ -46,7 +46,11 @@ export class Sky {
       side: THREE.BackSide,
       depthWrite: false,
       fog: false,
-      uniforms: { ...skyUniforms(), uTime: { value: 0 }, uNoise: { value: noise }, uCloudy: { value: 1 } },
+      uniforms: {
+        ...skyUniforms(), uTime: { value: 0 }, uNoise: { value: noise }, uCloudy: { value: 1 },
+        // cloud bellies and sunlit edges (golden hour by default; the museum's noon sky sets its own)
+        uCloudDark: { value: new THREE.Color(0.42, 0.32, 0.48) }, uCloudLit: { value: new THREE.Color(1.5, 0.82, 0.55) },
+      },
       vertexShader: /* glsl */ `
         varying vec3 vDir;
         void main() {
@@ -59,6 +63,7 @@ export class Sky {
         uniform float uTime;
         uniform float uCloudy;
         uniform sampler2D uNoise;
+        uniform vec3 uCloudDark, uCloudLit;
         varying vec3 vDir;
         void main() {
           vec3 dir = normalize(vDir);
@@ -77,7 +82,7 @@ export class Sky {
             d *= fade;
             // lit edges toward the sun, deep violet bellies
             float lit = pow(sd, 3.0);
-            vec3 cloudCol = mix(vec3(0.42, 0.32, 0.48), vec3(1.5, 0.82, 0.55), 0.35 + 0.65 * lit);
+            vec3 cloudCol = mix(uCloudDark, uCloudLit, 0.35 + 0.65 * lit);
             cloudCol += uSunColor * pow(sd, 20.0) * (1.0 - d) * 2.0; // silver lining
             col = mix(col, cloudCol, d * 0.85);
           }
