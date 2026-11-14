@@ -78,6 +78,54 @@ function guitarFallback(): THREE.Object3D {
   return guitarCache.clone();
 }
 
+/**
+ * The guitar's leather strap (the Meshy guitar's own loose strap is cut out by scripts/strip-guitar-strap.mjs):
+ * from the upper horn it climbs his chest, goes over his left shoulder, crosses his back and comes round his right
+ * hip to the tail button. Points are in the chest bone's frame (+x his left, +y up, +z front), matching held.pos.
+ */
+export const STRAP_PTS: [number, number, number][] = [
+  [0.1, -0.27, 0.2], [0.13, -0.12, 0.17], [0.15, 0.0, 0.12], [0.15, 0.07, 0.02], [0.13, 0.03, -0.09],
+  [0.05, -0.12, -0.12], [-0.08, -0.33, -0.06], [-0.19, -0.5, 0.06], [-0.22, -0.6, 0.17],
+];
+/** The torso's axis in the same frame: the strap's flat side faces away from it. */
+const STRAP_AXIS = [new THREE.Vector3(0, 0.15, -0.03), new THREE.Vector3(0, -0.65, 0.18)];
+let strapGeo: THREE.BufferGeometry | null = null;
+let strapMat: THREE.Material | null = null;
+function guitarStrap(): THREE.Object3D {
+  if (!strapGeo) {
+    const curve = new THREE.CatmullRomCurve3(STRAP_PTS.map((p) => new THREE.Vector3(...p)), false, 'centripetal');
+    const N = 64, W = 0.03, pos: number[] = [], uv: number[] = [], idx: number[] = [];
+    const p = new THREE.Vector3(), t = new THREE.Vector3(), n = new THREE.Vector3(), w = new THREE.Vector3(), q = new THREE.Vector3();
+    const ab = STRAP_AXIS[1].clone().sub(STRAP_AXIS[0]).normalize();
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      curve.getPointAt(u, p); curve.getTangentAt(u, t);
+      // outward from the torso axis, square to the strap's run
+      q.copy(p).sub(STRAP_AXIS[0]); n.copy(q).addScaledVector(ab, -q.dot(ab));
+      n.addScaledVector(t, -n.dot(t)).normalize();
+      w.crossVectors(t, n).normalize();
+      pos.push(p.x + w.x * W, p.y + w.y * W, p.z + w.z * W, p.x - w.x * W, p.y - w.y * W, p.z - w.z * W);
+      uv.push(0, u * 14, 1, u * 14);
+      if (i < N) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    }
+    strapGeo = new THREE.BufferGeometry();
+    strapGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    strapGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    strapGeo.setIndex(idx);
+    strapGeo.computeVertexNormals();
+    // worn brown leather with a woven red-gold-green band down the middle
+    const cols = [[74, 44, 26], [92, 56, 32], [190, 40, 34], [236, 186, 46], [40, 140, 64], [92, 56, 32], [74, 44, 26]];
+    const data = new Uint8Array(cols.length * 4);
+    cols.forEach((c, i) => data.set([...c, 255], i * 4));
+    const tex = new THREE.DataTexture(data, cols.length, 1);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.wrapT = THREE.RepeatWrapping; tex.needsUpdate = true;
+    strapMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75, side: THREE.DoubleSide });
+  }
+  const m = new THREE.Mesh(strapGeo, strapMat!);
+  m.castShadow = true;
+  return m;
+}
+
 /** Code-built speaker stack, only used if the Meshy sound system is missing (1 m tall, front +z). */
 function stackFallback(): THREE.Object3D {
   const g = new THREE.Group();
@@ -337,13 +385,10 @@ class MarleyKit implements HeroKit {
     return true;
   }
 
-  update(h: Hero, _g: Game, dt: number) {
-    // the guitar rides on its strap: hands go to the neck and strings unless something else needs them
-    const want = h.alive ? 1 : 0;
-    h.anim.guitar = (h.anim.guitar ?? 0) + (want - (h.anim.guitar ?? 0)) * Math.min(1, dt * 8);
-  }
+  // the guitar hold itself lives on the def (held.pose), so it also plays on the menu stage
+  update() {}
 
-  onDeath(h: Hero) { h.anim.guitar = 0; h.kitState.strum = -1; }
+  onDeath(h: Hero) { h.kitState.strum = -1; }
 }
 
 // ───────────────── Look (procedural stand-in while the model loads) ─────────────────
@@ -367,7 +412,7 @@ export const MARLEY: HeroDef = {
   // Meshy model; bump ?v= whenever the file changes (models are cached forever on players' devices)
   modelUrl: '/models/heroes/marley.glb?v=1',
   motion: 'default',
-  held: { prop: 'marley_guitar', hand: 'R', bone: 'chest', size: 1.0, pos: [0.2, -0.36, 0.19], rot: [0, 0, 0.56], fallback: guitarFallback },
+  held: { prop: 'marley_guitar', hand: 'R', bone: 'chest', size: 0.97, pos: [0.171, -0.285, 0.2], rot: [0, 0, 0.56], fallback: guitarFallback, pose: 'guitar', strap: guitarStrap },
   speed: 6.0,
   secondaryCd: 9,
   ultCost: 1550,

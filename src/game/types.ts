@@ -75,6 +75,10 @@ export interface HeroDef {
     bone?: 'chest' | 'hand';
     /** Code-built stand-in used until the Meshy prop file exists (same size convention: `size` = its widest x/z extent). */
     fallback?: () => THREE.Object3D;
+    /** Keep the arms on it whenever alive, in game and on the menu stage ('guitar': fret hand on the neck, pick hand on the strings). */
+    pose?: 'guitar';
+    /** Code-built extra hung on the same bone, in the bone's own frame (the guitar's strap over the shoulder). */
+    strap?: () => THREE.Object3D;
   };
   /** Items held in the hands and swapped between (Steve's sword and bow). */
   items?: HeldItem[];
