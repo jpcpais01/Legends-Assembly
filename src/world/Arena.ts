@@ -189,6 +189,8 @@ export class Arena implements ArenaLike {
   private statics: THREE.Mesh[] = [];
   private brazier: { bowls: THREE.InstancedMesh; fire: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
   readonly showcasePos = new THREE.Vector3(0, 1, 0);
+  readonly soundscape = { kind: 'ruins' as const };
+  surfaceAt(): 'grass' { return 'grass'; }
   readonly healthPadPositions = [new THREE.Vector3(-10, 0, 21), new THREE.Vector3(10, 0, -21), new THREE.Vector3(10, 0, 21), new THREE.Vector3(-10, 0, -21)];
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {

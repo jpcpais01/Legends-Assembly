@@ -11,6 +11,8 @@ import { HEROES, HERO_LIST } from '../heroes';
 import { Input } from '../core/Input';
 import { audio, type Sfx, type PlayOpts } from '../core/Audio';
 import { VoiceDirector } from '../audio/VoiceDirector';
+import { music } from '../audio/Music';
+import type { Surface } from '../world/types';
 import { globalUniforms } from '../render/materials';
 import { clamp, pick, rand, segmentVsCapsule, shuffle, TAU } from '../core/math';
 import { settings } from '../core/settings';
@@ -29,6 +31,9 @@ const HURT = new THREE.Color(1.4, 0.12, 0.1);
 const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
 const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
+/** Each legend's own shoes on bare wood, and what each surface adds underneath them. */
+const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh' };
+const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal: 'stepMetal', leather: 'stepLeather', stone: 'stepStone', grass: 'stepGrass' };
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
 export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard' }
@@ -132,6 +137,10 @@ export class Game {
   private glowCache = new Map<string, THREE.Color>();
   private _v = new THREE.Vector3();
   private _v2 = new THREE.Vector3();
+  private _v3 = new THREE.Vector3();
+  /** 0..1 how hot the fight around you is (drives the music). */
+  heat = 0;
+  private lastTick = 99;
 
   constructor(scene: THREE.Scene, arena: ArenaLike, camera: THREE.PerspectiveCamera, input: Input, events: GameEvents) {
     this.scene = scene;
@@ -142,6 +151,8 @@ export class Game {
     this.events = events;
     this.voice = new VoiceDirector(this);
     this.buildPickups();
+    // sounds behind the desk's clutter come through muffled
+    audio.setOcclusion((a, b) => this.world.raycast(a, b) >= 0);
   }
 
   get world() { return this.arena.world; }
@@ -157,6 +168,7 @@ export class Game {
 
   /** Camera trauma scaled by distance to the local hero. */
   shake(pos: THREE.Vector3, amount: number, radius = 25) {
+    this.arena.shock?.(pos, amount);
     if (!this.local) return;
     const d = this.local.pos.distanceTo(pos);
     const k = clamp(1 - d / radius, 0, 1);
@@ -226,6 +238,9 @@ export class Game {
     this.voice.reset();
     this.voice.preload([...new Set(this.heroes.map((h) => h.def.id))]);
     this.steps.clear();
+    this.heat = 0;
+    this.lastTick = 99;
+    music.play('calm', 3);
     this.state = 'intro';
     this.introT = 0;
     this.lastCount = 4;
@@ -245,6 +260,8 @@ export class Game {
 
   clearMatch() {
     this.doom = 0;
+    audio.setLowHealth(0);
+    audio.setSlowmo(0);
     this.stopT = 0;
     screenFx.clear();
     this.voice.reset();
@@ -324,16 +341,24 @@ export class Game {
       this.events.onDamageNumber(at, dmg, !!opts.crit, false, target.id);
       this.events.onHitmarker(!!opts.crit, killed, dmg);
       this.play(opts.crit ? 'crit' : 'hit', undefined, 0.6);
+      this.heat = Math.min(1, this.heat + 0.18);
+      if (dmg >= 55) this.play('hitHeavy', undefined, Math.min(1, 0.55 + dmg / 300));
       if (dmg >= 55) { this.hitStop(0.03 + Math.min(0.05, dmg / 4000)); screenFx.punch(Math.min(0.6, dmg / 300)); }
     }
     if (target.isLocal) {
       this.events.onLocalHurt(dmg, source.pos);
-      if (!opts.silent) this.play('hurt', undefined, 0.5);
+      this.heat = Math.min(1, this.heat + 0.28);
+      // the hit comes from where the attacker is: it pans, so you know where to turn
+      if (!opts.silent) {
+        const d = this._v3.subVectors(source.pos, target.pos).setY(0);
+        const l = d.length();
+        this.play('hurt', l > 0.5 ? d.multiplyScalar(2.5 / l).add(target.center) : undefined, 0.5);
+      }
       if (dmg >= 30) { screenFx.punch(Math.min(0.7, dmg / 200)); screenFx.flashScreen(HURT, Math.min(0.12, dmg / 1500)); }
       if (dmg >= 80) this.hitStop(0.05);
     }
     if (killed) this.kill(target, source);
-    else if (target.isLocal && wasHealthy && target.hp / target.maxHp < 0.3) this.voice.say(target, 'lowHp');
+    else if (target.isLocal && wasHealthy && target.hp / target.maxHp < 0.3) { this.play('lowHealth'); this.voice.say(target, 'lowHp'); }
     return dmg;
   }
 
@@ -393,7 +418,7 @@ export class Game {
       killer.stats.bestStreak = Math.max(killer.stats.bestStreak, killer.stats.streak);
       this.score[killer.team]++;
       this.chargeUlt(killer, 150);
-      if (killer.isLocal) this.play('kill');
+      if (killer.isLocal) { this.play('kill'); this.play('killDrop'); }
       if (killer !== victim) this.feats(killer, victim, victimStreak, { revenge, denied, ab });
     }
     if (victim.isLocal) {
@@ -419,6 +444,7 @@ export class Game {
     screenFx.ripple(p, 4, 0.6, 0.5);
     if (killer?.isLocal && victim !== killer) { this.hitStop(0.09); screenFx.punch(0.55); screenFx.zoomPunch(0.3); screenFx.flashScreen(KILLFLASH, 0.05); }
     this.play('death', p, 0.8);
+    this.arena.shock?.(victim.pos, 0.45);
     this.events.onKill(killer, victim, assists, ab);
     if (killer && killer !== victim) {
       const m = this.multi.get(killer.id);
@@ -439,7 +465,7 @@ export class Game {
     const me = this.local;
     if (victim.isLocal) this.voice.after(0.2, () => this.voice.say(victim, 'death'));
     else if (me && me.alive && victim.team === me.team && victim.pos.distanceTo(me.pos) < 35) this.voice.after(0.7, () => this.voice.say(me, 'allyDown'));
-    if (me && assists.includes(me)) this.voice.after(1.1, () => this.voice.say(me, 'assist'));
+    if (me && assists.includes(me)) { this.play('assist'); this.voice.after(1.1, () => this.voice.say(me, 'assist')); }
     this.trackPlay(killer, victim, ab);
     const over = this.score[0] >= this.target || this.score[1] >= this.target || (this.matchTime <= 0 && this.score[0] !== this.score[1]);
     if (over) {
@@ -492,6 +518,7 @@ export class Game {
       f.mp[side] = true;
       const mine = side === t;
       audio.announce(mine ? 'matchPoint' : 'enemyMatchPoint', 3);
+      this.play('matchPointSting');
       this.events.onAnnounce(mine ? 'MATCH POINT' : 'ENEMY MATCH POINT', mine ? 'One more elimination wins it' : 'Hold the line', mine ? 'gold' : 'red');
       if (mine) this.voice.after(1.8, () => this.voice.say(me, 'matchPoint'));
     }
@@ -556,8 +583,10 @@ export class Game {
     this.timeScale = 0.25;
     const me = this.local;
     const won = !!me && winner === me.team;
+    this.play('slowmo');
     this.play(won ? 'victory' : 'defeat');
     audio.duck(2.5, 0.6, 0.3);
+    music.end();
     // final blow replay: slow motion orbit around whoever ended it
     const fb = this.finalBlow;
     this.camRig.focus = fb ?? me ?? null;
@@ -725,6 +754,11 @@ export class Game {
         if (this.local) this.voice.after(1.6, () => this.voice.say(this.local, 'overtime'));
       }
       if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
+      // the last ten seconds: the study's big clock counts them down, each tick a little tighter
+      if (this.matchTime > 0 && this.matchTime <= 10.5) {
+        const sec = Math.ceil(this.matchTime);
+        if (sec !== this.lastTick) { this.lastTick = sec; this.play('finalTick', undefined, 0.6 + (10 - sec) * 0.04, { rate: 1 + (10 - sec) * 0.012 }); }
+      }
     }
     if (this.state === 'ended') {
       this.endT += rawDt;
@@ -748,6 +782,7 @@ export class Game {
       if (this.local.alive && this.camRig.mode === 'dead') this.camRig.mode = 'play';
       this.camRig.update(rawDt, this.local, this.world);
       audio.setListener(this.camRig.camera.position, this.camRig.camera, this.local.alive ? this.local.center : undefined);
+      this.mix(rawDt);
     }
   }
 
@@ -827,7 +862,7 @@ export class Game {
         if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.secondary = this.time; this.voice.say(h, 'secondary'); if (h.isLocal) this.camRig.recoil(0.012); }
       } else if (h.isLocal && this.input.rmbPressed && h.secondaryCd > 0) this.play('denied', undefined, 0.4);
       if (h.input.ult && h.ult >= 1) {
-        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); }
+        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); this.ultMoment(h); }
       } else if (h.isLocal && this.input.shiftPressed && h.ult < 1) this.play('denied', undefined, 0.4);
     }
     this.heroAmbient(h, dt);
@@ -840,6 +875,7 @@ export class Game {
     else if (!wasGrounded && h.grounded && preVy < -6) {
       const k = clamp(-preVy / 14, 0.4, 1);
       this.play('land', h.pos, k);
+      this.step(h, k * 1.1);
       this.vfx.dustRing(h.pos, 0.5 + k * 0.6, Math.round(8 + k * 10), 0.45 + k * 0.3, 0.3 + k * 0.15);
       if (h.isLocal && k > 0.8) this.camRig.shake(0.12 * k);
     }
@@ -895,10 +931,65 @@ export class Game {
     const stride = 0.9 + sp * 0.17;
     if (acc >= stride) {
       acc -= stride;
-      this.play(settings.arena === 'ruins' ? 'stepGrass' : 'step', h.pos, h.isLocal ? 0.55 : 0.85);
+      this.step(h, 0.7 + Math.min(1, sp / 8) * 0.4);
       if (sp > 4) this.vfx.dust(h.pos, 1, 0.32, 0.16, 0.5);
     }
     this.steps.set(h.id, acc);
+  }
+
+  /**
+   * One footstep: the legend's own shoes, plus whatever they are standing on (paper crunches,
+   * coins clink, book covers thud). Enemy steps are louder and carry further than your own
+   * team's, so you can hear someone coming round the clutter.
+   */
+  private step(h: Hero, k: number) {
+    const me = this.local;
+    const rel = h.isLocal ? 0 : me && h.team === me.team ? 1 : 2;
+    const vol = [0.5, 0.6, 1.05][rel] * k;
+    const opts: PlayOpts | undefined = rel === 2 ? { ref: 5, rolloff: 0.055 } : undefined;
+    const surf: Surface = this.arena.surfaceAt?.(h.pos.x, h.pos.y, h.pos.z) ?? (settings.arena === 'ruins' ? 'grass' : 'wood');
+    const shoe = STEP[h.def.id];
+    const shoeOk = audio.hasSample(shoe);
+    const under = SURFACE_STEP[surf];
+    if (under && (under === 'stepGrass' || audio.hasSample(under))) {
+      this.play(under, h.pos, vol * 0.9, opts);
+      if (shoeOk) this.play(shoe, h.pos, vol * (surf === 'grass' ? 0.25 : 0.4), opts);
+    } else this.play(shoeOk ? shoe : 'step', h.pos, vol, opts);
+  }
+
+  /**
+   * A special goes off: everyone hears it. A stinger from the caster's direction (heroic for
+   * your side, menacing for theirs), the rest of the world ducks out of its way and the score
+   * drops out and swells back.
+   */
+  private ultMoment(h: Hero) {
+    const me = this.local;
+    if (!me) return;
+    const enemy = h.team !== me.team;
+    const d = this._v3.subVectors(h.pos, me.pos).setY(0);
+    const l = d.length();
+    const at = l > 0.5 ? d.multiplyScalar(6 / l).add(me.center) : null;
+    this.play(enemy ? 'ultEnemy' : 'ultAlly', at, h.isLocal ? 0.75 : 1, { ref: 60, rolloff: 0 });
+    audio.duck(1.4, 0.6, 0.35);
+    music.surge(h.isLocal);
+  }
+
+  /** Per-frame mix: how heated the fight is (music), low health, the outro's slow motion. */
+  private mix(dt: number) {
+    const me = this.local;
+    this.heat = Math.max(0, this.heat - dt * 0.07);
+    if (me.alive) {
+      for (const e of this.heroes) {
+        if (e.alive && e.team !== me.team && Math.abs(e.pos.x - me.pos.x) < 18 && Math.abs(e.pos.z - me.pos.z) < 18 && e.pos.distanceTo(me.pos) < 18) { this.heat = Math.max(this.heat, 0.5); break; }
+      }
+    }
+    if (this.state === 'playing') {
+      const f = this.flow;
+      music.match(this.heat, this.matchTime <= 60 || f.mp[0] || f.mp[1] || f.ot);
+    }
+    const playing = this.state === 'playing' || this.state === 'intro';
+    audio.setLowHealth(playing && me.alive ? clamp((0.32 - me.hp / me.maxHp) / 0.32, 0, 1) : 0);
+    audio.setSlowmo(this.state === 'ended' ? clamp(1 - (this.endT - 0.4) / 2.6, 0, 1) * 0.85 : 0);
   }
 
   /** Bot helper: pick a hero def. */

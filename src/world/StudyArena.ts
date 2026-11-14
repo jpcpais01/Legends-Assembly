@@ -9,7 +9,9 @@ import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { damp, lerp, mulberry32 } from '../core/math';
 import { HERO_RADIUS } from '../game/Hero';
-import type { ArenaLike } from './types';
+import type { ArenaLike, Soundscape, Surface } from './types';
+import { addShock, makeDeskDust, makeEmbers, patchShock, tickShocks } from './studyLife';
+import { audio, type Sfx } from '../core/Audio';
 import { bakeWoodMaps, buildDeskGeometry, makeDeskWoodMaterial } from './studyDesk';
 import * as P from './studyProps';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -35,6 +37,29 @@ const DROP_VER: Record<string, number> = {
 const STUDY_VER = 2;
 const STUDY_PROPS = ['book_stack', 'chandelier', 'chess_pieces', 'coffee_mug', 'crumpled_paper', 'desk_lamp', 'eraser_block', 'globe_ball', 'globe_stand', 'metronome', 'open_book', 'pocket_watch'] as const;
 type StudyProp = (typeof STUDY_PROPS)[number];
+
+/** What each desk object is made of underfoot, and what it sounds like when the desk jolts. */
+const MATTER: Record<string, { surface: Surface; rattle?: Sfx }> = {
+  paper_einstein: { surface: 'paper', rattle: 'paperFlutter' }, letter_vangogh: { surface: 'paper', rattle: 'paperFlutter' },
+  music_sheet_yeat: { surface: 'paper', rattle: 'paperFlutter' }, index_cards: { surface: 'paper', rattle: 'paperFlutter' },
+  envelope_wax_seal: { surface: 'paper', rattle: 'paperFlutter' }, rolled_map: { surface: 'paper', rattle: 'paperFlutter' },
+  crumpled_paper: { surface: 'paper', rattle: 'paperFlutter' }, open_book: { surface: 'paper', rattle: 'paperFlutter' },
+  inkwell_quill: { surface: 'stone', rattle: 'rattleGlass' }, hourglass: { surface: 'wood', rattle: 'rattleGlass' },
+  brush_jar: { surface: 'stone', rattle: 'rattleGlass' }, magnifying_glass: { surface: 'metal', rattle: 'rattleGlass' },
+  spectacles: { surface: 'metal', rattle: 'rattleGlass' },
+  emerald_quill: { surface: 'wood', rattle: 'rattleWood' }, pencil: { surface: 'wood', rattle: 'rattleWood' },
+  ruler: { surface: 'wood', rattle: 'rattleWood' }, chess_pieces: { surface: 'stone', rattle: 'rattleWood' },
+  metronome: { surface: 'wood', rattle: 'rattleWood' },
+  paper_clip: { surface: 'metal' }, candle_holder: { surface: 'metal', rattle: 'rattleCoins' },
+  coin_stack: { surface: 'metal', rattle: 'rattleCoins' }, pocket_watch: { surface: 'metal', rattle: 'rattleCoins' },
+  desk_lamp: { surface: 'metal' }, globe_stand: { surface: 'metal' },
+  antique_books: { surface: 'leather' }, closed_book: { surface: 'leather' }, book_stack: { surface: 'leather' },
+  eraser_block: { surface: 'leather' },
+  teacup_saucer: { surface: 'stone', rattle: 'rattleChina' }, coffee_mug: { surface: 'stone', rattle: 'rattleChina' },
+};
+
+/** A desk object's footprint (oriented box) for footsteps and rattles. */
+interface Footprint { name: string; x: number; z: number; c: number; s: number; hx: number; hz: number; top: number; surface: Surface; rattle?: Sfx; lastRattle: number }
 
 /** Where things go on the desk: [prop, x, z, height (m), yaw]. Heights follow real object sizes at the desk's scale. */
 const LAYOUT: [StudyProp, number, number, number, number][] = [
@@ -130,6 +155,78 @@ export class StudyArena implements ArenaLike {
   } = { beacons: [] };
   private floorY = -31;
   private T: Partial<Record<StudyProp, PropTemplate>> = {};
+  soundscape: Soundscape = { kind: 'study' };
+  private prints: Footprint[] = [];
+  private deskDust: THREE.Points | null = null;
+  private embers: THREE.Points | null = null;
+  /** Extra chandelier sway from blasts, and the fire's flare-up after a big one. */
+  private sway = 0;
+  private swayPhase = 0;
+  private time = 0;
+  private lastThud = -9;
+
+  /** Remember a desk object's footprint (geometry in its own frame, placed by `m`). */
+  private footprint(name: string, geo: THREE.BufferGeometry, m: THREE.Matrix4) {
+    const mat = MATTER[name];
+    if (!mat) return;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    const e = m.elements;
+    const yaw = Math.atan2(e[8], e[10]); // the local z axis in world xz
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, top = -Infinity;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < 8; i++) {
+      v.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).applyMatrix4(m);
+      // into the prop's yaw frame
+      const u = v.x * c - v.z * sn, w = v.x * sn + v.z * c;
+      x0 = Math.min(x0, u); x1 = Math.max(x1, u); z0 = Math.min(z0, w); z1 = Math.max(z1, w); top = Math.max(top, v.y);
+    }
+    const cu = (x0 + x1) / 2, cw = (z0 + z1) / 2;
+    this.prints.push({ name, x: cu * c + cw * sn, z: -cu * sn + cw * c, c, s: sn, hx: (x1 - x0) / 2, hz: (z1 - z0) / 2, top, surface: mat.surface, rattle: mat.rattle, lastRattle: -9 });
+  }
+
+  surfaceAt(x: number, y: number, z: number): Surface {
+    let best: Surface = 'wood', bestTop = -Infinity;
+    for (const p of this.prints) {
+      if (y < p.top - 0.7 || p.top < bestTop) continue;
+      const dx = x - p.x, dz = z - p.z;
+      const u = dx * p.c - dz * p.s, w = dx * p.s + dz * p.c;
+      if (Math.abs(u) <= p.hx && Math.abs(w) <= p.hz) { best = p.surface; bestTop = p.top; }
+    }
+    return best;
+  }
+
+  /**
+   * A blast on the desk: the clutter jolts (vertex shader), what's close rattles in its own
+   * voice, the whole desk booms under a big one, the chandelier sways and the dust blows away.
+   */
+  shock(pos: THREE.Vector3, k: number) {
+    if (k < 0.25) return;
+    addShock(pos.x, pos.z, Math.min(1.6, k));
+    const r = 5 + k * 16;
+    let n = 0;
+    const order = this.prints
+      .map((p) => ({ p, d: Math.hypot(p.x - pos.x, p.z - pos.z) - Math.max(p.hx, p.hz) * 0.5 }))
+      .filter((o) => o.p.rattle && o.d < r && this.time - o.p.lastRattle > 0.6)
+      .sort((a, b) => a.d - b.d);
+    for (const { p, d } of order) {
+      if (n++ >= 3) break;
+      p.lastRattle = this.time;
+      const at = new THREE.Vector3(p.x, Math.max(0.2, p.top * 0.5), p.z);
+      const delay = d / 70 * 1000 + Math.random() * 60;
+      const vol = Math.min(1, 0.35 + k * 0.5) * (1 - Math.max(0, d) / r * 0.6);
+      setTimeout(() => audio.play(p.rattle!, at, vol), delay);
+    }
+    if (k >= 0.6 && this.time - this.lastThud > 0.4) {
+      this.lastThud = this.time;
+      audio.play('deskThud', pos, Math.min(1, k * 0.7));
+    }
+    if (k >= 0.6) {
+      this.sway = Math.min(0.09, this.sway + k * 0.025);
+      if (this.soundscape.chandelier && k >= 0.9) setTimeout(() => audio.play('chandelierTinkle', this.soundscape.chandelier!, Math.min(1, k * 0.6)), 180);
+    }
+  }
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     this.scene = scene;
@@ -230,6 +327,7 @@ export class StudyArena implements ArenaLike {
       if (t && d.meshy) {
         const fit = fitTemplate(t, d.meshy.fit, d.meshy.cm * P.U);
         statics.push({ geo: t.geometry, mat: t.material, m: world.clone().multiply(fit.m), collide: d.meshy.collide });
+        this.footprint(d.meshy.name, t.geometry, world.clone().multiply(fit.m));
         tops.push(y + fit.height);
         if (t.glass) statics.push({ geo: t.glass, mat: M.lens, m: world.clone().multiply(fit.m), collide: false });
         if (d.meshy.name === 'hourglass') for (const p of P.hourglassGlass()) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(fit.m), collide: false });
@@ -238,7 +336,10 @@ export class StudyArena implements ArenaLike {
           for (const p of P.flame(M)) statics.push({ geo: p.geo, mat: p.mat, m: world.clone().multiply(new THREE.Matrix4().makeTranslation(f.x, f.y, f.z)), collide: false });
         }
       } else {
-        for (const p of d.parts()) statics.push({ geo: p.geo, mat: p.mat, m: world, collide: p.collide ?? true });
+        for (const p of d.parts()) {
+          statics.push({ geo: p.geo, mat: p.mat, m: world, collide: p.collide ?? true });
+          if (d.meshy) this.footprint(d.meshy.name, p.geo, world);
+        }
         tops.push(NaN);
       }
     }
@@ -248,6 +349,7 @@ export class StudyArena implements ArenaLike {
       if (!t) return null;
       const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(h, h, h));
       statics.push({ geo: t.geometry, mat: t.material, m, collide });
+      this.footprint(name, t.geometry, m);
       return { m, t, h };
     };
     for (const [n, x, z, h, yaw] of LAYOUT) place(n, x, z, h, yaw);
@@ -289,6 +391,7 @@ export class StudyArena implements ArenaLike {
       off.add(arm); pivot.add(off);
       this.scene.add(pivot);
       this.anim.arm = arm;
+      this.soundscape.metronome = new THREE.Vector3(31, 5, 17);
     }
 
     // pocket watch hands (code-made, ticking)
@@ -310,6 +413,7 @@ export class StudyArena implements ArenaLike {
       this.anim.second = hand(R * 0.85, R * 0.018, gold);
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.06, R * 0.06, 0.12, 12), gold);
       cap.position.copy(c).y += 0.06; this.scene.add(cap);
+      this.soundscape.watch = c.clone();
     }
 
     // chandelier hanging from the ceiling, swaying
@@ -334,6 +438,7 @@ export class StudyArena implements ArenaLike {
       this.anim.flames = flames;
       this.candleLight.position.set(0, 70 - H * 0.4, 0);
       this.candleLight.intensity = 650;
+      this.soundscape.chandelier = new THREE.Vector3(0, top - chainL - H * 0.5, 0);
     }
 
     // banker lamp glow
@@ -354,6 +459,7 @@ export class StudyArena implements ArenaLike {
     for (const [mat, geos] of byMat) {
       const geo = geos.length === 1 ? geos[0] : mergeGeometries(geos, false)!;
       geo.computeBoundingSphere();
+      if (mat !== wood) patchShock(mat);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = !M.noShadow.has(mat);
       mesh.receiveShadow = mat !== M.flame;
@@ -372,6 +478,13 @@ export class StudyArena implements ArenaLike {
     grid.openSpot(6, -2, 8, this.showcasePos, 4);
     this.buildSpawns();
     if (this.roomModel) this.dressModelRoom(this.roomModel); else this.buildRoom(hx, hz);
+    // the air over the desk, at the legends' scale
+    this.deskDust = makeDeskDust(settings.quality === 'low' ? 220 : 520, hx, hz);
+    this.scene.add(this.deskDust);
+    if (this.soundscape.fire) {
+      this.embers = makeEmbers(settings.quality === 'low' ? 50 : 110, this.soundscape.fire, 16);
+      this.scene.add(this.embers);
+    }
   }
 
   /**
@@ -525,6 +638,10 @@ export class StudyArena implements ArenaLike {
     this.scene.add(fire);
     this.anim.fire = fire;
     this.fireLight.position.set(fx + 14, fy + 6, fz);
+    const wy = (ap.y0 + ap.top) / 2, wxm = (ap.x0 + ap.x1) / 2;
+    this.soundscape.fire = new THREE.Vector3(fx + 4, fy - 4, fz);
+    this.soundscape.windows = [new THREE.Vector3(wxm, wy, WIN.zA), new THREE.Vector3(WIN.xB, wy, wxm + WIN.bOff)];
+    this.soundscape.room = new THREE.Box3(new THREE.Vector3(B.x0, B.y0, B.z0), new THREE.Vector3(B.x1, B.y1, B.z1));
 
     this.dust = makeDust(settings.quality === 'low' ? 250 : 700);
     this.scene.add(this.dust);
@@ -799,6 +916,9 @@ export class StudyArena implements ArenaLike {
       add(gilt, new THREE.CylinderGeometry(1.8, 2.4, 30, 14).rotateZ(Math.PI / 2 - 0.35).rotateY(-0.6).translate(tx, F + 34, tz));
     }
     this.fireLight.position.set(-RX + 30, F + 14, 0);
+    this.soundscape.fire = new THREE.Vector3(-RX + 18, F + 8, 0);
+    this.soundscape.windows = [new THREE.Vector3(RX - 8, F + 60, 0)];
+    this.soundscape.room = new THREE.Box3(new THREE.Vector3(-RX, F, -RZ), new THREE.Vector3(RX, CEIL, RZ));
 
     for (const [mat, geos] of boxes) {
       const g = mergeGeometries(geos, false)!;
@@ -839,8 +959,15 @@ export class StudyArena implements ArenaLike {
 
   private flick = 1;
   update(time: number, camera: THREE.Camera) {
+    const dt = Math.min(0.1, Math.max(0, time - this.time));
+    this.time = time;
     this.sky.update(time, camera.position);
     if (this.dust) (this.dust.material as THREE.ShaderMaterial).uniforms.uTime.value = time;
+    tickShocks(time);
+    if (this.deskDust) (this.deskDust.material as THREE.ShaderMaterial).uniforms.uTime.value = time;
+    if (this.embers) (this.embers.material as THREE.ShaderMaterial).uniforms.uTime.value = time;
+    this.sway *= Math.exp(-dt * 0.45);
+    this.swayPhase += dt * 1.7;
     const a = this.anim;
     // watch: real-ish clock, ticking second hand
     if (a.second) {
@@ -852,7 +979,10 @@ export class StudyArena implements ArenaLike {
     }
     if (a.globe) a.globe.rotation.y = time * 0.08;
     if (a.arm) a.arm.rotation.z = Math.sin(time * Math.PI * 1.1) * 0.42;
-    if (a.chandelier) { a.chandelier.rotation.z = Math.sin(time * 0.35) * 0.018; a.chandelier.rotation.x = Math.sin(time * 0.27 + 1) * 0.012; }
+    if (a.chandelier) {
+      a.chandelier.rotation.z = Math.sin(time * 0.35) * 0.018 + Math.sin(this.swayPhase) * this.sway;
+      a.chandelier.rotation.x = Math.sin(time * 0.27 + 1) * 0.012 + Math.cos(this.swayPhase * 0.83) * this.sway * 0.6;
+    }
     this.flick = damp(this.flick, 0.75 + Math.random() * 0.5, 12, 1 / 60);
     this.fireLight.intensity = 420 * this.flick;
     if (this.candleLight.intensity > 0) this.candleLight.intensity = 650 * (0.92 + this.flick * 0.08);

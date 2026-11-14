@@ -183,10 +183,170 @@ export const SAMPLE_FILES: Record<string, string[]> = {
     "starFall-2.ogg?v=48f491f9"
   ],
   "ambStudy": [
-    "ambStudy-0.ogg?v=c1ac69a6"
+    "ambStudy-0.ogg?v=bfe293eb"
   ],
   "ambRuins": [
     "ambRuins-0.ogg?v=e45d1c87"
+  ],
+  "fireLoop": [
+    "fireLoop-0.ogg?v=f0d51f34"
+  ],
+  "windowLoop": [
+    "windowLoop-0.ogg?v=61eb3c5c"
+  ],
+  "watchTick": [
+    "watchTick-0.ogg?v=5ded1f48",
+    "watchTick-1.ogg?v=0596b0d1"
+  ],
+  "metronome": [
+    "metronome-0.ogg?v=23c731d5",
+    "metronome-1.ogg?v=622afc16"
+  ],
+  "woodCreak": [
+    "woodCreak-0.ogg?v=56798cc4",
+    "woodCreak-1.ogg?v=8beb64b7",
+    "woodCreak-2.ogg?v=9504b751",
+    "woodCreak-3.ogg?v=30398ad4"
+  ],
+  "chainCreak": [
+    "chainCreak-0.ogg?v=0bdf1b9e",
+    "chainCreak-1.ogg?v=6c6ed1bf"
+  ],
+  "cityDistant": [
+    "cityDistant-0.ogg?v=69025e8e",
+    "cityDistant-1.ogg?v=5041bdff",
+    "cityDistant-2.ogg?v=79be80da"
+  ],
+  "birdsWindow": [
+    "birdsWindow-0.ogg?v=8e75e4d1"
+  ],
+  "fireSurge": [
+    "fireSurge-0.ogg?v=5c51d929",
+    "fireSurge-1.ogg?v=2b60d25a"
+  ],
+  "rattleChina": [
+    "rattleChina-0.ogg?v=1295a7cb",
+    "rattleChina-1.ogg?v=1a188577"
+  ],
+  "rattleCoins": [
+    "rattleCoins-0.ogg?v=ba491a0a",
+    "rattleCoins-1.ogg?v=5ad18f04"
+  ],
+  "rattleGlass": [
+    "rattleGlass-0.ogg?v=d0774fed",
+    "rattleGlass-1.ogg?v=906bed96"
+  ],
+  "rattleWood": [
+    "rattleWood-0.ogg?v=cc11b1de",
+    "rattleWood-1.ogg?v=9d0b0773"
+  ],
+  "paperFlutter": [
+    "paperFlutter-0.ogg?v=4c23a8b1",
+    "paperFlutter-1.ogg?v=86d24074"
+  ],
+  "chandelierTinkle": [
+    "chandelierTinkle-0.ogg?v=16382a8f"
+  ],
+  "deskThud": [
+    "deskThud-0.ogg?v=bdaa827d",
+    "deskThud-1.ogg?v=032e94ef"
+  ],
+  "stepEinstein": [
+    "stepEinstein-0.ogg?v=db53912b",
+    "stepEinstein-1.ogg?v=735a1cd8",
+    "stepEinstein-2.ogg?v=cbf7668c",
+    "stepEinstein-3.ogg?v=b6d6e16e",
+    "stepEinstein-4.ogg?v=f7266050"
+  ],
+  "stepYeat": [
+    "stepYeat-0.ogg?v=4c72844f",
+    "stepYeat-1.ogg?v=8dc3b19f",
+    "stepYeat-2.ogg?v=e0eb9ed8",
+    "stepYeat-3.ogg?v=43978774",
+    "stepYeat-4.ogg?v=7a3d914e"
+  ],
+  "stepVangogh": [
+    "stepVangogh-0.ogg?v=43731215",
+    "stepVangogh-1.ogg?v=8f80f9e0",
+    "stepVangogh-2.ogg?v=43850297",
+    "stepVangogh-3.ogg?v=be696aec",
+    "stepVangogh-4.ogg?v=7ab2fb6a"
+  ],
+  "stepPaper": [
+    "stepPaper-0.ogg?v=1660296b",
+    "stepPaper-1.ogg?v=56140699",
+    "stepPaper-2.ogg?v=a59f0e22",
+    "stepPaper-3.ogg?v=2bcf4c6c"
+  ],
+  "stepMetal": [
+    "stepMetal-0.ogg?v=f567b3c8",
+    "stepMetal-1.ogg?v=ab11b718",
+    "stepMetal-2.ogg?v=0a6806af",
+    "stepMetal-3.ogg?v=291216e1"
+  ],
+  "stepLeather": [
+    "stepLeather-0.ogg?v=8bf75111",
+    "stepLeather-1.ogg?v=b725a75f",
+    "stepLeather-2.ogg?v=4b56239f",
+    "stepLeather-3.ogg?v=92c9de3e"
+  ],
+  "stepStone": [
+    "stepStone-0.ogg?v=a33f4c86",
+    "stepStone-1.ogg?v=e9982936",
+    "stepStone-2.ogg?v=d7c6cbdf",
+    "stepStone-3.ogg?v=75f8bc62"
+  ],
+  "hitHeavy": [
+    "hitHeavy-0.ogg?v=7acc9bba",
+    "hitHeavy-1.ogg?v=e943969c"
+  ],
+  "killDrop": [
+    "killDrop-0.ogg?v=fdf9c619"
+  ],
+  "assist": [
+    "assist-0.ogg?v=357a98c6"
+  ],
+  "heartbeat": [
+    "heartbeat-0.ogg?v=2758f06d"
+  ],
+  "lowHealth": [
+    "lowHealth-0.ogg?v=17111af6"
+  ],
+  "ultAlly": [
+    "ultAlly-0.ogg?v=21d27d60"
+  ],
+  "ultEnemy": [
+    "ultEnemy-0.ogg?v=5a61c226"
+  ],
+  "finalTick": [
+    "finalTick-0.ogg?v=1894314e"
+  ],
+  "slowmo": [
+    "slowmo-0.ogg?v=a54a489e"
+  ],
+  "matchPointSting": [
+    "matchPointSting-0.ogg?v=b7def0e3"
+  ],
+  "backfire": [
+    "backfire-0.ogg?v=bbf9c3b5",
+    "backfire-1.ogg?v=87490a63",
+    "backfire-2.ogg?v=709aace9"
+  ],
+  "gearShift": [
+    "gearShift-0.ogg?v=8e574888",
+    "gearShift-1.ogg?v=09a65500"
+  ],
+  "musicMenu": [
+    "musicMenu-0.ogg?v=c3b6bfa1"
+  ],
+  "musicCalm": [
+    "musicCalm-0.ogg?v=3a7d83bd"
+  ],
+  "musicCombat": [
+    "musicCombat-0.ogg?v=a94a719f"
+  ],
+  "musicClutch": [
+    "musicClutch-0.ogg?v=121a6da5"
   ]
 };
 

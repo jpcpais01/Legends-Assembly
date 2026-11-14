@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { settings } from './settings';
 import { RECIPES, BAKE_ORDER, renderRecipe, type Sfx, type Recipe } from '../audio/bank';
-import { impulseResponse } from '../audio/synth';
+import { roomImpulse, type RoomPreset } from '../audio/synth';
 import { SAMPLE_FILES, ANNOUNCER_FILES } from '../audio/sampleManifest';
+import engineWorkletUrl from '../audio/engineWorklet.js?url';
 
 // extra announcer calls (lead changes, match point, revenge...) recorded by scripts/sfx/voices.mjs
 const ANN_EXTRA = import.meta.glob('../assets/announcer/*.ogg', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
@@ -18,7 +19,16 @@ export type { Sfx };
  * voice lines and big moments, and a "doom" filter on the music for The Bell.
  */
 
-export interface PlayOpts { variant?: number; rate?: number }
+export interface PlayOpts {
+  variant?: number;
+  rate?: number;
+  /** Override the recipe's full-level radius / falloff (e.g. enemy footsteps carry further). */
+  ref?: number;
+  rolloff?: number;
+}
+
+/** Answers "is the line between these two points blocked?" (the game hands in the desk's collision). */
+export type OcclusionTest = (from: THREE.Vector3, to: THREE.Vector3) => boolean;
 
 export interface LoopHandle {
   set(pos: THREE.Vector3 | null, rate: number, vol: number): void;
@@ -40,6 +50,9 @@ interface Voice { src: AudioBufferSourceNode; gain: GainNode; nodes: AudioNode[]
 
 const semi = (n: number) => Math.pow(2, n / 12);
 const MAX_VOICES = 72;
+/** Occlusion raycasts allowed per animation frame (the rest are assumed clear). */
+const OCCLUSION_BUDGET = 16;
+const _occ = new THREE.Vector3();
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
@@ -52,6 +65,24 @@ export class AudioEngine {
   private musicDuck!: GainNode;
   private musicFilter!: BiquadFilterNode;
   private reverbIn!: GainNode;
+  private conv!: ConvolverNode;
+  private room: RoomPreset | null = null;
+  /** The world's own filter: closes in at low health and in slow motion. */
+  private worldFilter!: BiquadFilterNode;
+  private ultBus!: GainNode;
+  private ambBus!: GainNode;
+  private lowHp = 0;
+  private slowmo = 0;
+  private heart: LoopHandle | null = null;
+  private fwd = new THREE.Vector3(0, 0, -1);
+  private occluder: OcclusionTest | null = null;
+  private occFrame = -1;
+  private occUsed = 0;
+  /** Music output (the MusicDirector plays into this). */
+  get musicOut() { return this.musicBus; }
+  /** The world bus (for live sources like the Tonka engine). */
+  get sfxOut() { return this.sfxBus; }
+  get reverbSend() { return this.reverbIn; }
   private bank = new Map<Sfx, AudioBuffer[]>();
   private lastVariant = new Map<Sfx, number>();
   private lastPlayed = new Map<Sfx, number>();
@@ -90,20 +121,26 @@ export class AudioEngine {
     pre.connect(glue).connect(limit).connect(this.master).connect(ctx.destination);
 
     this.sfxBus = g(); this.sfxDuck = g();
-    this.sfxBus.connect(this.sfxDuck).connect(pre);
+    this.worldFilter = ctx.createBiquadFilter(); this.worldFilter.type = 'lowpass'; this.worldFilter.frequency.value = 20000; this.worldFilter.Q.value = 0.6;
+    this.sfxBus.connect(this.worldFilter).connect(this.sfxDuck).connect(pre);
     this.uiBus = g(); this.uiBus.connect(pre);
+    // specials ride above their own ducking; the room sits under everything and ducks gently
+    this.ultBus = g(); this.ultBus.connect(pre);
+    this.ambBus = g(0); this.ambBus.connect(pre);
     this.voiceBus = g(settings.voice ?? 0.9); this.voiceBus.connect(pre);
     this.musicBus = g(settings.music * 0.35);
     this.musicFilter = ctx.createBiquadFilter(); this.musicFilter.type = 'lowpass'; this.musicFilter.frequency.value = 18000; this.musicFilter.Q.value = 0.9;
     this.musicDuck = g();
     this.musicBus.connect(this.musicFilter).connect(this.musicDuck).connect(pre);
 
-    // shared reverb: one convolver for the whole world
+    // shared reverb: one convolver for the whole world, shaped like the arena (setRoom)
     this.reverbIn = g();
     const conv = ctx.createConvolver();
     conv.normalize = false;
-    conv.buffer = impulseResponse(ctx.sampleRate, 2.4, 3.2, 0.5, 21);
-    const ret = g(0.42);
+    conv.buffer = roomImpulse(ctx.sampleRate, 'study');
+    this.room = 'study';
+    this.conv = conv;
+    const ret = g(0.46);
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
     this.reverbIn.connect(hp).connect(conv).connect(ret).connect(pre);
 
@@ -119,6 +156,18 @@ export class AudioEngine {
     void this.bake();
     void this.loadSamples();
     void this.loadAnnouncer();
+    void this.loadWorklets();
+  }
+
+  /** True once the live V8 (audio/engineWorklet.js) is ready to run. */
+  engineReady = false;
+  private async loadWorklets() {
+    try {
+      await this.ctx!.audioWorklet.addModule(engineWorkletUrl);
+      this.engineReady = true;
+    } catch (e) {
+      console.warn('[audio] engine worklet unavailable, Tonka uses its recorded loops', e);
+    }
   }
 
   private async fetchBuffer(url: string) {
@@ -177,7 +226,55 @@ export class AudioEngine {
   /** Mute the world (not the UI) while the game is paused. */
   setWorldPaused(p: boolean) {
     if (!this.ctx) return;
-    this.sfxBus.gain.setTargetAtTime(p ? 0 : 1, this.ctx.currentTime, 0.05);
+    const now = this.ctx.currentTime;
+    this.sfxBus.gain.setTargetAtTime(p ? 0 : 1, now, 0.05);
+    this.ultBus.gain.setTargetAtTime(p ? 0 : 1, now, 0.05);
+    if (p) this.setLowHealth(0);
+  }
+
+  /** Shape the shared reverb like the arena: a huge wooden study, or open stone ruins. */
+  setRoom(r: RoomPreset) {
+    if (!this.ctx || this.room === r) return;
+    this.room = r;
+    this.conv.buffer = roomImpulse(this.ctx.sampleRate, r);
+  }
+
+  /** How loud the room itself is (0 = silent): softer behind the menus, full in a match. */
+  setAmbience(level: number, fade = 1.5) {
+    if (!this.ctx) return;
+    this.ambBus.gain.setTargetAtTime(level, this.ctx.currentTime, fade / 3);
+  }
+
+  setOcclusion(fn: OcclusionTest | null) { this.occluder = fn; }
+
+  /**
+   * 0..1 how close to death the local hero is: a heartbeat creeps in and the world
+   * closes in around you (the interface and voices stay clear, so you still hear the team).
+   */
+  setLowHealth(k: number) {
+    if (!this.ctx) return;
+    k = Math.max(0, Math.min(1, k));
+    if (Math.abs(k - this.lowHp) < 0.01) return;
+    this.lowHp = k;
+    if (k > 0.02 && !this.heart) this.heart = this.loop('heartbeat', null, 0);
+    if (this.heart) {
+      this.heart.set(null, 0.92 + k * 0.22, k);
+      if (k <= 0.02) { this.heart.stop(0.6); this.heart = null; }
+    }
+    this.applyWorldFilter();
+  }
+
+  /** 0..1 cinematic slow motion: the world goes deep and far away. */
+  setSlowmo(k: number) {
+    if (!this.ctx || Math.abs(k - this.slowmo) < 0.01) return;
+    this.slowmo = Math.max(0, Math.min(1, k));
+    this.applyWorldFilter();
+  }
+
+  private applyWorldFilter() {
+    const a = 20000 * Math.pow(2600 / 20000, this.lowHp * this.lowHp);
+    const b = 20000 * Math.pow(700 / 20000, this.slowmo);
+    this.worldFilter.frequency.setTargetAtTime(Math.min(a, b), this.ctx!.currentTime, 0.12);
   }
 
   /** Pan from the camera, attenuate from `hear` (the local hero), like third-person games do. */
@@ -188,6 +285,7 @@ export class AudioEngine {
     this.right.y = 0;
     if (this.right.lengthSq() < 1e-6) this.right.set(1, 0, 0);
     this.right.normalize();
+    this.fwd.set(-this.right.z, 0, this.right.x); // right × up, flattened: where you face
   }
 
   /** 0..1: The Bell's doom sky muffles the music. */
@@ -203,23 +301,50 @@ export class AudioEngine {
     if (!ctx) return;
     const now = ctx.currentTime;
     for (const [node, v] of [[this.sfxDuck, sfx], [this.musicDuck, music]] as [GainNode, number][]) {
+      if (!node) continue;
       node.gain.cancelScheduledValues(now);
       node.gain.setTargetAtTime(v, now, 0.04);
       node.gain.setTargetAtTime(1, now + dur, 0.3);
     }
   }
 
-  private spatial(pos: THREE.Vector3 | null | undefined) {
-    if (!pos) return { gain: 1, pan: 0, lp: 22000, wet: 1 };
+  /**
+   * Where a sound sits for you: level from distance, pan from the camera, air absorption on
+   * far sounds, a duller tone for things behind you (so front and back read apart, which
+   * stereo panning alone can't do), and muffling when the desk's clutter is in the way.
+   */
+  spatial(pos: THREE.Vector3 | null | undefined, ref = 2, rolloff = 0.075, occlude: boolean | 'yes' = false) {
+    if (!pos) return { gain: 1, pan: 0, lp: 22000, wet: 1, occluded: false };
     const h = this.hearPos;
     const d = Math.hypot(pos.x - h.x, pos.y - h.y, pos.z - h.z);
-    const gain = 1 / (1 + Math.max(0, d - 2) * 0.075);
+    let gain = 1 / (1 + Math.max(0, d - ref) * rolloff);
     const px = pos.x - this.panPos.x, pz = pos.z - this.panPos.z;
     const pl = Math.hypot(px, pz);
     const pan = pl > 0.5 ? Math.max(-0.85, Math.min(0.85, ((px * this.right.x + pz * this.right.z) / pl) * 0.9)) : 0;
-    const lp = d > 8 ? Math.max(1400, 22000 * Math.exp(-(d - 8) / 22)) : 22000;
-    const wet = 0.6 + Math.min(1, d / 35) * 1.2;
-    return { gain, pan, lp, wet };
+    const air = Math.max(8, ref * 2);
+    let lp = d > air ? Math.max(1400, 22000 * Math.exp(-(d - air) / 22)) : 22000;
+    let wet = 0.6 + Math.min(1, d / 35) * 1.2;
+    if (pl > 1.5) {
+      const behind = -((px * this.fwd.x + pz * this.fwd.z) / pl);
+      if (behind > 0.15) { const b = Math.min(1, (behind - 0.15) / 0.7); lp = Math.min(lp, 22000 - b * 16500); gain *= 1 - b * 0.12; }
+    }
+    let occluded = occlude === 'yes';
+    if (occlude === true && d > 3 && this.occluder && this.occlusionBudget()) {
+      _occ.set(pos.x, pos.y + 0.6, pos.z);
+      occluded = this.occluder(h, _occ);
+    }
+    if (occluded) { lp = Math.min(lp, 1100); gain *= 0.55; wet *= 1.7; }
+    return { gain, pan, lp, wet, occluded };
+  }
+
+  private occlusionBudget() {
+    const f = performance.now() >> 4; // ~16 ms buckets
+    if (f !== this.occFrame) { this.occFrame = f; this.occUsed = 0; }
+    return this.occUsed++ < OCCLUSION_BUDGET;
+  }
+
+  private busOf(r: Recipe) {
+    return r.bus === 'ui' ? this.uiBus : r.bus === 'ult' ? this.ultBus : r.bus === 'amb' ? this.ambBus : this.sfxBus;
   }
 
   private release(v: Voice) {
@@ -246,7 +371,7 @@ export class AudioEngine {
     const now = ctx.currentTime;
     const dedupe = r.dedupe ?? 0.025;
     if (dedupe > 0 && now - (this.lastPlayed.get(name) ?? -1) < dedupe) return;
-    const sp = this.spatial(pos);
+    const sp = this.spatial(pos, opts.ref ?? r.ref, opts.rolloff ?? r.rolloff, (r.occlude ?? (r.bus !== 'ui' && r.bus !== 'amb')) && !!pos);
     const gain = vol * (r.level ?? 1) * sp.gain;
     if (gain < 0.008 || this.total >= MAX_VOICES) return;
     this.lastPlayed.set(name, now);
@@ -284,7 +409,7 @@ export class AudioEngine {
       const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sp.lp; f.Q.value = 0.5;
       src.connect(f).connect(g); nodes.push(f);
     } else src.connect(g);
-    const bus = r.bus === 'ui' ? this.uiBus : this.sfxBus;
+    const bus = this.busOf(r);
     if (pos) {
       const p = ctx.createStereoPanner(); p.pan.value = sp.pan;
       g.connect(p).connect(bus); nodes.push(p);
@@ -310,14 +435,21 @@ export class AudioEngine {
     const g = ctx.createGain();
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 22000;
     const p = ctx.createStereoPanner();
-    src.connect(lp).connect(g).connect(p).connect(this.sfxBus);
+    src.connect(lp).connect(g).connect(p).connect(this.busOf(r));
     const send = ctx.createGain(); send.gain.value = 0;
     g.connect(send).connect(this.reverbIn);
     const level = r.level ?? 1;
     let stopped = false;
+    // occlusion is re-checked a few times a second, not every frame
+    const occ = (r.occlude ?? (r.bus !== 'ui' && r.bus !== 'amb'));
+    let occT = 0, occluded = false;
     const set = (ps: THREE.Vector3 | null, rate: number, v: number) => {
       if (stopped) return;
-      const sp = this.spatial(ps);
+      const now0 = performance.now();
+      const check = occ && !!ps && now0 - occT > 200;
+      if (check) occT = now0;
+      const sp = this.spatial(ps, r.ref, r.rolloff, check ? true : occluded && !!ps ? 'yes' : false);
+      if (check) occluded = sp.occluded;
       const now = ctx.currentTime;
       g.gain.setTargetAtTime(v * level * sp.gain, now, 0.05);
       p.pan.setTargetAtTime(sp.pan, now, 0.05);
@@ -496,21 +628,12 @@ export class AudioEngine {
 
   // ───────────────────────── ambience ─────────────────────────
 
-  private amb: LoopHandle | null = null;
-
-  /** The arena's room tone under a match (recorded only; silent without the file). */
-  startAmbience(arena: 'study' | 'ruins') {
-    this.stopAmbience();
-    const h = this.loop(arena === 'ruins' ? 'ambRuins' : 'ambStudy', null, 1);
-    if (h) { h.set(null, 1, 1); this.amb = h; }
-  }
-
-  stopAmbience(fade = 1.2) { this.amb?.stop(fade); this.amb = null; }
+  // (the arena soundscape lives in audio/Ambience.ts)
 
   // ───────────────────────── music ─────────────────────────
 
-  /** Generative ambient bed for menus/matches: slow evolving chord pad with a glass bell. */
-  startMusic() {
+  /** Generative ambient bed: the fallback when the recorded score can't load. */
+  startPad() {
     if (!this.ctx || this.musicTimer !== null) return;
     const chords = [[0, 7, 12, 16], [-3, 4, 9, 12], [-7, 0, 5, 9], [-5, 2, 7, 11]];
     let i = 0;
@@ -539,7 +662,7 @@ export class AudioEngine {
     this.musicTimer = window.setInterval(playChord, 6000);
   }
 
-  stopMusic() {
+  stopPad() {
     if (this.musicTimer !== null) { clearInterval(this.musicTimer); this.musicTimer = null; }
     for (const n of this.musicNodes) n.disconnect();
     this.musicNodes = [];

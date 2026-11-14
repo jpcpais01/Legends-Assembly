@@ -57,6 +57,8 @@ export const SFX = [
   { name: 'engineLoop', dur: 3, takes: 4, keep: 1, inf: 0.7, loop: true, text: 'Powerful V8 muscle truck engine cruising at steady mid revs, deep throaty rumble with exhaust burble, continuous, no gear changes, seamless loop, close mic' },
   { name: 'engineHigh', dur: 3, takes: 4, keep: 1, inf: 0.7, loop: true, text: 'V8 muscle truck engine screaming at full throttle, high aggressive revs with a raspy exhaust roar, continuous, no gear changes, seamless loop, close mic' },
   { name: 'skid', dur: 2, takes: 3, keep: 1, inf: 0.7, loop: true, text: 'Rubber tires screeching and skidding on a smooth floor during a hard turn, continuous squeal, seamless loop' },
+  { name: 'backfire', dur: 1.2, takes: 6, keep: 3, inf: 0.65, text: 'Muscle car exhaust backfire on throttle lift: two or three sharp loud pops and crackles from the tailpipe, close mic, no engine drone, short' },
+  { name: 'gearShift', dur: 0.6, takes: 5, keep: 2, inf: 0.65, text: 'A quick mechanical gear shift clunk of a manual transmission in a muscle car, short metallic thunk, close mic, no engine' },
   { name: 'crash', dur: 1.3, takes: 4, keep: 2, inf: 0.5, text: 'Metal toy truck crashing into a wall: crunchy metal impact with rattling parts and a heavy thud' },
   { name: 'ram', dur: 2.0, takes: 5, keep: 1, inf: 0.6, text: 'A speeding truck smashes into someone at full speed: a massive heavy crunching metal impact with a deep sub boom, shattering debris and rattling parts tumbling, brutal and punchy, cinematic, no music' },
   { name: 'bellSummon', dur: 2.9, takes: 3, keep: 1, inf: 0.5, text: 'The sky turns dark: ominous low drone rising, swirling howling wind, distant rumbling thunder and a reversed bell swelling up, dread, cinematic' },
@@ -73,7 +75,57 @@ export const SFX = [
   { name: 'starFall', dur: 1.0, takes: 4, keep: 3, inf: 0.5, text: 'Falling star impact: short descending magical whistle into a sparkling crystalline burst, fantasy' },
 
   // ── ambience ──
-  { name: 'ambStudy', dur: 20, takes: 2, keep: 1, inf: 0.5, loop: true, text: 'Quiet cozy old study room ambience: soft room tone, slow ticking clock, gentle rain on a window, faint crackling fireplace, continuous, seamless loop' },
+  // (v0.14: the study bed is now only room air; the fire, window, clocks and creaks are separate emitters placed in the room)
+  { name: 'ambStudy', dur: 30, takes: 3, keep: 1, inf: 0.55, loop: true, text: 'Room tone of a large quiet old wooden library at dusk: warm still air, very faint distant city murmur muffled through thick walls, soft low hum, no clock, no fire, no rain, no music, continuous, seamless loop' },
+  { name: 'fireLoop', dur: 22, takes: 3, keep: 1, inf: 0.6, loop: true, text: 'Crackling log fire in a stone fireplace: steady warm crackle, small wood pops and soft hiss of burning logs, close, continuous, seamless loop, no music' },
+  { name: 'windowLoop', dur: 22, takes: 3, keep: 1, inf: 0.55, loop: true, text: 'Soft evening wind breathing against old leaded window panes, gentle whistle through a gap in the frame, light rain pattering on glass, continuous, seamless loop, no thunder' },
+  { name: 'watchTick', dur: 0.5, takes: 6, keep: 2, inf: 0.7, text: 'One single tiny tick of a mechanical brass pocket watch, crisp delicate metallic tick, close mic, dry, one tick only' },
+  { name: 'metronome', dur: 0.5, takes: 5, keep: 2, inf: 0.7, text: 'One single click of an antique wooden pyramid metronome, crisp woody tock, close mic, dry, one click only' },
+  { name: 'woodCreak', dur: 2.2, takes: 6, keep: 4, inf: 0.6, text: 'One slow creak of old wooden floorboards and ceiling beams settling in a quiet old house, single creak, no footsteps' },
+  { name: 'chainCreak', dur: 2.0, takes: 3, keep: 2, inf: 0.6, text: 'The iron chain of a heavy hanging chandelier creaking softly as it sways, slow metallic creak, quiet' },
+  { name: 'cityDistant', dur: 6, takes: 4, keep: 3, inf: 0.5, text: 'Far away outside a window in an old European city at dusk: a horse carriage clip-clopping past on cobblestones, faint distant voices, very distant and soft' },
+  { name: 'birdsWindow', dur: 4, takes: 4, keep: 3, inf: 0.5, text: 'A few small birds chirping outside a window at dusk, distant and soft, no other sounds' },
+  { name: 'fireSurge', dur: 2.5, takes: 3, keep: 2, inf: 0.6, text: 'A log shifting and collapsing in a fireplace with a burst of loud crackles, pops and a rush of flame, then settling' },
+
+  // ── the desk reacts ──
+  { name: 'rattleChina', dur: 1.2, takes: 4, keep: 2, inf: 0.6, text: 'A porcelain teacup rattling on its saucer for a moment from a heavy thump on the table, delicate china clatter, short' },
+  { name: 'rattleCoins', dur: 1.2, takes: 4, keep: 2, inf: 0.6, text: 'A stack of old coins jingling and shifting on a wooden desk from a sudden jolt, short metallic jingle' },
+  { name: 'rattleGlass', dur: 1.2, takes: 4, keep: 2, inf: 0.6, text: 'Glass inkwell and small glass bottles rattling against each other on a wooden desk from a jolt, short glassy clatter' },
+  { name: 'rattleWood', dur: 1.2, takes: 4, keep: 2, inf: 0.6, text: 'Pencils, a wooden ruler and small wooden objects bouncing and rattling on a hardwood desk from a heavy thump, short' },
+  { name: 'paperFlutter', dur: 1.5, takes: 4, keep: 2, inf: 0.6, text: 'Loose sheets of paper lifting and fluttering in a sudden gust of air, crisp paper rustle, short' },
+  { name: 'chandelierTinkle', dur: 2.5, takes: 3, keep: 1, inf: 0.6, text: 'Crystal drops of a chandelier tinkling and chiming together as it shakes, delicate glassy shimmer, short' },
+  { name: 'deskThud', dur: 2.0, takes: 4, keep: 2, inf: 0.6, text: 'An enormous deep thump on a giant solid oak table, massive woody boom with a low rumble and small objects rattling on its surface' },
+
+  // ── footsteps: one set per legend, plus the surface they land on ──
+  { name: 'stepEinstein', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single footstep of an old leather dress shoe on a polished hardwood floor, crisp heel click, close mic, dry, one step only' },
+  { name: 'stepYeat', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single heavy footstep of a chunky designer sneaker on a hardwood floor with a faint jingle of a metal chain necklace, close mic, dry, one step only' },
+  { name: 'stepVangogh', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single footstep of a wooden clog on a hardwood floor, hollow woody clack, close mic, dry, one step only' },
+  { name: 'stepPaper', dur: 0.5, takes: 6, keep: 4, inf: 0.7, text: 'One single footstep landing on a sheet of paper lying on a desk, crisp paper crinkle and crunch, close mic, dry, one step only' },
+  { name: 'stepMetal', dur: 0.5, takes: 6, keep: 4, inf: 0.7, text: 'One single light footstep on a large metal coin, bright metallic clink with a short ring, close mic, dry, one step only' },
+  { name: 'stepLeather', dur: 0.5, takes: 6, keep: 4, inf: 0.7, text: 'One single footstep on the leather cover of a thick old book, soft dull hollow tap, close mic, dry, one step only' },
+  { name: 'stepStone', dur: 0.5, takes: 6, keep: 4, inf: 0.7, text: 'One single footstep on smooth polished marble, hard sharp click, close mic, dry, one step only' },
+
+  // ── combat feedback ──
+  { name: 'hitHeavy', dur: 0.6, takes: 5, keep: 2, inf: 0.6, text: 'Heavy hit confirm for a hero shooter: a punchy deep body impact thump with a crisp bright click on top, very satisfying, short, dry' },
+  { name: 'killDrop', dur: 1.6, takes: 5, keep: 1, inf: 0.6, text: 'Elimination confirm for a hero shooter: a crisp snap into a huge deep 808 bass drop boom with a short sub rumble tail, punchy and rewarding, no music' },
+  { name: 'assist', dur: 0.8, takes: 4, keep: 1, inf: 0.6, text: 'Assist confirm notification for a hero shooter: two quick soft bright chime notes rising, clean and short' },
+  { name: 'heartbeat', dur: 6, takes: 3, keep: 1, inf: 0.7, loop: true, text: 'Slow heavy human heartbeat heard from inside the body, deep muffled low thumps, steady rhythm, continuous, seamless loop' },
+  { name: 'lowHealth', dur: 1.5, takes: 4, keep: 1, inf: 0.6, text: 'Low health warning in a video game: a muffled low thump followed by a thin high ringing tinnitus whine fading out, tense, short' },
+
+  // ── ultimates ──
+  { name: 'ultAlly', dur: 2.0, takes: 4, keep: 1, inf: 0.55, text: 'Heroic ultimate ability activation stinger for a hero shooter: fast rising brass swell into a bright shimmering impact with a warm sub boom, triumphant, short, no voice' },
+  { name: 'ultEnemy', dur: 2.0, takes: 4, keep: 1, inf: 0.55, text: 'Menacing enemy ultimate warning stinger for a hero shooter: dark distorted brass blast with a deep rumbling sub and a reversed whoosh, danger approaching, short, no voice' },
+
+  // ── match moments ──
+  { name: 'finalTick', dur: 1.0, takes: 4, keep: 1, inf: 0.65, text: 'One loud tense tick of a big old grandfather clock, deep wooden tock with a metallic edge and a short room echo, one tick only' },
+  { name: 'slowmo', dur: 2.5, takes: 4, keep: 1, inf: 0.55, text: 'Cinematic time slowing down: a deep reversed whoosh pitching down into a heavy low boom with a long dark tail, slow motion' },
+  { name: 'matchPointSting', dur: 2.5, takes: 3, keep: 1, inf: 0.55, text: 'Tense orchestral stinger: low strings tremolo swelling with a timpani roll and a sharp brass stab, suspense, short, no voice' },
+
+  // ── music (generated as seamless loops; the Music API takes replace these when available) ──
+  { name: 'musicMenu', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game main menu music loop: warm cinematic orchestral hybrid theme, mellow felt piano melody over soft strings and a gentle pulsing synth, adventurous and inviting, mid tempo, seamless loop' },
+  { name: 'musicCalm', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter match music loop, low intensity: tense atmospheric hybrid orchestral underscore, ticking pizzicato strings, soft pulsing synth bass and light percussion, anticipation, seamless loop' },
+  { name: 'musicCombat', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter battle music loop, high intensity: driving epic hybrid orchestral action with heavy trap drums, booming 808 bass, fast staccato strings and bold brass hits, energetic, seamless loop' },
+  { name: 'musicClutch', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Final moments of a match music loop: urgent epic orchestral climax, racing strings, pounding taiko and trap drums, rising brass, ticking clock pulse, maximum tension, seamless loop' },
   { name: 'ambRuins', dur: 20, takes: 2, keep: 1, inf: 0.5, loop: true, text: 'Peaceful outdoor ancient ruins ambience: soft breeze through tall grass, distant birds, light wind, continuous, seamless loop' },
 ];
 
@@ -116,7 +168,15 @@ export const PICKS = {
   bell: [5], bellHit: [4, 3, 1], tonka: [1], engineLoop: [1], engineHigh: [3], skid: [3], crash: [3, 1], ram: [4], bellSummon: [1], bigBell: [1], bellWhistle: [3], bellDrop: [3],
   paint: [2, 4, 1, 3], splat: [4, 5, 1, 2], seedToss: [2], bloom: [3], starry: [3], starFall: [2, 4, 1],
   ambStudy: [1], ambRuins: [2],
+  fireLoop: [3], windowLoop: [3], watchTick: [4, 1], metronome: [2, 1], woodCreak: [2, 4, 5, 6], chainCreak: [2, 3], cityDistant: [2, 3, 4], birdsWindow: [3], fireSurge: [1, 3],
+  rattleChina: [3, 4], rattleCoins: [4, 1], rattleGlass: [1, 3], rattleWood: [4, 3], paperFlutter: [4, 2], chandelierTinkle: [3], deskThud: [4, 3],
+  stepEinstein: [1, 3, 5, 8, 7], stepYeat: [1, 2, 7, 3, 8], stepVangogh: [6, 8, 2, 7, 3], stepPaper: [3, 2, 1, 4], stepMetal: [2, 5, 6, 3], stepLeather: [2, 5, 6, 1], stepStone: [6, 4, 5, 1],
+  hitHeavy: [4, 2], killDrop: [3], assist: [4], heartbeat: [2], lowHealth: [1], ultAlly: [4], ultEnemy: [1],
+  finalTick: [3], slowmo: [2], matchPointSting: [3],
+  backfire: [5, 4, 1], gearShift: [1, 4],
+  musicMenu: [1], musicCalm: [2], musicCombat: [1], musicClutch: [2],
 };
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
-export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy', 'ambRuins']);
+export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy', 'ambRuins',
+  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicCalm', 'musicCombat', 'musicClutch']);

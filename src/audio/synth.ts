@@ -309,3 +309,54 @@ export class Synth {
 }
 
 export const semi = (n: number) => Math.pow(2, n / 12);
+
+export type RoomPreset = 'study' | 'ruins';
+
+/**
+ * A room you can hear. Built from the space itself rather than a generic hall:
+ * - study: a huge wood-panelled library. Dense early reflections off the desk and the near
+ *   walls, a warm tail (wood and books eat the highs fast, the lows ring longer), ~2.3 s.
+ * - ruins: open air between broken stone walls. A few distinct slap echoes off far walls,
+ *   then a short, thin, bright diffuse tail, ~1.4 s.
+ * Frequency-dependent decay comes from splitting the noise into a low and a high band with
+ * their own decay times.
+ */
+export function roomImpulse(sr: number, preset: RoomPreset) {
+  const study = preset === 'study';
+  const seconds = study ? 2.6 : 1.8;
+  const len = Math.floor(sr * seconds);
+  const ir = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 2 });
+  const rnd = mulberry(study ? 31 : 57);
+  const pre = Math.floor(sr * (study ? 0.014 : 0.02));
+  const rtLow = study ? 2.3 : 1.2, rtHigh = study ? 1.0 : 0.9;
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    let lp = 0, lp2 = 0;
+    for (let i = pre; i < len; i++) {
+      const t = (i - pre) / sr;
+      const n = rnd() * 2 - 1;
+      lp += (n - lp) * 0.08; // low band
+      lp2 += (lp - lp2) * 0.5;
+      const hi = n - lp;
+      // -60 dB at rt: exp(-6.9 t / rt)
+      const eL = Math.exp((-6.9 * t) / rtLow), eH = Math.exp((-6.9 * t) / rtHigh);
+      // the diffuse field builds up over the first ~60 ms instead of starting at full density
+      const build = Math.min(1, t / (study ? 0.06 : 0.09));
+      d[i] = (lp2 * 1.6 * eL + hi * (study ? 0.35 : 0.6) * eH) * build * (study ? 1 : 0.55);
+    }
+    // early reflections: desk, near walls, bookshelves (study) / far ruined walls (ruins)
+    const taps = study
+      ? [[0.007, 0.8], [0.013, 0.62], [0.019, 0.55], [0.027, 0.48], [0.034, 0.4], [0.046, 0.36], [0.058, 0.3], [0.071, 0.26], [0.089, 0.2]]
+      : [[0.011, 0.5], [0.062, 0.42], [0.118, 0.34], [0.181, 0.24], [0.263, 0.14]];
+    for (const [at0, g] of taps) {
+      const at = pre + Math.floor(sr * (at0 + (rnd() - 0.5) * 0.004 + ch * 0.0013));
+      const w = Math.floor(sr * (study ? 0.0009 : 0.0016));
+      for (let k = 0; k < w && at + k < len; k++) d[at + k] += (rnd() < 0.5 ? -1 : 1) * g * (1 - k / w);
+    }
+  }
+  let e = 0;
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) e += d[i] * d[i]; }
+  const g = (1 / Math.sqrt(e / 2 + 1e-9)) * 0.9;
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] *= g; }
+  return ir;
+}
