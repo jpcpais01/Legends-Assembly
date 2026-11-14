@@ -210,7 +210,7 @@ export class Hud {
     this.lastScore = [-1, -1];
     this.els.uToast.className = 'u-toast';
     // mode intro card plays over the countdown
-    (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
+    (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = g.net ? `${g.config!.mode} · online · ${g.config!.roster?.filter((r) => r.owner).length ?? 1} players` : `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
     (this.els.intro.querySelector('.in-title') as HTMLElement).textContent = info.label;
     (this.els.intro.querySelector('.in-goal') as HTMLElement).textContent = `First team to ${info.target} eliminations wins`;
     this.restart(this.els.intro, 'intro', 'show');
