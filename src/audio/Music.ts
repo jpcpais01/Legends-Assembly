@@ -5,6 +5,7 @@ import { SAMPLE_FILES } from './sampleManifest';
 /**
  * The score. Four recorded cues (ElevenLabs, seamless loops):
  *   menu   — the theme behind the menus
+ *   select — hero select: a pulse that builds toward Lock In
  *   calm   — a match while nobody is fighting: ticking, waiting
  *   combat — once the fight is on
  *   clutch — the last minute, match point, overtime
@@ -13,13 +14,13 @@ import { SAMPLE_FILES } from './sampleManifest';
  * get a "surge": the score drops out under the cast and swells back bigger. Cues load lazily
  * (menu first), and if they can't load at all the old generative pad plays instead.
  */
-export type Cue = 'menu' | 'calm' | 'combat' | 'clutch';
+export type Cue = 'menu' | 'select' | 'calm' | 'combat' | 'clutch';
 
-const FILES: Record<Cue, string> = { menu: 'musicMenu', calm: 'musicCalm', combat: 'musicCombat', clutch: 'musicClutch' };
+const FILES: Record<Cue, string> = { menu: 'musicMenu', select: 'musicSelect', calm: 'musicCalm', combat: 'musicCombat', clutch: 'musicClutch' };
 /** Per-cue trim, so the quiet underscore and the full battle loop sit right against each other. */
-const LEVEL: Record<Cue, number> = { menu: 1.5, calm: 1.15, combat: 0.95, clutch: 1.05 };
+const LEVEL: Record<Cue, number> = { menu: 1.5, select: 1.35, calm: 1.15, combat: 0.95, clutch: 1.05 };
 /** Minimum seconds a cue holds before the director may leave it. */
-const HOLD: Record<Cue, number> = { menu: 0, calm: 6, combat: 10, clutch: 30 };
+const HOLD: Record<Cue, number> = { menu: 0, select: 0, calm: 6, combat: 10, clutch: 30 };
 
 interface Playing { cue: Cue; src: AudioBufferSourceNode; g: GainNode }
 
@@ -54,7 +55,7 @@ class MusicDirector {
   }
 
   /** Warm the match cues while the player is still in the menus. */
-  preload() { for (const c of ['calm', 'combat', 'clutch'] as Cue[]) void this.load(c); }
+  preload() { for (const c of ['select', 'calm', 'combat', 'clutch'] as Cue[]) void this.load(c); }
 
   private out() {
     const ctx = audio.ctx!;
@@ -116,7 +117,7 @@ class MusicDirector {
    */
   match(heat: number, clutch: boolean) {
     const ctx = audio.ctx;
-    if (!ctx || !this.want || this.want === 'menu') return;
+    if (!ctx || !this.want || this.want === 'menu' || this.want === 'select') return;
     const held = ctx.currentTime - this.since;
     let next: Cue = this.want;
     if (clutch) next = 'clutch';

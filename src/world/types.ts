@@ -6,7 +6,7 @@ export type Surface = 'wood' | 'paper' | 'metal' | 'leather' | 'stone' | 'grass'
 
 /** Where the arena's sounds come from (fireplace, windows, clocks…). */
 export interface Soundscape {
-  kind: 'study' | 'ruins';
+  kind: 'study' | 'ruins' | 'hall';
   fire?: THREE.Vector3;
   windows?: THREE.Vector3[];
   chandelier?: THREE.Vector3;

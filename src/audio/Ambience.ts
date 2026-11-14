@@ -11,7 +11,8 @@ import type { Soundscape } from '../world/types';
  * - the pocket watch on the desk ticking in time with its second hand, the metronome
  *   clicking on each swing, the Newton's cradle clacking as its balls meet
  * - the old house creaking in its beams, the chandelier chain groaning as it sways
- * The ruins get their outdoor bed and birds around the meadow.
+ * The ruins get their outdoor bed and birds around the meadow; the Assembly Hall (menus) a vast
+ * airy drone of its own.
  */
 interface Emitter { name: Sfx; pos: THREE.Vector3 | null; vol: number; h: LoopHandle | null }
 
@@ -37,7 +38,8 @@ class AmbienceDirector {
       L('ambStudy', null, 1);
       if (sc.fire) L('fireLoop', sc.fire, 1);
       for (const w of sc.windows ?? []) L('windowLoop', w, 0.8);
-    } else L('ambRuins', null, 1);
+    } else if (sc.kind === 'hall') L('hallAmb', null, 1);
+    else L('ambRuins', null, 1);
   }
 
   stop() {
@@ -60,7 +62,7 @@ class AmbienceDirector {
       }
     }
     if (sc.kind === 'study') this.study(sc, dt, time);
-    else this.ruins(dt);
+    else if (sc.kind === 'ruins') this.ruins(dt);
   }
 
   private study(sc: Soundscape, dt: number, time: number) {
