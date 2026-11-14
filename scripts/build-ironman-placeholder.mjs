@@ -5,7 +5,7 @@
  *
  *   node scripts/build-ironman-placeholder.mjs  ->  public/models/heroes/ironman.glb
  *
- * When João's Meshy model lands, drop it in models-src/heroes/ironman.glb and run `npm run models -- --only ironman`
+ * Retired: Iron Man now uses João's Meshy model (models-src/heroes/ironman.glb, `npm run models -- --only ironman`).
  * instead (and bump the ?v= on IRONMAN.modelUrl).
  *
  * The suit is modelled at 1.8 m, feet on y=0, facing +z, in an A-pose with the arms 45 degrees out.
