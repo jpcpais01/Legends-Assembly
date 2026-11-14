@@ -8,9 +8,10 @@ import { IRONMAN } from './ironman';
 import { MICKEY } from './mickey';
 import { MARLEY } from './marley';
 import { STEVE } from './steve';
+import { TREX } from './trex';
 
-export const HEROES: Record<HeroId, HeroDef> = { einstein: EINSTEIN, yeat: YEAT, vangogh: VANGOGH, blitzcrank: BLITZCRANK, luffy: LUFFY, ironman: IRONMAN, mickey: MICKEY, steve: STEVE, marley: MARLEY };
-export const HERO_LIST: HeroDef[] = [EINSTEIN, YEAT, VANGOGH, BLITZCRANK, LUFFY, IRONMAN, MICKEY, STEVE, MARLEY];
+export const HEROES: Record<HeroId, HeroDef> = { einstein: EINSTEIN, yeat: YEAT, vangogh: VANGOGH, blitzcrank: BLITZCRANK, luffy: LUFFY, ironman: IRONMAN, mickey: MICKEY, steve: STEVE, marley: MARLEY, trex: TREX };
+export const HERO_LIST: HeroDef[] = [EINSTEIN, YEAT, VANGOGH, BLITZCRANK, LUFFY, IRONMAN, MICKEY, STEVE, MARLEY, TREX];
 export { warmupEinstein } from './einstein';
 export { warmupYeat } from './yeat';
 export { warmupVanGogh } from './vangogh';
@@ -20,3 +21,4 @@ export { warmupIronMan } from './ironman';
 export { warmupMickey } from './mickey';
 export { warmupMarley } from './marley';
 export { warmupSteve } from './steve';
+export { warmupTrex } from './trex';

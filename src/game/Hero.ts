@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { HeroDef, HeroInput, HeroKit } from './types';
-import { ProceduralHeroModel, type HeroModel, type AnimState } from '../render/HeroRig';
-import { GltfHeroModel } from '../render/GltfHeroModel';
+import { type HeroModel, type AnimState } from '../render/HeroRig';
+import { createHeroModel } from '../render/GltfHeroModel';
 import { clamp, damp, dampAngle } from '../core/math';
 import type { World } from '../world/collision';
 
@@ -89,13 +89,21 @@ export class Hero {
     this.kit = def.createKit();
     this.maxHp = def.maxHp;
     this.hp = def.maxHp;
-    this.model = def.modelUrl ? new GltfHeroModel(def, rim) : new ProceduralHeroModel(def.look, rim);
+    this.model = createHeroModel(def, rim);
+    this.hitR = def.body?.hitR ?? HERO_RADIUS;
+    this.hitH = def.body?.hitH ?? 1.65;
+    this.worldR = def.body?.worldR ?? HERO_RADIUS;
   }
+
+  /** Hit capsule radius / top and wall radius (bigger for the T-Rex). */
+  hitR: number;
+  hitH: number;
+  worldR: number;
 
   get forward() { return new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }
   get right() { return new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)); }
-  get center() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.0, this.pos.z); }
-  get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.3, this.pos.z); }
+  get center() { return new THREE.Vector3(this.pos.x, this.pos.y + (this.def.body?.centerY ?? 1.0), this.pos.z); }
+  get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + (this.def.body?.chestY ?? 1.3), this.pos.z); }
 
   /** Direction from a muzzle point to the aim point. */
   aimDir(from: THREE.Vector3, out = new THREE.Vector3()) {
@@ -167,7 +175,7 @@ export class Hero {
     this.impulse.x = damp(this.impulse.x, 0, fr, dt);
     this.impulse.z = damp(this.impulse.z, 0, fr, dt);
 
-    world.resolve(this.pos, HERO_RADIUS, this.pos.y);
+    world.resolve(this.pos, this.worldR, this.pos.y);
     const h = world.heightAt(this.pos.x, this.pos.z, this.pos.y);
     if (this.pos.y <= h) {
       this.pos.y = h;

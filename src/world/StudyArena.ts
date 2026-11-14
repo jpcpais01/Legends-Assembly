@@ -4,7 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { World } from './collision';
 import { HeightGrid } from './HeightGrid';
 import { Sky } from './Sky';
-import { TEAM_COLORS } from './types';
+import { TEAM_COLORS, DOOM_SKY } from './types';
 import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { damp, lerp, mulberry32 } from '../core/math';
@@ -994,15 +994,15 @@ export class StudyArena implements ArenaLike {
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); (this.sun.shadow as any).map = null; }
   }
 
-  setDoom(k: number) {
+  setDoom(k: number, kind = 0) {
     const b = this.base;
-    const green = new THREE.Color(0.08, 0.28, 0.12);
-    this.fog.color.copy(b.fog).lerp(green, k);
+    const D = DOOM_SKY[kind] ?? DOOM_SKY[0];
+    this.fog.color.copy(b.fog).lerp(D.fog, k);
     this.fog.density = lerp(b.fogD, 0.009, k);
-    this.sun.color.copy(b.sun).lerp(new THREE.Color(0.45, 1.0, 0.5), k);
+    this.sun.color.copy(b.sun).lerp(D.sun, k);
     this.sun.intensity = lerp(b.sunI, 1.4, k);
-    this.hemi.color.copy(b.hemiSky).lerp(new THREE.Color(0.35, 0.8, 0.4), k);
-    this.hemi.groundColor.copy(b.hemiGround).lerp(new THREE.Color(0.02, 0.1, 0.03), k);
+    this.hemi.color.copy(b.hemiSky).lerp(D.sky, k);
+    this.hemi.groundColor.copy(b.hemiGround).lerp(D.ground, k);
     this.scene.environmentIntensity = lerp(0.55, 0.25, k);
   }
 

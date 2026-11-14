@@ -101,12 +101,14 @@ export class CameraRig {
       const f = this.focus ?? hero;
       const c = f.pos;
       const a = f.bodyYaw + Math.PI + 0.55 - this.modeT * 0.32;
-      const R = 4.6 - Math.min(1, this.modeT * 0.4) * 1.1;
-      this.tmp.set(c.x - Math.sin(a) * R, c.y + 1.7 - this.modeT * 0.08, c.z - Math.cos(a) * R);
-      const hit = world.raycast(this.tmp2.set(c.x, c.y + 1.4, c.z), this.tmp, 0.3);
+      // big legends (the T-Rex) get a wider, higher orbit
+      const fb = f.def.body, big = fb ? fb.camY / 1.62 : 1;
+      const R = (4.6 - Math.min(1, this.modeT * 0.4) * 1.1) * big;
+      this.tmp.set(c.x - Math.sin(a) * R, c.y + 1.7 * big - this.modeT * 0.08, c.z - Math.cos(a) * R);
+      const hit = world.raycast(this.tmp2.set(c.x, c.y + 1.4 * big, c.z), this.tmp, 0.3);
       if (hit >= 0) this.tmp.lerpVectors(this.tmp2, this.tmp, Math.max(0.15, hit - 0.05));
       if (this.modeT < dt * 1.5) cam.position.copy(this.tmp); else cam.position.lerp(this.tmp, 1 - Math.exp(-5 * dt));
-      cam.lookAt(c.x, c.y + 1.15, c.z);
+      cam.lookAt(c.x, c.y + (fb ? fb.centerY : 1.15), c.z);
       return;
     }
     if (this.mode === 'dead' && this.focus && this.focus.alive && this.focus !== hero && this.modeT < 2.6) {
@@ -146,7 +148,8 @@ export class CameraRig {
     const vk = this.vehicleK;
 
     // 1) head: the always-clear anchor inside the hero's own capsule
-    const head = this.head.set(hero.pos.x, this.smoothY + 1.62 + vk * 0.9, hero.pos.z);
+    const body = hero.def.body;
+    const head = this.head.set(hero.pos.x, this.smoothY + (body?.camY ?? 1.62) + vk * 0.9, hero.pos.z);
 
     // ultimate beat: swing out fast, hold a breath, ease back in
     if (this.beat > 0) { this.beatT += dt; this.beat = this.beatT < 0.5 ? 1 : Math.max(0, 1 - (this.beatT - 0.5) / 0.7); }
@@ -161,7 +164,7 @@ export class CameraRig {
 
     // 3) boom: a fan of rays (center + near-plane corners) approximates a sphere cast,
     //    so the lens never pokes through a wall corner even with a coarse collision grid
-    const maxDist = this.dist + vk * 3.2 + Math.max(0, -this.pitch) * 0.6 + bk * 1.5;
+    const maxDist = this.dist + (body?.camDist ?? 0) + vk * 3.2 + Math.max(0, -this.pitch) * 0.6 + bk * 1.5;
     let t = 1;
     for (let i = 0; i < FAN.length; i++) {
       const [ox, oy] = FAN[i];
@@ -227,13 +230,14 @@ export class CameraRig {
    */
   private placeSelfie(k: number, hero: Hero, world: World, vk: number, snap: boolean, dt: number) {
     const cam = this.camera;
-    const face = this.face.set(hero.pos.x, this.smoothY + 1.5 + vk * 0.9, hero.pos.z);
+    const body = hero.def.body;
+    const face = this.face.set(hero.pos.x, this.smoothY + (body ? body.camY - 0.4 : 1.5) + vk * 0.9, hero.pos.z);
     // start: where the shoulder camera is, in cylindrical coords around the face
     const ox = this.playPos.x - face.x, oz = this.playPos.z - face.z;
     const a0 = Math.atan2(ox, oz), r0 = Math.hypot(ox, oz), h0 = this.playPos.y - face.y;
     // end: in front of the hero, slightly above eye level, a little off-center for a candid angle
     const a1 = Math.atan2(-Math.sin(hero.bodyYaw), -Math.cos(hero.bodyYaw)) + 0.22;
-    const r1 = 2.3 + vk * 2.6, h1 = 0.18 + vk * 0.6;
+    const r1 = 2.3 + (body ? body.camDist * 1.3 : 0) + vk * 2.6, h1 = 0.18 + vk * 0.6;
     let da = a1 - a0;
     da = Math.atan2(Math.sin(da), Math.cos(da));
     const a = a0 + da * k;

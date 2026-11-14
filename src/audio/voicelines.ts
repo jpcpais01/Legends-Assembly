@@ -76,6 +76,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       ironman: R('ironman', '[dry] Iron armor. Cute. Mine\'s diamond.', 'I mine that stuff, you know.'),
       mickey: R('mickey', 'Back to the cartoon, little guy.', '[calm] Square beats round.'),
       steve: R('steve', 'Hey, I\'m the original!', '[dry] Nice skin. Default, though.'),
+      trex: R('trex', '[dry] Big lizard. Still drops bones.', 'Should\'ve stayed in the fossil layer.'),
     },
     banter: [
       { id: 'vs_einstein', vs: 'einstein', text: 'Doc, can you explain how a block floats in the air?', reply: 'I cannot. And it bothers me deeply.' },
@@ -442,6 +443,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       ironman: R('ironman', '[laughs] All dat metal and no soul.', 'Iron no match fi music.'),
       mickey: R('mickey', '[laughs] Little mouse, big dreams.', 'Back to the cartoon, mon.'),
       marley: R('marley', '[laughs] Only one Bob, bredren.'),
+      trex: R('trex', '[laughs] Big ting! Me nah run from no lizard.', '[calm] Extinct, bredren. Easy.'),
     },
     banter: [
       { id: 'vs_einstein', vs: 'einstein', text: 'Professor, you ever hear music in your equations?', reply: 'Constantly. Usually the violin.' },
@@ -450,9 +452,60 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_marley', vs: 'marley', text: 'Two of us? Double the bass, bredren!', reply: 'One love, even for a twin.' },
     ],
   },
+  trex: {
+    short: 'T-Rex',
+    // a voice from a ribcage the size of a car: slowed down, saturated, with a cavernous slap
+    chain: { hp: 60, lp: 7000, drive: 0.35, slap: 0.07, slapMix: 0.25, reverb: 0.2, rate: 0.84, gain: 1.15 },
+    tts: { voice: '2EiwWnXFnvU5JabPnv8n', direction: '[huge ancient tyrannosaurus speaking, deep gravelly growling voice, slow, menacing, proud, a little hungry]', stability: 0.45, style: 0.6 },
+    lines: {
+      matchStart: L('matchStart', '[growls] Sixty-six million years. I am still hungry.', 'The king has returned.', '[deep laugh] Fresh meat.', 'Run. It makes you taste better.'),
+      primary: L('primary', '[snarls] Chomp.', 'Bite.', '[growls] Mine.'),
+      secondary: L('secondary', '[roars] Out of my way!', 'Stampede!', '[growls] Here I come.', 'Nothing stops the king.'),
+      secondaryHit: L('secondaryHit', '[muffled, mouth full] Got you.', '[growls] Caught.', 'Snack time.'),
+      ult: L('ult', '[mighty roar] Extinction!', '[roars] The sky is falling!', 'Bow to the king!'),
+      ultEnemy: L('ultEnemy', '[menacing] Look up.', '[growls] Your time is over.'),
+      kill: L('kill', '[satisfied growl] Delicious.', 'Extinct.', 'Food chain. I am the top.', '[deep laugh] Too small.', 'Swallowed whole.', 'Fossilized.'),
+      multiKill: L('multiKill', '[roars] A feast!', 'More! I want more!', '[deep laugh] Buffet.'),
+      death: L('death', '[groans] The meteor... again...', '[wounded roar]', 'I will be... a fossil...'),
+      respawn: L('respawn', 'You cannot keep a king buried.', '[growls] Dug myself out.', 'Back from the Cretaceous.'),
+      ultReady: L('ultReady', '[rumbling] The sky burns for me.', 'I feel a meteor coming.', '[growls] Time for an extinction.'),
+      lowHp: L('lowHp', '[pained growl] Wounded. Still dangerous.', 'I need meat.', '[snarls] Back off.'),
+      victory: L('victory', '[triumphant roar] Long live the king!', 'Extinction complete.', '[deep laugh] The food chain is restored.'),
+      defeat: L('defeat', '[sad growl] Hungry. And beaten.', 'Even kings fall.'),
+      assist: L('assist', 'Shared the hunt.', '[growls] Leftovers for you.'),
+      revenge: L('revenge', '[menacing] I remember your smell.', 'Now I eat you.', '[growls] Payback, little thing.'),
+      streak: L('streak', '[roars] Apex predator!', 'Nobody can stop me!', '[deep laugh] The hunt is good today.'),
+      heal: L('heal', 'Mm. Better.', '[satisfied growl] Restored.'),
+      takeLead: L('takeLead', 'We lead the hunt.', '[growls] Good. Keep chasing.'),
+      behind: L('behind', '[snarls] We are prey right now. Change that.', 'Hunt harder.'),
+      matchPoint: L('matchPoint', 'One more bite.', '[growls] Finish them.'),
+      overtime: L('overtime', 'Overtime. Good. More time to eat.'),
+      enemyUlt: L('enemyUlt', '[alarmed growl] Danger!', 'Something big is coming!'),
+      allyDown: L('allyDown', 'A pack member fell.', '[growls] They took one of ours.'),
+      shutdown: L('shutdown', 'Your streak is extinct.', '[deep laugh] Not so tall now.'),
+    },
+    rival: {
+      einstein: R('einstein', 'Too much brain. Not enough meat.', '[deep laugh] Relatively tasty.'),
+      yeat: R('yeat', '[growls] Your bell rang. Dinner bell.', 'Loud. Crunchy.'),
+      vangogh: R('vangogh', 'Paint this. Oh wait.', '[growls] Starry night. Lights out.'),
+      blitzcrank: R('blitzcrank', '[spits] Metal. Disgusting.', 'Hurt my teeth. Worth it.'),
+      luffy: R('luffy', 'Chewy. Like a rubber toy.', '[growls] Stretch that.'),
+      ironman: R('ironman', 'Canned food.', '[deep laugh] I opened the can.'),
+      mickey: R('mickey', 'One small mouse. One small bite.', '[growls] Squeak no more.'),
+      steve: R('steve', 'Square meat. Still meat.', '[growls] Your blocks crumble.'),
+      marley: R('marley', 'Your music cannot calm a king.', '[growls] Stop singing. Start running.'),
+      trex: R('trex', 'There is only one king.', '[roars] My territory!'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Little scientist. Did you ever figure out the meteor?', reply: 'I did. Unfortunately for you, it is coming back.' },
+      { id: 'vs_mickey', vs: 'mickey', text: '[growls] You look like a snack.', reply: 'Gosh! I\'m mostly ears!' },
+      { id: 'vs_ironman', vs: 'ironman', text: 'Shiny can. Is there food inside?', reply: 'Just one billionaire, and he\'s not on the menu.' },
+      { id: 'vs_trex', vs: 'trex', text: '[growls] Two kings? No.', reply: '[roars] Then one of us goes extinct.' },
+    ],
+  },
 };
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, steve: 7, marley: 8 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, steve: 7, marley: 8, trex: 9 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).

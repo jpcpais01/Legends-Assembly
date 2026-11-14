@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeHeroFxUniforms, patchRigMaterial, type HeroFxUniforms } from './materials';
 import { RigAnimator, STYLE_ATTACK, type AttackKind, type MotionStyle } from './RigAnimator';
+import type { BeastPose } from './TrexModel';
 
 export { RigAnimator, STYLE_ATTACK };
 
@@ -47,6 +48,8 @@ export interface AnimState {
   fistR?: number;
   /** 0..1: hold a guitar slung on its strap: fretting hand on the neck, picking hand over the strings (Bob Marley). */
   guitar?: number;
+  /** Non-humanoid legends (the T-Rex): what the beast's body is doing, set by its kit. */
+  beast?: BeastPose;
   /** Which held item is out (HeroDef.items ids); the others are hidden. */
   item?: string;
   /** 0..1 archer's stance: the bow arm straight down the crosshair, the string hand back toward the cheek. */
@@ -63,6 +66,8 @@ export interface HeroModel {
   headWorld(out: THREE.Vector3): THREE.Vector3;
   /** Shrink a hand away (its owner fired it off on a chain) and bring it back with 1. */
   setHandScale?(side: 'L' | 'R', s: number): void;
+  /** Resolves once a loaded model is showing. */
+  ready?: Promise<void>;
   /** The object shown for a held item (HeroDef.items), once the model is up. */
   itemObject?(id: string): THREE.Object3D | null;
   dispose(): void;

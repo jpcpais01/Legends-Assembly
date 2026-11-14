@@ -167,7 +167,7 @@ export class Hud {
     // crosshair style per hero
     const ch = this.els.crosshair;
     ch.innerHTML = '<i class="dot"></i>';
-    if (d.id === 'yeat' || d.id === 'blitzcrank') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
+    if (d.id === 'yeat' || d.id === 'blitzcrank' || d.id === 'trex') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
     else if (d.id === 'ironman') {
       // repulsor reticle: a tight targeting ring with four ticks, and the jet-boot fuel arc underneath
       ch.insertAdjacentHTML('beforeend', '<i class="ring" style="left:-13px;top:-13px;width:26px;height:26px"></i><i class="imfuel"><s></s></i>');

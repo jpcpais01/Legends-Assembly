@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, steve: 60, marley: 68 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, steve: 40, marley: 30 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, steve: 60, marley: 68, trex: 1000 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, steve: 40, marley: 30, trex: 4.8 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -292,6 +292,13 @@ export class Bot {
         if (h.secondaryCd <= 0 && vis && tDist > 7 && tDist < 26 && (lowHp || Math.random() < 0.25)) inp.secondary = true;
         // the dragon wants a fight to circle: a tough target or a group near the crosshair
         if (h.ult >= 1 && vis && tDist < 26 && (t.hp > 110 || g.enemiesNear(h.team, t.pos, 8).length >= 2)) inp.ult = true;
+        break;
+      }
+      case 'trex': {
+        // Stampede: run down a target a little way off, in a clean line (or crash them into a wall behind them)
+        if (h.secondaryCd <= 0 && vis && tDist > 4 && tDist < 20 && yawErr < 0.2 && Math.random() < 0.6) inp.secondary = true;
+        // Extinction Event: roar into a crowd in front, or when brawling and losing
+        if (h.ult >= 1 && vis && (enemiesClose(12) >= 2 || (enemiesClose(7) >= 1 && (t.hp > 150 || hpFrac < 0.4)))) inp.ult = true;
         break;
       }
       case 'blitzcrank': {

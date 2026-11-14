@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../world/types';
 import type { ArenaLike } from '../world/types';
 import { Vfx, InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
-import { Hero, HERO_RADIUS } from './Hero';
+import { Hero } from './Hero';
 import { CameraRig } from './CameraRig';
 import { Bot } from './Bot';
 import type { HeroDef, HeroId, Projectile, Zone } from './types';
@@ -32,7 +32,7 @@ const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
 const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 /** Each legend's own shoes on bare wood, and what each surface adds underneath them. */
-const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', steve: 'stepSteve', marley: 'stepVangogh' };
+const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', steve: 'stepSteve', marley: 'stepVangogh', trex: 'rexStep' };
 const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal: 'stepMetal', leather: 'stepLeather', stone: 'stepStone', grass: 'stepGrass' };
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
@@ -156,7 +156,7 @@ export interface Callout {
 
 const MULTI_WINDOW = 4.5;
 /** View kick per primary shot (radians). */
-const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, steve: 0.004, marley: 0.005 };
+const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, steve: 0.004, marley: 0.005, trex: 0.012 };
 const MULTI = [
   null, null,
   { title: 'Double Elimination', vox: 'double' },
@@ -208,6 +208,8 @@ export class Game {
   paused = false;
   /** 0..1 "doom sky" (The Bell): zones raise it each frame, it falls back on its own. */
   doom = 0;
+  /** Which sky the doom is: 0 toxic green (The Bell), 1 burning red (Extinction Event). */
+  doomKind = 0;
   timeScale = 1;
   endT = 0;
   winner = -1;
@@ -375,7 +377,7 @@ export class Game {
   }
 
   clearMatch() {
-    this.doom = 0;
+    this.doom = 0; this.doomKind = 0;
     audio.setLowHealth(0);
     audio.setSlowmo(0);
     this.stopT = 0;
@@ -414,12 +416,12 @@ export class Game {
 
   enemiesNear(team: number, pos: THREE.Vector3, r: number) {
     const out: Hero[] = [];
-    for (const h of this.heroes) if (h.alive && h.team !== team && h.pos.distanceTo(pos) <= r + HERO_RADIUS) out.push(h);
+    for (const h of this.heroes) if (h.alive && h.team !== team && h.pos.distanceTo(pos) <= r + h.hitR) out.push(h);
     return out;
   }
   alliesNear(team: number, pos: THREE.Vector3, r: number) {
     const out: Hero[] = [];
-    for (const h of this.heroes) if (h.alive && h.team === team && h.pos.distanceTo(pos) <= r + HERO_RADIUS) out.push(h);
+    for (const h of this.heroes) if (h.alive && h.team === team && h.pos.distanceTo(pos) <= r + h.hitR) out.push(h);
     return out;
   }
   los(a: THREE.Vector3, b: THREE.Vector3) { return this.world.raycast(a, b) < 0; }
@@ -782,7 +784,7 @@ export class Game {
       let bestT = 2; let bestH: Hero | null = null;
       for (const h of this.heroes) {
         if (!h.alive || h.team === p.owner.team) continue;
-        const t = segmentVsCapsule(p.prev, p.pos, h.pos.x, h.pos.z, h.pos.y + 0.15, h.pos.y + 1.65, HERO_RADIUS + p.radius);
+        const t = segmentVsCapsule(p.prev, p.pos, h.pos.x, h.pos.z, h.pos.y + 0.15, h.pos.y + h.hitH, h.hitR + p.radius);
         if (t >= 0 && t < bestT) { bestT = t; bestH = h; }
       }
       const wt = this.world.raycast(p.prev, p.pos, p.radius * 0.5);
@@ -986,7 +988,7 @@ export class Game {
     let best = 1;
     for (const e of this.heroes) {
       if (!e.alive || e.team === h.team) continue;
-      const tt = segmentVsCapsule(origin, far, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.7, HERO_RADIUS);
+      const tt = segmentVsCapsule(origin, far, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + e.hitH + 0.05, e.hitR);
       if (tt >= 0 && tt < best) best = tt;
     }
     const wt = this.world.raycast(origin, far);
@@ -1169,7 +1171,8 @@ export class Game {
 
   /** Footsteps: one per stride, paced by real ground speed. */
   private footsteps(h: Hero, dt: number, wasGrounded: boolean) {
-    if (!h.grounded || !wasGrounded || h.overrideVel || h.kitState.truck) return;
+    // the T-Rex stomps in time with his own walk cycle (trex.ts footfalls)
+    if (!h.grounded || !wasGrounded || h.overrideVel || h.kitState.truck || h.def.id === 'trex') return;
     const sp = Math.hypot(h.vel.x, h.vel.z);
     if (sp < 1.2) { this.steps.set(h.id, 0.6); return; }
     let acc = (this.steps.get(h.id) ?? 0) + sp * dt;
