@@ -18,7 +18,6 @@ export const PATCH_NOTES: PatchNote[] = [
           'Iron Man now talks: a cocky, quick-witted voice for his abilities, eliminations, Unibeam call-outs, victories and defeats, instead of subtitles only.',
           'He trades fully voiced banter and rival lines with Einstein, Yeat, Van Gogh, Blitzcrank, Luffy and even another Iron Man.',
         ],
-        ],
       },
     ],
   },
