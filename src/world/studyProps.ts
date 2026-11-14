@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/math';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clean } from './studyDesk';
 
 /**
@@ -787,4 +788,48 @@ export function decal(M: PropMaterials, kind: 0 | 1, size: number) {
   const g = new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2).translate(0, 0.03, 0);
   region(g, [kind * 512, 0, 512, 512], 1024, 512);
   return k.add(g, M.decal, false).parts;
+}
+
+/** Newton's cradle, in cm: ball radius, spacing and the hanging geometry the arena animates. */
+export const CRADLE = { r: 1, gap: 2.02, top: 14.8, L: 10.2, half: 4.4, n: 5 };
+
+/** The still part of a Newton's cradle: a walnut plinth and a chrome frame. The balls swing in StudyArena. */
+export function newtonsCradle(M: PropMaterials) {
+  const k = new Kit(M);
+  const walnut = new THREE.Color(0.075, 0.032, 0.014);
+  // plinth with a chamfered top edge, and a thin felt-dark inset line
+  const plinth = lathe([[0, 0], [1, 0], [1, 1.35], [0.94, 1.8], [0, 1.8]], 4).rotateY(Math.PI / 4).scale(13.4, 1, 8.6);
+  k.add(paint(faceted(plinth), walnut), M.gloss);
+  // four posts, then the two rounded top rails (no collision up there, heroes walk under them)
+  const post = new THREE.CylinderGeometry(0.24, 0.24, 12.6, 12).translate(0, 1.8 + 6.3, 0);
+  const ferrule = lathe([[0.42, 1.78], [0.45, 2.0], [0.3, 2.3], [0.24, 2.4]], 16);
+  for (const sx of [-8, 8]) for (const sz of [-CRADLE.half, CRADLE.half]) {
+    k.add(post.clone().translate(sx, 0, sz), M.steel);
+    k.add(ferrule.clone().translate(sx, 0, sz), M.brass);
+  }
+  for (const sz of [-CRADLE.half, CRADLE.half]) {
+    const pts: THREE.Vector3[] = [new THREE.Vector3(-8, 14.3, sz)];
+    for (let i = 0; i <= 6; i++) { const a = Math.PI - (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector3(-7.3 + Math.cos(a) * 0.7, 14.3 + Math.sin(a) * 0.7, sz)); }
+    for (let i = 0; i <= 6; i++) { const a = Math.PI / 2 - (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector3(7.3 + Math.cos(a) * 0.7, 14.3 + Math.sin(a) * 0.7, sz)); }
+    pts.push(new THREE.Vector3(8, 14.3, sz));
+    k.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.2), 48, 0.24, 10, false), M.steel, false);
+  }
+  return k.parts;
+}
+
+/** One swinging ball with its V of strings, hung from its pivot (the origin), already in meters. */
+export function cradleBall() {
+  const { r, L, half } = CRADLE;
+  const ball = new THREE.SphereGeometry(r, 24, 16).translate(0, -L, 0);
+  const eye = new THREE.TorusGeometry(0.16, 0.05, 6, 12).translate(0, -L + r + 0.12, 0);
+  const strings: THREE.BufferGeometry[] = [];
+  const end = new THREE.Vector3(0, -L + r + 0.2, 0);
+  for (const sz of [-half, half]) {
+    const start = new THREE.Vector3(0, 0, sz);
+    const len = start.distanceTo(end);
+    const g = new THREE.CylinderGeometry(0.035, 0.035, len, 4, 1, true).translate(0, -len / 2, 0);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), end.clone().sub(start).normalize())).translate(0, 0, sz);
+    strings.push(clean(g));
+  }
+  return { ball: cm(mergeGeometries([clean(ball), clean(eye)])!), strings: cm(mergeGeometries(strings)!) };
 }

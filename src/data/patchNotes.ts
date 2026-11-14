@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.13.1',
+    date: '2026-11-14',
+    title: 'Perpetual Motion',
+    sections: [
+      {
+        heading: "Giant's Study",
+        items: [
+          "A Newton's cradle now sits at the back of the desk, between the red book and the candle: five chrome balls on a walnut stand, swinging back and forth all match long.",
+          'The balls are solid, so you can duck behind them for cover.',
+          'The Einstein, Van Gogh and Yeat papers, the index cards and the paper clips are staying hand-made for good.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-11-13',
     title: 'Main Event',
