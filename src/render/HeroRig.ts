@@ -45,6 +45,8 @@ export interface AnimState {
   armReach?: 'fore' | 'upper';
   fistL?: number;
   fistR?: number;
+  /** 0..1: hold a guitar slung on its strap: fretting hand on the neck, picking hand over the strings (Bob Marley). */
+  guitar?: number;
 }
 
 export interface HeroModel {

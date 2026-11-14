@@ -27,6 +27,12 @@ class ScreenFxState {
    * the special itself, not a camera effect.
    */
   film = 0;
+  /**
+   * 0..1 "drowsy" (Bob Marley's Kaya Cloud and One Love): the view sways and swims, a ghost image drifts beside
+   * it and a warm haze closes in at the edges. Re-applied every frame from the local legend's status and always
+   * shown, because it is a gameplay status, not a camera effect.
+   */
+  drowsy = 0;
 
   /** Expanding shockwave ring through the world (radius in meters). */
   ripple(pos: THREE.Vector3, radius: number, strength = 1, dur = 0.7) {
@@ -64,19 +70,20 @@ class ScreenFxState {
     const k = Math.exp(-dt * 7);
     this.flash.multiplyScalar(k);
     this.film = Math.max(0, this.film - dt * 2.5);
+    this.drowsy = Math.max(0, this.drowsy - dt * 2.5);
     if (this.flash.r + this.flash.g + this.flash.b < 0.002) this.flash.setRGB(0, 0, 0);
   }
 
   get active() {
     return this.ripples.length > 0 || this.lenses.length > 0 || this.aberration > 0.002 || this.zoom > 0.002 || this.zoomHold > 0.002
-      || this.flash.r + this.flash.g + this.flash.b > 0.002 || this.film > 0.002;
+      || this.flash.r + this.flash.g + this.flash.b > 0.002 || this.film > 0.002 || this.drowsy > 0.002;
   }
 
   clear() {
     this.ripples.length = 0;
     for (const l of this.lenses) l.alive = false;
     this.lenses.length = 0;
-    this.aberration = 0; this.zoom = 0; this.zoomHold = 0; this.film = 0;
+    this.aberration = 0; this.zoom = 0; this.zoomHold = 0; this.film = 0; this.drowsy = 0;
     this.flash.setRGB(0, 0, 0);
   }
 }
@@ -92,6 +99,7 @@ const frag = /* glsl */ `
   uniform vec3 uFlash;
   uniform float uFilm;
   uniform float uFilmT;
+  uniform float uDrowsy;
 
   float fh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -124,6 +132,18 @@ const frag = /* glsl */ `
     // film gate weave: the frame jitters a hair, once per projected frame (24 fps)
     float fr = floor(uFilmT * 24.0);
     if (uFilm > 0.001) off += (vec2(fh(vec2(fr, 1.3)), fh(vec2(fr, 7.1))) - 0.5) * vec2(0.0012, 0.0024) * uFilm;
+    // drowsy: the whole view sways like a slow boat and swims in long, lazy waves (zoomed in a touch so the
+    // edges never pull in from outside the frame)
+    vec2 ghost = vec2(0.0);
+    if (uDrowsy > 0.001) {
+      float t = uFilmT;
+      vec2 c = uv - 0.5;
+      float zoomIn = 1.0 - 0.035 * uDrowsy;
+      off += c * (zoomIn - 1.0);
+      off += vec2(sin(t * 0.83) * 0.011, sin(t * 0.61 + 1.3) * 0.008) * uDrowsy;
+      off += vec2(sin(uv.y * 7.0 + t * 1.9), cos(uv.x * 5.0 + t * 1.45)) * 0.0045 * uDrowsy;
+      ghost = vec2(sin(t * 1.13 + 0.5), cos(t * 0.77)) * vec2(0.016, 0.01) * uDrowsy;
+    }
     vec2 cuv = clamp(uv + off, vec2(0.001), vec2(0.999));
     vec2 fromC = cuv - 0.5;
     float ca = uCA * 0.012 + bend * 0.02;
@@ -139,6 +159,19 @@ const frag = /* glsl */ `
       for (int j = 1; j <= 5; j++) acc += texture2D(inputBuffer, cuv - fromC * uZoom * 0.03 * float(j)).rgb;
       float edgeK = smoothstep(0.05, 0.45, length(fromC));
       col = mix(col, acc / 6.0, edgeK);
+    }
+    if (uDrowsy > 0.001) {
+      // double vision, a warm smoky haze and heavy eyelids closing in from the edges
+      vec3 g1 = texture2D(inputBuffer, clamp(cuv + ghost, vec2(0.001), vec2(0.999))).rgb;
+      vec3 g2 = texture2D(inputBuffer, clamp(cuv - ghost * 0.6, vec2(0.001), vec2(0.999))).rgb;
+      col = mix(col, (g1 + g2) * 0.5, 0.42 * uDrowsy);
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(l) * vec3(1.05, 1.0, 0.82), 0.3 * uDrowsy);
+      col = mix(col, vec3(0.62, 0.66, 0.5) * (0.35 + l * 0.5), 0.12 * uDrowsy);
+      vec2 vc = (uv - 0.5) * vec2(1.0, 1.25);
+      float lid = 0.5 + 0.5 * sin(uFilmT * 0.9);
+      float vig = smoothstep(0.75 - 0.2 * uDrowsy - 0.06 * lid * uDrowsy, 0.3, length(vc));
+      col *= mix(1.0, vig, 0.75 * uDrowsy);
     }
     col += uFlash;
     if (uFilm > 0.001) {
@@ -200,6 +233,7 @@ export class ImpactEffect extends Effect {
         ['uFlash', new THREE.Uniform(new THREE.Color())],
         ['uFilm', new THREE.Uniform(0)],
         ['uFilmT', new THREE.Uniform(0)],
+        ['uDrowsy', new THREE.Uniform(0)],
       ]),
     });
     this.src = src;
@@ -215,6 +249,7 @@ export class ImpactEffect extends Effect {
     (u.get('uFlash')!.value as THREE.Color).copy(screenFx.flash);
     u.get('uFilm')!.value = screenFx.film;
     u.get('uFilmT')!.value = performance.now() / 1000;
+    u.get('uDrowsy')!.value = screenFx.drowsy;
     for (const s of this.src) s.w = 0;
     let n = 0;
     const right = this._r.set(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -237,6 +272,6 @@ export class ImpactEffect extends Effect {
       const e = 1 - Math.pow(1 - k, 2.2);
       put(r.pos, r.radius * (0.08 + e * 0.92), r.strength * (1 - k) * (1 - k), 0, 0);
     }
-    return n > 0 || screenFx.aberration > 0.002 || screenFx.zoom > 0.002 || screenFx.zoomHold > 0.002 || screenFx.flash.r + screenFx.flash.g + screenFx.flash.b > 0.002 || screenFx.film > 0.002;
+    return n > 0 || screenFx.aberration > 0.002 || screenFx.zoom > 0.002 || screenFx.zoomHold > 0.002 || screenFx.flash.r + screenFx.flash.g + screenFx.flash.b > 0.002 || screenFx.film > 0.002 || screenFx.drowsy > 0.002;
   }
 }

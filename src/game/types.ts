@@ -5,7 +5,7 @@ import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey' | 'marley';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
@@ -53,6 +53,10 @@ export interface HeroDef {
     prop: PropName; hand: 'L' | 'R'; size: number; pos: [number, number, number]; rot: [number, number, number];
     /** Hang the prop from its top (pos is the grip) and swing it like a bell when attacking. */
     ring?: boolean;
+    /** Sling it from this bone instead of a hand (a guitar on its strap rides the chest). */
+    bone?: 'chest' | 'hand';
+    /** Code-built stand-in used until the Meshy prop file exists (same size convention: `size` = its widest x/z extent). */
+    fallback?: () => THREE.Object3D;
   };
   look: RigLook;
   /** Rubber limbs (Luffy): hand skin weights are sharpened at load so a stretched arm carries the whole fist. */
