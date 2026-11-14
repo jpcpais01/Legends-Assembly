@@ -257,6 +257,15 @@ class BlitzcrankKit implements HeroKit {
     }
   }
 
+  onNet(h: Hero, g: Game, ev: string) {
+    const gr: Grab | null = h.kitState.grab;
+    if (!ev.startsWith('grab:') || !gr || gr.phase === 'pull') return;
+    const e = g.heroes[+ev.slice(5)];
+    if (!e || !e.alive) return;
+    gr.pos.copy(e.chest);
+    catchTarget(h, g, gr, e);
+  }
+
   onDeath(h: Hero, g: Game) {
     const st = h.kitState;
     if (st.grab) endGrab(h, g);
@@ -326,9 +335,10 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
     gr.dist += step;
     gr.wobble = Math.max(0.02, gr.wobble - dt * 0.2);
     // heroes first, then the world
+    // online, only the machine that drives Blitzcrank decides who the claw catches (the others hear it via onNet)
     let best = 2, hit: Hero | null = null;
     for (const e of g.heroes) {
-      if (!e.alive || e.team === h.team) continue;
+      if (!e.alive || e.team === h.team || !g.owns(h)) continue;
       const t = segmentVsCapsule(gr.prev, gr.pos, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.65, HERO_RADIUS + GRAB_RADIUS);
       if (t >= 0 && t < best) { best = t; hit = e; }
     }
@@ -336,7 +346,7 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
     if (wt >= 0 && wt < best) { best = wt; hit = null; }
     if (best <= 1) {
       gr.pos.lerpVectors(gr.prev, gr.pos, best);
-      if (hit) catchTarget(h, g, gr, hit);
+      if (hit) { catchTarget(h, g, gr, hit); g.net?.kitEvent(h, `grab:${hit.idx}`); }
       else {
         // clank off the scenery and reel back
         g.play('blitzPunchHit', gr.pos, 0.55);

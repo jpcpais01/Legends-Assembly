@@ -34,8 +34,11 @@ const { HX, HZ, CEIL } = HALL;
 const MODEL_VER: Record<MuseumModel, number> = {
   museum_column_bay: 1, museum_wall_niche: 1, broken_dome_ring: 1, trex_skeleton: 1, winged_statue: 1, equestrian_statue: 1,
   grand_staircase: 1, painting_frame: 1, whale_skeleton: 1, sarcophagus: 1, rope_stanchion: 1, museum_bench: 1,
+  museum_bay_drape: 1, museum_bay_relief: 1, museum_bay_fountain: 1, museum_bay_doorway: 1,
+  museum_upper_loggia: 1, museum_upper_oculus: 1, museum_upper_fresco: 1,
 };
-const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame', 'whale_skeleton', 'sarcophagus', 'rope_stanchion', 'museum_bench'] as const;
+const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame', 'whale_skeleton', 'sarcophagus', 'rope_stanchion', 'museum_bench',
+  'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway', 'museum_upper_loggia', 'museum_upper_oculus', 'museum_upper_fresco'] as const;
 type MuseumModel = (typeof MODELS)[number];
 
 // ── the wall system: lower tier of column bays, cornice, upper tier of niches, crown cornice, ceiling
@@ -45,6 +48,37 @@ const NICHE_H = CEIL - BAY_H - CORNICE, NICHE_DZ = 0.8, NICHE_D = 0.323 * NICHE_
 /** Bay slot centers: six along each long wall (x), four along each short wall (z). */
 const LONG_SLOTS = [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5].map((i) => i * BAY_W);
 const SHORT_SLOTS = [-1.5, -0.5, 0.5, 1.5].map((i) => i * BAY_W);
+/**
+ * The wall kit: every piece fills one slot (BAY_W wide), ground pieces BAY_H tall, upper pieces NICHE_H tall. wh and dh
+ * are each model's width and depth over its height, so a piece is stretched to the slot's width and backed onto the wall.
+ */
+const KIT: Partial<Record<MuseumModel, { wh: number; dh: number }>> = {
+  museum_column_bay: { wh: 0.956 / 0.894, dh: 0.488 },
+  museum_bay_drape: { wh: 0.898 / 0.954, dh: 0.46 / 0.954 },
+  museum_bay_relief: { wh: 0.958 / 0.917, dh: 0.252 / 0.917 },
+  museum_bay_fountain: { wh: 0.958 / 0.95, dh: 0.295 / 0.95 },
+  museum_bay_doorway: { wh: 0.938 / 0.954, dh: 0.21 / 0.954 },
+  museum_wall_niche: { wh: 1.009, dh: 0.323 },
+  museum_upper_loggia: { wh: 0.921 / 0.946, dh: 0.97 / 0.946 },
+  museum_upper_oculus: { wh: 0.958 / 0.948, dh: 0.22 / 0.948 },
+  museum_upper_fresco: { wh: 0.958 / 0.955, dh: 0.261 / 0.955 },
+};
+const G = { B: 'museum_column_bay', D: 'museum_bay_drape', R: 'museum_bay_relief', F: 'museum_bay_fountain', E: 'museum_bay_doorway' } as const;
+const U = { N: 'museum_wall_niche', L: 'museum_upper_loggia', O: 'museum_upper_oculus', P: 'museum_upper_fresco' } as const;
+/**
+ * Which piece goes in each slot, ground tier then upper tier, so no two neighbours match. Point-symmetric like the rest
+ * of the hall: the +z wall is the -z wall reversed, +x is -x reversed. Column bays (B) hold the paintings, and the ones
+ * behind the staircases (slot 3 on -z, slot 2 on +z) stay bays with the loggia above, the doorways sit behind the spawns.
+ */
+const WALL_PLAN: { slots: number[]; at: (s: number) => [number, number, number]; ground: (keyof typeof G)[]; upper: (keyof typeof U)[] }[] = [
+  { slots: LONG_SLOTS, at: (x) => [x, -HZ, 0], ground: ['B', 'D', 'R', 'B', 'F', 'B'], upper: ['N', 'O', 'P', 'L', 'N', 'O'] },
+  { slots: LONG_SLOTS, at: (x) => [x, HZ, Math.PI], ground: ['B', 'F', 'B', 'R', 'D', 'B'], upper: ['O', 'N', 'L', 'P', 'O', 'N'] },
+  { slots: SHORT_SLOTS, at: (z) => [-HX, z, Math.PI / 2], ground: ['R', 'E', 'B', 'D'], upper: ['P', 'L', 'O', 'N'] },
+  { slots: SHORT_SLOTS, at: (z) => [HX, z, -Math.PI / 2], ground: ['D', 'B', 'E', 'R'], upper: ['N', 'O', 'L', 'P'] },
+];
+/** The lion fountain's recess backdrop is cut in the build (broken shards in the Meshy mesh): a verde marble panel replaces it, in template space. */
+const FOUNTAIN_PATCH = { w: 0.4548, y0: 0.006, y1: 0.848, z: -0.1353 };
+const FOUNTAIN_SIDES = { x: 0.5063, z0: -0.1553, z1: -0.0616, rx: 0.2263, rz0: -0.1353, rz1: -0.045, ry0: 0.006, ry1: 0.62, sill: 0.0705 };
 /** Inner corner of the hall where the bays stop: solid marble corner piers fill the rest. */
 const CX = 3 * BAY_W, CZ = 2 * BAY_W;
 
@@ -188,19 +222,43 @@ export class MuseumArena implements ArenaLike {
     let artI = 0;
     const nextArt = () => ART[artI++ % ART.length];
 
-    // ── walls: column bays below, niches above, each backed onto the wall plane and facing in
-    const wallPieces: [number, number, number][] = [];
-    for (const x of LONG_SLOTS) { wallPieces.push([x, -HZ, 0], [x, HZ, Math.PI]); }
-    for (const z of SHORT_SLOTS) { wallPieces.push([-HX, z, Math.PI / 2], [HX, z, -Math.PI / 2]); }
-    for (const [wx, wz, yaw] of wallPieces) {
+    // ── walls: the kit pieces of WALL_PLAN, ground tier below the cornice and upper tier above, backed onto the wall plane
+    const fountains: THREE.Matrix4[] = [];
+    const piece = (name: MuseumModel, wx: number, wz: number, yaw: number, y: number, h: number, maxD: number, collide: boolean) => {
+      const k = KIT[name]!;
+      const d = Math.min(maxD, k.dh * h);
       const n = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)); // inward
-      const bay = put('museum_column_bay', mat4(wx + n.x * BAY_D / 2, 0, wz + n.z * BAY_D / 2, yaw, BAY_H, 1, BAY_DZ), true);
-      put('museum_wall_niche', mat4(wx + n.x * NICHE_D / 2, BAY_H + CORNICE, wz + n.z * NICHE_D / 2, yaw, NICHE_H, BAY_W / (1.009 * NICHE_H), NICHE_DZ), false);
+      return put(name, mat4(wx + n.x * d / 2, y, wz + n.z * d / 2, yaw, h, BAY_W / (k.wh * h), d / (k.dh * h)), collide);
+    };
+    for (const wall of WALL_PLAN) wall.slots.forEach((slot, i) => {
+      const [wx, wz, yaw] = wall.at(slot);
+      const g = G[wall.ground[i]];
+      const m = piece(g, wx, wz, yaw, 0, BAY_H, BAY_D, true);
+      piece(U[wall.upper[i]], wx, wz, yaw, BAY_H + CORNICE, NICHE_H, NICHE_D, false);
+      if (g === 'museum_bay_fountain') fountains.push(m);
+      if (g !== 'museum_column_bay') return;
+      const bay = m;
       // a painting in the arch (raised where a staircase landing stands in front of it)
       const stairHere = STAIRS.some(([sx, sz]) => Math.abs(sx - wx) < 1 && Math.sign(sz) === Math.sign(wz) && Math.abs(wz) === HZ);
       const fh = 6.2;
       const local = new THREE.Matrix4().makeTranslation(0, (stairHere ? 5.6 : 2.5) / BAY_H, -0.145 + (0.123 * fh / BAY_H) / BAY_DZ * 0.5 + 0.002);
       frames.push({ m: bay.clone().multiply(local).multiply(new THREE.Matrix4().makeScale(fh / BAY_H, fh / BAY_H, fh / BAY_H / BAY_DZ)), h: fh, art: nextArt() });
+    });
+    if (fountains.length) {
+      const P = FOUNTAIN_PATCH;
+      const g = mergeGeometries(fountains.map((m) => new THREE.PlaneGeometry(P.w, P.y1 - P.y0).translate(0, (P.y0 + P.y1) / 2, P.z).applyMatrix4(m)));
+      const patch = new THREE.Mesh(g, makeMarbleMaterial(this.renderer, 'verde', 0.25));
+      patch.receiveShadow = true;
+      // its outer sides are textured a sickly yellow: clad them in white marble
+      const S = FOUNTAIN_SIDES;
+      const sides = mergeGeometries(fountains.flatMap((m) => [-1, 1].map((sx) =>
+        new THREE.PlaneGeometry(S.z1 - S.z0, 1).rotateY(sx * Math.PI / 2).translate(sx * S.x, 0.5, (S.z0 + S.z1) / 2).applyMatrix4(m)).concat(
+        // and the recess under the basin: its inner sides and its sill
+        [-1, 1].map((sx) => new THREE.PlaneGeometry(S.rz1 - S.rz0, S.ry1 - S.ry0).rotateY(-sx * Math.PI / 2).translate(sx * S.rx, (S.ry0 + S.ry1) / 2, (S.rz0 + S.rz1) / 2).applyMatrix4(m)),
+        new THREE.PlaneGeometry(2 * S.rx, S.rz1 - S.rz0).rotateX(-Math.PI / 2).translate(0, S.sill, (S.rz0 + S.rz1) / 2).applyMatrix4(m))));
+      const clad = new THREE.Mesh(sides, makeMarbleMaterial(this.renderer, 'carrara', 0.25));
+      clad.receiveShadow = true;
+      this.scene.add(patch, clad);
     }
 
     // ── gallery screens shielding each spawn: two bays back to back, a painting in each arch
@@ -234,7 +292,7 @@ export class MuseumArena implements ArenaLike {
     for (const [x, z, yaw] of BENCHES) put('museum_bench', mat4(x, 0, z, yaw, BENCH_H), true);
 
     // ── instance everything: one draw per model
-    const noShadow = new Set<MuseumModel>(['museum_column_bay', 'museum_wall_niche', 'painting_frame']);
+    const noShadow = new Set<MuseumModel>([...(Object.keys(KIT) as MuseumModel[]), 'painting_frame']);
     for (const n of MODELS) {
       if (n === 'whale_skeleton' || n === 'broken_dome_ring') continue;
       const t = this.T[n], list = places[n] ?? [];

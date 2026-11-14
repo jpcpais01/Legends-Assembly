@@ -37,9 +37,39 @@ const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal:
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
 export interface LineupSlot { id: HeroId; name: string }
+/** One seat in an online match, in the same order on every machine. owner = the player's peer id, null = a bot. */
+export interface RosterSlot { team: number; id: HeroId; name: string; owner: string | null }
 /** Who the bots play: [allies (without you), enemies]. Hero select rolls this up front so it can show the picks. */
 export type Lineup = [LineupSlot[], LineupSlot[]];
-export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard'; lineup?: Lineup }
+export interface MatchConfig {
+  mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard'; lineup?: Lineup;
+  /** Online: every seat (both teams) and which one is yours. */
+  roster?: RosterSlot[]; me?: number;
+}
+
+/**
+ * The online match link (src/net/NetMatch.ts). The host is the authority on health, eliminations, respawns,
+ * pickups and the score; every machine owns its own legend's movement and aim, fires its own abilities and
+ * reports its own hits, so shots land where you saw them land.
+ */
+export interface NetLink {
+  readonly authority: boolean;
+  /** An ability this machine fired (everyone else replays it). */
+  ability(h: Hero, slot: AbilitySlot): void;
+  /** A kit moment the other machines can't work out on their own (the Tonka crashing into a wall). */
+  kitEvent(h: Hero, ev: string): void;
+  /** Guests: your hit / heal, for the host to apply. */
+  hit(target: Hero, amount: number, source: Hero, crit: boolean): void;
+  healed(target: Hero, amount: number, source: Hero): void;
+  /** Host: authoritative events. */
+  killed(victim: Hero, killer: Hero | null, assists: Hero[], ab?: AbilitySlot): void;
+  spawned(h: Hero): void;
+  pickup(index: number, h: Hero): void;
+  ended(winner: number, finalBlow: Hero | null): void;
+  /** Move another machine's legend along its received path. */
+  drive(h: Hero): void;
+  update(dt: number): void;
+}
 
 /** Varied comps: each team cycles through a shuffled roster; small ally teams avoid doubling your legend. */
 export function rollLineup(mode: Mode, heroId: HeroId): Lineup {
@@ -54,6 +84,26 @@ export function rollLineup(mode: Mode, heroId: HeroId): Lineup {
       if (team === 0 && size <= 3 && id === heroId) id = roster[(i + 2) % roster.length];
       out[team].push({ id, name: names.pop() ?? 'Bot' });
     }
+  }
+  return out;
+}
+
+/** Online: every player in their seat, bots on varied legends in the rest (small teams avoid doubles). */
+export function partyRoster(mode: Mode, members: { id: string; name: string; team: number; hero: HeroId }[]): RosterSlot[] {
+  const size = MODE_INFO[mode].size;
+  const names = shuffle([...BOT_NAMES]);
+  const all: HeroId[] = HERO_LIST.map((h) => h.id);
+  const out: RosterSlot[] = [];
+  for (let team = 0; team < 2; team++) {
+    const seats: RosterSlot[] = members.filter((m) => m.team === team).slice(0, size).map((m) => ({ team, id: m.hero, name: m.name, owner: m.id }));
+    const roster = shuffle([...all]);
+    let k = 0;
+    while (seats.length < size) {
+      const taken = new Set(seats.map((x) => x.id));
+      const id = roster.find((x) => !taken.has(x)) ?? roster[k++ % roster.length];
+      seats.push({ team, id, name: names.pop() ?? 'Bot', owner: null });
+    }
+    out.push(...seats);
   }
   return out;
 }
@@ -127,8 +177,11 @@ export interface PlayOfGame { hero: Hero; title: string; score: number; t: numbe
 interface Pickup { pos: THREE.Vector3; ready: boolean; t: number; mesh: THREE.Group; orb: THREE.Mesh }
 
 export class Game {
-  scene: THREE.Scene;
   arena: ArenaLike;
+  /** Online match link (null offline). */
+  net: NetLink | null = null;
+  /** Set while applying a hit/heal another machine reported (no second round of effects). */
+  private applyingRemote = false;
   vfx: Vfx;
   camRig: CameraRig;
   input: Input;
@@ -176,10 +229,9 @@ export class Game {
   heat = 0;
   private lastTick = 99;
 
-  constructor(scene: THREE.Scene, arena: ArenaLike, camera: THREE.PerspectiveCamera, input: Input, events: GameEvents) {
-    this.scene = scene;
+  constructor(arena: ArenaLike, camera: THREE.PerspectiveCamera, input: Input, events: GameEvents) {
     this.arena = arena;
-    this.vfx = new Vfx(scene);
+    this.vfx = new Vfx(arena.scene);
     this.camRig = new CameraRig(camera);
     this.input = input;
     this.events = events;
@@ -190,6 +242,24 @@ export class Game {
   }
 
   get world() { return this.arena.world; }
+  get scene() { return this.arena.scene; }
+  /** Offline, or the host of an online match: this machine decides health, eliminations and the score. */
+  get authority() { return !this.net || this.net.authority; }
+  /** Whether this machine simulates the legend (its movement and when it fires). */
+  owns(h: Hero) { return h.ctrl !== 'remote'; }
+  /** Team color from where you stand: your side is always blue. */
+  teamColor(team: number) { return TEAM_COLORS[this.local && team !== this.local.team ? 1 : this.local ? 0 : team]; }
+
+  /** Move the match world to another arena (loaded in place, no reload). Only between matches. */
+  setArena(arena: ArenaLike) {
+    if (arena === this.arena) return;
+    for (const p of this.pickups) p.mesh.removeFromParent();
+    this.pickups = [];
+    this.arena = arena;
+    this.vfx.moveTo(arena.scene);
+    for (const p of this.pools.values()) arena.scene.add(p.mesh);
+    this.buildPickups();
+  }
 
   pool(key: string, make: () => InstancedPool) {
     let p = this.pools.get(key);
@@ -228,8 +298,9 @@ export class Game {
 
   // ───────────────────────── match lifecycle ─────────────────────────
 
-  startMatch(cfg: MatchConfig) {
+  startMatch(cfg: MatchConfig, net: NetLink | null = null) {
     this.clearMatch();
+    this.net = net;
     this.config = cfg;
     const info = MODE_INFO[cfg.mode];
     this.target = info.target;
@@ -245,22 +316,32 @@ export class Game {
     this.time = 0;
     this.winner = -1;
     this.timeScale = 1;
-    const lineup = cfg.lineup ?? rollLineup(cfg.mode, cfg.heroId);
-    for (let team = 0; team < 2; team++) {
-      for (let i = 0; i < info.size; i++) {
-        const isLocal = team === 0 && i === 0;
-        const slot = isLocal ? null : lineup[team][team === 0 ? i - 1 : i];
-        const id: HeroId = slot ? slot.id : cfg.heroId;
-        const def = HEROES[id];
-        const name = isLocal ? (settings.playerName || 'You') : slot?.name ?? 'Bot';
-        const h = new Hero(def, team, name, isLocal, TEAM_COLORS[team]);
-        this.scene.add(h.model.root);
-        this.heroes.push(h);
-        if (isLocal) this.local = h;
-        else this.bots.push(new Bot(h, this, cfg.difficulty));
-        this.spawn(h, i, info.size);
+    const roster: RosterSlot[] = cfg.roster ?? [];
+    let me = cfg.me ?? 0;
+    if (!cfg.roster) {
+      const lineup = cfg.lineup ?? rollLineup(cfg.mode, cfg.heroId);
+      for (let team = 0; team < 2; team++) {
+        for (let i = 0; i < info.size; i++) {
+          const isLocal = team === 0 && i === 0;
+          const slot = isLocal ? null : lineup[team][team === 0 ? i - 1 : i];
+          roster.push({ team, id: slot ? slot.id : cfg.heroId, name: isLocal ? (settings.playerName || 'You') : slot?.name ?? 'Bot', owner: isLocal ? 'me' : null });
+        }
       }
+      me = 0;
     }
+    const myTeam = roster[me]?.team ?? 0;
+    const seat = [0, 0];
+    roster.forEach((r, idx) => {
+      const isLocal = idx === me;
+      const h = new Hero(HEROES[r.id], r.team, r.name, isLocal, TEAM_COLORS[r.team === myTeam ? 0 : 1]);
+      h.idx = idx;
+      h.ctrl = isLocal ? 'local' : r.owner === null && this.authority ? 'bot' : 'remote';
+      this.scene.add(h.model.root);
+      this.heroes.push(h);
+      if (isLocal) this.local = h;
+      if (h.ctrl === 'bot') this.bots.push(new Bot(h, this, cfg.difficulty));
+      this.spawn(h, seat[r.team]++, info.size);
+    });
     this.camRig.mode = 'play'; this.camRig.vehicle = 0;
     this.voice.reset();
     this.voice.preload([...new Set(this.heroes.map((h) => h.def.id))]);
@@ -271,6 +352,14 @@ export class Game {
     this.state = 'intro';
     this.introT = 0;
     this.lastCount = 4;
+  }
+
+  /** An online player dropped out: a bot takes over their legend (host only). */
+  adoptAsBot(h: Hero) {
+    if (h.ctrl !== 'remote' || !this.authority) return;
+    h.ctrl = 'bot';
+    h.input.primary = h.input.secondary = h.input.ult = false;
+    this.bots.push(new Bot(h, this, this.config?.difficulty ?? 'normal'));
   }
 
   private spawn(h: Hero, slot = Math.floor(Math.random() * 5), size = 5) {
@@ -298,6 +387,7 @@ export class Game {
     for (const h of this.heroes) { if (h.alive) h.kit.onDeath?.(h, this); this.scene.remove(h.model.root); h.dispose(); }
     this.heroes = [];
     this.bots = [];
+    this.net = null;
     this.vfx.clear();
     for (const p of this.pools.values()) { p.begin(); p.end(); }
     for (const p of this.pickups) { p.ready = true; p.t = 0; }
@@ -330,72 +420,96 @@ export class Game {
   }
   los(a: THREE.Vector3, b: THREE.Vector3) { return this.world.raycast(a, b) < 0; }
 
+  /**
+   * Deal damage. Online, only the authority changes health; a hit that isn't real here (a guest's view, or the
+   * host's view of a guest's shot) still plays every effect, and your own hits are reported to the host.
+   */
   damage(target: Hero, amount: number, source: Hero, opts: { crit?: boolean; knock?: THREE.Vector3; at?: THREE.Vector3; silent?: boolean; fx?: boolean } = {}) {
     if (!target.alive || this.state === 'ended') return 0;
     if (target.team === source.team) return 0;
     if (target.spawnT < 1.6) return 0;
+    const real = this.authority && (source.ctrl !== 'remote' || this.applyingRemote);
+    const show = !this.applyingRemote;
     let dmg = amount * source.dmgMult * target.dmgTakenMult * (opts.crit ? 1.5 : 1);
     dmg = Math.min(dmg, target.hp);
     if (dmg <= 0) return 0;
     const wasHealthy = target.hp / target.maxHp >= 0.3;
-    target.hp -= dmg;
-    target.flashT = Math.min(1, target.flashT + (opts.crit ? 1 : 0.7));
-    target.anim.hit = 1;
-    {
+    const killed = target.hp - dmg <= 0.01;
+    if (real) {
+      target.hp -= dmg;
+      target.recentAttackers.set(source.id, this.time);
+      target.lastAttacker = source;
+      source.stats.damage += dmg;
+      this.chargeUlt(source, dmg);
+    } else if (source.isLocal) this.net?.hit(target, amount, source, !!opts.crit);
+    // knockback moves whoever simulates the target, once (never again from a report)
+    if (opts.knock && this.owns(target) && show) target.applyImpulse(opts.knock);
+    if (show) {
+      target.flashT = Math.min(1, target.flashT + (opts.crit ? 1 : 0.7));
+      target.anim.hit = 1;
       // which way the blow shoves them, in their own body frame (drives the recoil animation)
       const dx = target.pos.x - source.pos.x, dz = target.pos.z - source.pos.z, dl = Math.hypot(dx, dz) || 1;
       const sy = Math.sin(target.yaw), cy = Math.cos(target.yaw);
       target.anim.hitZ = (-dx * sy - dz * cy) / dl;
       target.anim.hitX = (dx * cy - dz * sy) / dl;
       target.anim.hitK = clamp(dmg / 70, 0.2, 1);
-    }
-    target.recentAttackers.set(source.id, this.time);
-    target.lastAttacker = source;
-    source.stats.damage += dmg;
-    this.chargeUlt(source, dmg);
-    if (opts.knock) target.applyImpulse(opts.knock);
-    const at = opts.at ?? target.chest;
-    const killed = target.hp <= 0.01;
-    // universal impact layer on top of each kit's own hit effects
-    if (opts.fx !== false) {
-      const k = clamp(dmg / 40, 0.3, 2.2);
-      this.vfx.impact(at, this.glow(source, 2.2), k);
-      if (opts.crit) {
-        this.vfx.flare(at, CRIT, 1.6, 0.16, rand(-0.2, 0.2));
-        this.vfx.add.spawn({ x: at.x, y: at.y, z: at.z, r: CRIT.r, g: CRIT.g, b: CRIT.b, size: 0.45, grow: 2.2, life: 0.22, shape: Shape.Star, spin: 3 });
+      const at = opts.at ?? target.chest;
+      // universal impact layer on top of each kit's own hit effects
+      if (opts.fx !== false) {
+        const k = clamp(dmg / 40, 0.3, 2.2);
+        this.vfx.impact(at, this.glow(source, 2.2), k);
+        if (opts.crit) {
+          this.vfx.flare(at, CRIT, 1.6, 0.16, rand(-0.2, 0.2));
+          this.vfx.add.spawn({ x: at.x, y: at.y, z: at.z, r: CRIT.r, g: CRIT.g, b: CRIT.b, size: 0.45, grow: 2.2, life: 0.22, shape: Shape.Star, spin: 3 });
+        }
+      }
+      if (source.isLocal && !opts.silent) {
+        this.events.onDamageNumber(at, dmg, !!opts.crit, false, target.id);
+        this.events.onHitmarker(!!opts.crit, killed, dmg);
+        this.play(opts.crit ? 'crit' : 'hit', undefined, 0.6);
+        this.heat = Math.min(1, this.heat + 0.18);
+        if (dmg >= 55) this.play('hitHeavy', undefined, Math.min(1, 0.55 + dmg / 300));
+        if (dmg >= 55) { this.hitStop(0.03 + Math.min(0.05, dmg / 4000)); screenFx.punch(Math.min(0.6, dmg / 300)); }
+      }
+      if (target.isLocal) {
+        this.events.onLocalHurt(dmg, source.pos);
+        this.heat = Math.min(1, this.heat + 0.28);
+        // the hit comes from where the attacker is: it pans, so you know where to turn
+        if (!opts.silent) {
+          const d = this._v3.subVectors(source.pos, target.pos).setY(0);
+          const l = d.length();
+          this.play('hurt', l > 0.5 ? d.multiplyScalar(2.5 / l).add(target.center) : undefined, 0.5);
+        }
+        if (dmg >= 30) { screenFx.punch(Math.min(0.7, dmg / 200)); screenFx.flashScreen(HURT, Math.min(0.12, dmg / 1500)); }
+        if (dmg >= 80) this.hitStop(0.05);
       }
     }
-    if (source.isLocal && !opts.silent) {
-      this.events.onDamageNumber(at, dmg, !!opts.crit, false, target.id);
-      this.events.onHitmarker(!!opts.crit, killed, dmg);
-      this.play(opts.crit ? 'crit' : 'hit', undefined, 0.6);
-      this.heat = Math.min(1, this.heat + 0.18);
-      if (dmg >= 55) this.play('hitHeavy', undefined, Math.min(1, 0.55 + dmg / 300));
-      if (dmg >= 55) { this.hitStop(0.03 + Math.min(0.05, dmg / 4000)); screenFx.punch(Math.min(0.6, dmg / 300)); }
-    }
-    if (target.isLocal) {
-      this.events.onLocalHurt(dmg, source.pos);
-      this.heat = Math.min(1, this.heat + 0.28);
-      // the hit comes from where the attacker is: it pans, so you know where to turn
-      if (!opts.silent) {
-        const d = this._v3.subVectors(source.pos, target.pos).setY(0);
-        const l = d.length();
-        this.play('hurt', l > 0.5 ? d.multiplyScalar(2.5 / l).add(target.center) : undefined, 0.5);
-      }
-      if (dmg >= 30) { screenFx.punch(Math.min(0.7, dmg / 200)); screenFx.flashScreen(HURT, Math.min(0.12, dmg / 1500)); }
-      if (dmg >= 80) this.hitStop(0.05);
-    }
-    if (killed) this.kill(target, source);
-    else if (target.isLocal && wasHealthy && target.hp / target.maxHp < 0.3) { this.play('lowHealth'); this.voice.say(target, 'lowHp'); }
+    if (real && killed) this.kill(target, source);
+    else if (target.isLocal && wasHealthy && (target.hp - (real ? 0 : dmg)) / target.maxHp < 0.3) { this.play('lowHealth'); this.voice.say(target, 'lowHp'); }
     return dmg;
   }
 
-  heal(target: Hero, amount: number, source: Hero) {
+  /** Apply a hit another machine reported (host only): health, credit and eliminations, without replaying effects. */
+  applyRemoteHit(target: Hero, amount: number, source: Hero, crit: boolean) {
+    this.applyingRemote = true;
+    try { return this.damage(target, amount, source, { crit, silent: true, fx: false }); } finally { this.applyingRemote = false; }
+  }
+  applyRemoteHeal(target: Hero, amount: number, source: Hero) {
+    this.applyingRemote = true;
+    try { return this.heal(target, amount, source); } finally { this.applyingRemote = false; }
+  }
+
+  /** Heal. `fxOnly`: an event replayed from the host (show it, don't report it). */
+  heal(target: Hero, amount: number, source: Hero, fxOnly = false) {
     if (!target.alive || target.hp >= target.maxHp) return 0;
     const h = Math.min(amount, target.maxHp - target.hp);
-    target.hp += h;
-    source.stats.healing += h;
-    if (target !== source || h > 0) this.chargeUlt(source, h * 0.8);
+    const real = this.authority && !fxOnly && (source.ctrl !== 'remote' || this.applyingRemote);
+    if (real) {
+      target.hp += h;
+      source.stats.healing += h;
+      if (target !== source || h > 0) this.chargeUlt(source, h * 0.8);
+    } else if (source.isLocal && !fxOnly) this.net?.healed(target, amount, source);
+    if (this.applyingRemote) return h;
     target.healGlowT = 1;
     // rising crosses, throttled per hero
     const last = this.healFxT.get(target.id) ?? -9;
@@ -409,8 +523,13 @@ export class Game {
   }
 
   chargeUlt(h: Hero, amount: number) {
-    if (h.ult >= 1) return;
+    if (h.ult >= 1 || !this.authority) return;
     h.ult = Math.min(1, h.ult + amount / h.def.ultCost);
+    this.ultReadyCue(h);
+  }
+
+  /** The "special ready" moment for your own legend (offline it follows charging; online, the host's numbers). */
+  ultReadyCue(h: Hero) {
     if (h.ult >= 1 && h.isLocal && !h.ultReadyNotified) {
       h.ultReadyNotified = true;
       this.play('ultReady', undefined, 0.8);
@@ -419,7 +538,13 @@ export class Game {
     }
   }
 
-  private kill(victim: Hero, killer: Hero | null) {
+  /** Online guests: an elimination the host called. */
+  remoteKill(victim: Hero, killer: Hero | null, assists: Hero[], ab?: AbilitySlot) {
+    if (!victim.alive) return;
+    this.kill(victim, killer, { assists, ab });
+  }
+
+  private kill(victim: Hero, killer: Hero | null, called?: { assists: Hero[]; ab?: AbilitySlot }) {
     victim.alive = false;
     victim.hp = 0;
     victim.deathT = 0;
@@ -430,13 +555,15 @@ export class Game {
     victim.stats.streak = 0;
     victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0; victim.stunT = 0;
     victim.kit.onDeath?.(victim, this);
-    const assists: Hero[] = [];
-    for (const [id, t] of victim.recentAttackers) {
+    const assists: Hero[] = called ? called.assists : [];
+    if (called) for (const a of assists) a.stats.assists++;
+    else for (const [id, t] of victim.recentAttackers) {
       if (killer && id === killer.id) continue;
       if (this.time - t < 6) { const a = this.heroes.find((h) => h.id === id); if (a) { a.stats.assists++; assists.push(a); this.chargeUlt(a, 120); } }
     }
-    const ab: AbilitySlot | undefined = !killer ? undefined
+    const ab: AbilitySlot | undefined = called ? called.ab : !killer ? undefined
       : this.time - killer.abT.ult < 9 ? 'ult' : this.time - killer.abT.secondary < 3.5 ? 'secondary' : 'primary';
+    if (!called && this.authority) this.net?.killed(victim, killer, assists, ab);
     const revenge = !!killer && killer !== victim && killer.nemesis === victim;
     const denied = victim.ult >= 1;
     if (killer && killer !== victim) { if (revenge) killer.nemesis = null; victim.nemesis = killer; }
@@ -455,7 +582,7 @@ export class Game {
       this.events.onAnnounce('YOU WERE ELIMINATED', killer ? `by ${killer.name} · ${killer.def.name}` : '', 'red');
     }
     // death burst: a flash, a ring through the world, and the legend's light rising away
-    const c = TEAM_COLORS[victim.team];
+    const c = this.teamColor(victim.team);
     const p = victim.center;
     const tc = new THREE.Color(c.r * 4, c.g * 4, c.b * 4);
     this.vfx.burst(p, tc, 46, 7, 0.18, 1.0, { gravity: -1 });
@@ -495,7 +622,7 @@ export class Game {
     else if (me && me.alive && victim.team === me.team && victim.pos.distanceTo(me.pos) < 35) this.voice.after(0.7, () => this.voice.say(me, 'allyDown'));
     if (me && assists.includes(me)) { this.play('assist'); this.voice.after(1.1, () => this.voice.say(me, 'assist')); }
     this.trackPlay(killer, victim, ab);
-    const over = this.score[0] >= this.target || this.score[1] >= this.target || (this.matchTime <= 0 && this.score[0] !== this.score[1]);
+    const over = this.authority && (this.score[0] >= this.target || this.score[1] >= this.target || (this.matchTime <= 0 && this.score[0] !== this.score[1]));
     if (over) {
       this.finalBlow = killer && killer !== victim ? killer : null;
       this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
@@ -603,8 +730,10 @@ export class Game {
     }
   }
 
-  private endMatch(winner: number) {
+  endMatch(winner: number, finalBlow?: Hero | null) {
     if (this.state === 'ended') return;
+    if (finalBlow !== undefined) this.finalBlow = finalBlow;
+    if (this.authority) this.net?.ended(winner, this.finalBlow);
     this.state = 'ended';
     this.winner = winner;
     this.endT = 0;
@@ -707,25 +836,34 @@ export class Game {
         continue;
       }
       if (Math.random() < dt * 6) this.vfx.p({ x: p.pos.x + rand(-0.7, 0.7), y: p.pos.y + 0.2, z: p.pos.z + rand(-0.7, 0.7), vy: rand(0.8, 1.6), r: 0.4, g: 2.4, b: 1, size: 0.08, life: 1, shape: Shape.Dot });
+      if (!this.authority) continue; // online guests: the host calls who took it
       for (const h of this.heroes) {
         if (!h.alive || h.hp >= h.maxHp) continue;
         if (Math.hypot(h.pos.x - p.pos.x, h.pos.z - p.pos.z) < 1.3 && Math.abs(h.pos.y - p.pos.y) < 1.5) {
-          this.heal(h, 150, h);
-          p.ready = false; p.t = 12;
-          this.vfx.burst(this._v.copy(p.pos).setY(p.pos.y + 1), new THREE.Color(0.5, 3, 1.4), 30, 5, 0.12, 0.8);
-          this.vfx.shockwave(p.pos, new THREE.Color(0.4, 2.5, 1.2), 3, 0.5);
-          this.vfx.pillar(h.pos, HEALC, 5, 24, 0.6);
-          this.vfx.flare(this._v.copy(p.pos).setY(p.pos.y + 1.1), HEALC, 2, 0.25);
-          for (let i = 0; i < 10; i++) {
-            const a = (i / 10) * TAU;
-            this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.7, y: h.pos.y + 0.2, z: h.pos.z + Math.sin(a) * 0.7, vx: -Math.sin(a) * 2, vy: rand(2, 3.5), vz: Math.cos(a) * 2, r: HEALC.r, g: HEALC.g, b: HEALC.b, size: rand(0.18, 0.28), life: rand(0.7, 1), shape: Shape.Plus, drag: 1.5, fadeIn: 0.1 });
-          }
-          this.play('pickup', p.pos);
-          if (h.isLocal) this.voice.after(0.4, () => this.voice.say(h, 'heal'));
+          this.takePickup(this.pickups.indexOf(p), h);
           break;
         }
       }
     }
+  }
+
+  /** A legend grabs a health pad (decided by the authority; guests replay it). */
+  takePickup(index: number, h: Hero) {
+    const p = this.pickups[index];
+    if (!p) return;
+    this.heal(h, 150, h, !this.authority);
+    if (this.authority) this.net?.pickup(index, h);
+    p.ready = false; p.t = 12;
+    this.vfx.burst(this._v.copy(p.pos).setY(p.pos.y + 1), new THREE.Color(0.5, 3, 1.4), 30, 5, 0.12, 0.8);
+    this.vfx.shockwave(p.pos, new THREE.Color(0.4, 2.5, 1.2), 3, 0.5);
+    this.vfx.pillar(h.pos, HEALC, 5, 24, 0.6);
+    this.vfx.flare(this._v.copy(p.pos).setY(p.pos.y + 1.1), HEALC, 2, 0.25);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * TAU;
+      this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.7, y: h.pos.y + 0.2, z: h.pos.z + Math.sin(a) * 0.7, vx: -Math.sin(a) * 2, vy: rand(2, 3.5), vz: Math.cos(a) * 2, r: HEALC.r, g: HEALC.g, b: HEALC.b, size: rand(0.18, 0.28), life: rand(0.7, 1), shape: Shape.Plus, drag: 1.5, fadeIn: 0.1 });
+    }
+    this.play('pickup', p.pos);
+    if (h.isLocal) this.voice.after(0.4, () => this.voice.say(h, 'heal'));
   }
 
   // ───────────────────────── frame ─────────────────────────
@@ -783,7 +921,7 @@ export class Game {
         this.events.onAnnounce('OVERTIME', 'Next elimination wins', 'red');
         if (this.local) this.voice.after(1.6, () => this.voice.say(this.local, 'overtime'));
       }
-      if (this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
+      if (this.authority && this.matchTime <= 0 && this.score[0] !== this.score[1]) this.endMatch(this.score[0] > this.score[1] ? 0 : 1);
       // the last ten seconds: the study's big clock counts them down, each tick a little tighter
       if (this.matchTime > 0 && this.matchTime <= 10.5) {
         const sec = Math.ceil(this.matchTime);
@@ -805,6 +943,7 @@ export class Game {
     for (const z of this.zones) { z.t += dt; z.update(z, this, dt); if (z.t >= z.dur) { z.dead = true; z.dispose(z, this); } }
     this.zones = this.zones.filter((z) => !z.dead);
     this.updatePickups(dt);
+    this.net?.update(rawDt);
     this.vfx.update(dt);
     this.arena.grass?.setPushers(this.heroes.filter((h) => h.alive).map((h) => h.pos));
 
@@ -853,21 +992,16 @@ export class Game {
       h.model.fx.uDissolve.value = clamp((h.deathT - 0.5) / 1.4, 0, 1);
       if (h.deathT > 2.2) h.model.root.visible = false;
       h.respawnT -= dt;
-      if (h.respawnT <= 0 && this.state !== 'ended') {
+      // online guests wait for the host to bring them back
+      if (h.respawnT <= 0 && this.state !== 'ended' && this.authority) {
         this.spawn(h);
-        this.play('respawn', h.pos, 0.6);
-        this.voice.say(h, 'respawn');
-        const tc = TEAM_COLORS[h.team].clone().multiplyScalar(3);
-        this.vfx.burst(h.center, tc, 30, 4, 0.12, 0.9, { vy: 2 });
-        this.vfx.shockwave(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(2.5), 3, 0.5);
-        this.vfx.pillar(h.pos, tc, 12, 40, 0.5);
-        this.vfx.rune(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(2.2), 1.5, 1.6, -2.2, 1, 1.25);
-        this.vfx.flare(h.center, tc, 2.4, 0.35);
-        this.vfx.groundGlow(h.pos, TEAM_COLORS[h.team].clone().multiplyScalar(1.4), 2.2, 1.4, 0.3);
+        this.respawnFx(h);
+        this.net?.spawned(h);
       }
       h.updateAnim(dt, this.time);
       return;
     }
+    if (!this.owns(h)) this.net?.drive(h);
     h.spawnT += dt;
     h.model.fx.uDissolve.value = Math.max(0, 1 - h.spawnT * 1.4);
     if (frozen) {
@@ -877,31 +1011,30 @@ export class Game {
     h.pitch = h.input.pitch;
     h.primaryCd = Math.max(0, h.primaryCd - dt);
     h.secondaryCd = Math.max(0, h.secondaryCd - dt);
-    if (this.state === 'playing') h.ult = Math.min(1, h.ult + dt / 200);
+    if (this.state === 'playing' && this.authority) h.ult = Math.min(1, h.ult + dt / 200);
     if (h.ult < 1) h.ultReadyNotified = false;
 
     // reset per-frame buffs; kit re-applies
     h.speedMult = 1; h.dmgMult = 1; h.dmgTakenMult = 1;
     h.kit.update(h, this, dt);
-    if (!frozen && h.channel <= 0 && h.stunT <= 0 && h.alive) {
-      if (h.input.primary && h.primaryCd <= 0) {
-        h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); h.abT.primary = this.time; this.voice.say(h, 'primary');
-        if (h.isLocal) this.camRig.recoil(RECOIL[h.def.id] ?? 0.006, rand(-1, 1) * 0.002);
-      }
-      const silenced = h.silenceT > 0;
-      if (h.input.secondary && h.secondaryCd <= 0 && !silenced) {
-        if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.secondary = this.time; this.voice.say(h, 'secondary'); if (h.isLocal) this.camRig.recoil(0.012); }
-      } else if (h.isLocal && this.input.rmbPressed && (h.secondaryCd > 0 || silenced)) this.play('denied', undefined, 0.4);
-      if (h.input.ult && h.ult >= 1 && !silenced) {
-        if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); this.ultMoment(h); }
-      } else if (h.isLocal && this.input.shiftPressed && (h.ult < 1 || silenced)) this.play('denied', undefined, 0.4);
+    if (h.ultGuardT > 0) h.ultGuardT -= dt;
+    // another machine's legend fires when that machine says so (see fireAbility's replay)
+    const silenced = h.silenceT > 0;
+    if (!frozen && h.channel <= 0 && h.stunT <= 0 && h.alive && this.owns(h)) {
+      if (h.input.primary && h.primaryCd <= 0) this.fireAbility(h, 'primary');
+      if (h.input.secondary && h.secondaryCd <= 0 && !silenced) this.fireAbility(h, 'secondary');
+      else if (h.isLocal && this.input.rmbPressed && (h.secondaryCd > 0 || silenced)) this.play('denied', undefined, 0.4);
+      if (h.input.ult && h.ult >= 1 && !silenced) this.fireAbility(h, 'ult');
+      else if (h.isLocal && this.input.shiftPressed && (h.ult < 1 || silenced)) this.play('denied', undefined, 0.4);
     }
     this.heroAmbient(h, dt);
     if (h.moveLock > 0) h.moveLock -= dt;
+    if (h.silenceT > 0) h.silenceT -= dt;
+    if (h.stunT > 0) h.stunT -= dt;
     if (h.channel > 0) h.channel -= dt;
     const wasGrounded = h.grounded;
     const preVy = h.vel.y;
-    h.physics(dt, this.world);
+    if (this.owns(h)) h.physics(dt, this.world);
     if (wasGrounded && !h.grounded && h.vel.y > 5) { this.play('jump', h.pos, 0.5); this.vfx.dust(h.pos, 3, 0.35, 0.22, 1.2); }
     else if (!wasGrounded && h.grounded && preVy < -6) {
       const k = clamp(-preVy / 14, 0.4, 1);
@@ -912,6 +1045,55 @@ export class Game {
     }
     this.footsteps(h, dt, wasGrounded);
     h.updateAnim(dt, this.time);
+  }
+
+  /** Online guests: the host brought a legend back at this spot. */
+  remoteRespawn(h: Hero, pos: THREE.Vector3, yaw: number) {
+    h.respawnAt(pos, yaw);
+    if (h.isLocal) { this.camRig.yaw = yaw; this.camRig.pitch = -0.08; this.camRig.reset(); }
+    this.respawnFx(h);
+  }
+
+  private respawnFx(h: Hero) {
+    this.play('respawn', h.pos, 0.6);
+    this.voice.say(h, 'respawn');
+    const base = this.teamColor(h.team);
+    const tc = base.clone().multiplyScalar(3);
+    this.vfx.burst(h.center, tc, 30, 4, 0.12, 0.9, { vy: 2 });
+    this.vfx.shockwave(h.pos, base.clone().multiplyScalar(2.5), 3, 0.5);
+    this.vfx.pillar(h.pos, tc, 12, 40, 0.5);
+    this.vfx.rune(h.pos, base.clone().multiplyScalar(2.2), 1.5, 1.6, -2.2, 1, 1.25);
+    this.vfx.flare(h.center, tc, 2.4, 0.35);
+    this.vfx.groundGlow(h.pos, base.clone().multiplyScalar(1.4), 2.2, 1.4, 0.3);
+  }
+
+  /**
+   * Fire an ability. `replay`: another machine already fired it (online), so skip the cooldown and charge checks
+   * and run it from where they were standing and aiming when they pressed it.
+   */
+  fireAbility(h: Hero, slot: AbilitySlot, replay?: { pos: THREE.Vector3; yaw: number; pitch: number; aim: THREE.Vector3 }) {
+    let saved: THREE.Vector3 | null = null;
+    if (replay) {
+      saved = this._v2.copy(h.pos).clone();
+      h.pos.copy(replay.pos);
+      h.yaw = h.input.yaw = replay.yaw;
+      h.pitch = h.input.pitch = replay.pitch;
+      h.input.aim.copy(replay.aim);
+    }
+    let fired = false;
+    if (slot === 'primary') {
+      h.kit.primary(h, this); fired = true;
+      h.spawnT = Math.max(h.spawnT, 1.6); h.abT.primary = this.time; this.voice.say(h, 'primary');
+      if (h.isLocal) this.camRig.recoil(RECOIL[h.def.id] ?? 0.006, rand(-1, 1) * 0.002);
+    } else if (slot === 'secondary') {
+      if (h.kit.secondary(h, this)) { fired = true; h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.secondary = this.time; this.voice.say(h, 'secondary'); if (h.isLocal) this.camRig.recoil(0.012); }
+    } else if (h.kit.ult(h, this)) {
+      fired = true;
+      h.ult = 0; h.ultGuardT = 1.2; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); this.ultMoment(h);
+    }
+    if (saved) h.pos.copy(saved);
+    if (fired && !replay) this.net?.ability(h, slot);
+    return fired;
   }
 
   /** Your special opens with a camera beat and a breath of slow motion; a nearby enemy special warns you. */

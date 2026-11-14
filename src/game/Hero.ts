@@ -14,6 +14,12 @@ let nextId = 1;
 
 export class Hero {
   readonly id = nextId++;
+  /** Seat in the match roster: the same on every machine in an online match. */
+  idx = 0;
+  /** Who drives this legend here: you, a bot this machine simulates, or another machine (online). */
+  ctrl: 'local' | 'bot' | 'remote' = 'bot';
+  /** Online: seconds to keep your own special charge instead of the host's (it is still catching up to your cast). */
+  ultGuardT = 0;
   def: HeroDef;
   name: string;
   team: number;
@@ -124,8 +130,6 @@ export class Hero {
   physics(dt: number, world: World) {
     const inp = this.input;
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slowAmt = 0; }
-    if (this.silenceT > 0) this.silenceT -= dt;
-    if (this.stunT > 0) this.stunT -= dt;
     const speed = this.def.speed * this.speedMult * (1 - this.slowAmt) * (this.channel > 0 ? 0.25 : 1);
 
     // desired horizontal velocity in world space
