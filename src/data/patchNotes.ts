@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.26.1',
+    version: '0.26.2',
     date: '2026-11-14',
     title: 'Steady Aim',
     sections: [
@@ -19,6 +19,21 @@ export const PATCH_NOTES: PatchNote[] = [
           'Drawing pulls the arrow back along your aim, and the arrow now flies out of the bow toward the crosshair instead of from his chest.',
           'Fixed the bow hanging sideways off his hand like a stick when he was not drawing.',
           'The back of Steve\'s head no longer renders pitch black: his hair is a warmer brown, like the original.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.26.1',
+    date: '2026-11-14',
+    title: 'Slung Right',
+    sections: [
+      {
+        heading: 'Bob Marley',
+        items: [
+          'Bob Marley’s guitar now hangs from a leather strap with a red, gold and green stripe that runs over his left shoulder and across his back.',
+          'His fretting hand now wraps the guitar neck and his picking hand rests over the strings. He holds it this way everywhere, including the menus and hero select.',
+          'The loose strap that dangled from the guitar is gone.',
         ],
       },
     ],
