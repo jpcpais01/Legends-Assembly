@@ -25,7 +25,7 @@ import { paintCollection, paintingUV, type PaintingId } from './museumPaintings'
  * the coffered ceiling and the cornices that tie the pieces together are code, so big surfaces never stretch a texture.
  * Repeated models are instanced (one draw each); their textures are KTX2, so they stay compressed on the GPU.
  *
- * Layout (point-symmetric, teams spawn at the short ends): the T-rex holds the middle under the sun shafts, a winged
+ * Layout (point-symmetric, teams spawn at the short ends): the T-rex holds the middle under the dome, a winged
  * victory and a bronze rider guard each side of it, a grand staircase climbs to a balcony landing on each long wall,
  * and an arched gallery screen shields each spawn.
  */
@@ -84,7 +84,7 @@ export class MuseumArena implements ArenaLike {
   private dust: ReturnType<typeof makeMuseumDust> | null = null;
   private dustOn = false;
   private beacons: THREE.Mesh[] = [];
-  private envI = 0.85;
+  private envI = 0.55;
   private base = { fog: new THREE.Color(), fogD: 0, beam: new THREE.Color(), beamI: 0, sunI: 0, hemiSky: new THREE.Color(), hemiGround: new THREE.Color() };
   private T: Partial<Record<MuseumModel, PropTemplate>> = {};
   private instanced: Partial<Record<MuseumModel, THREE.InstancedMesh>> = {};
@@ -111,7 +111,7 @@ export class MuseumArena implements ArenaLike {
     this.beam = makeSunbeam();
     scene.add(this.beam, this.beam.target);
     // sky light straight down from under the ceiling (the ceiling and dome sit above its shadow camera, so they never block it)
-    const sun = new THREE.DirectionalLight(new THREE.Color(0.93, 0.95, 1.0), 1.25);
+    const sun = new THREE.DirectionalLight(new THREE.Color(0.93, 0.95, 1.0), 0.8);
     sun.position.set(SUN_DIR.x * 6, CEIL - 1, SUN_DIR.z * 6);
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
@@ -122,7 +122,7 @@ export class MuseumArena implements ArenaLike {
     sun.shadow.radius = 4;
     this.sun = sun;
     scene.add(sun, sun.target);
-    this.hemi = new THREE.HemisphereLight(new THREE.Color(0.95, 0.93, 0.88), new THREE.Color(0.5, 0.4, 0.3), 0.75);
+    this.hemi = new THREE.HemisphereLight(new THREE.Color(0.95, 0.93, 0.88), new THREE.Color(0.5, 0.4, 0.3), 0.35);
     scene.add(this.hemi);
     this.base.fog.copy(this.fog.color); this.base.fogD = this.fog.density;
     this.base.beam.copy(this.beam.color); this.base.beamI = this.beam.intensity; this.base.sunI = sun.intensity;
@@ -234,7 +234,7 @@ export class MuseumArena implements ArenaLike {
       const dome = new THREE.Mesh(domeT.geometry, domeT.material);
       dome.position.set(0, CEIL - 0.6, 0);
       dome.rotation.y = DOME.YAW;
-      dome.scale.setScalar(DOME.K);
+      dome.scale.setScalar(DOME.H);
       dome.castShadow = true; dome.receiveShadow = true;
       this.scene.add(dome);
     }

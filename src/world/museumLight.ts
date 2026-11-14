@@ -14,22 +14,25 @@ import { Effect, EffectAttribute, BlendFunction } from 'postprocessing';
 
 /** The hall: floor at y = 0, interior walls at |x| = HX and |z| = HZ, flat coffered ceiling at CEIL. */
 export const HALL = { HX: 52, HZ: 37, CEIL: 30 };
-/** The broken dome ring: scale, the ceiling hole it stands on and its yaw (turns its breach towards the sun). */
-export const DOME = { K: 56, HOLE_R: 21.4, YAW: 1.6 };
+/** The broken dome ring: height (it is 1.4x as wide), the ceiling hole it stands on and its yaw (turns its breach towards the sun). */
+export const DOME = { H: 38, HOLE_R: 21.4, YAW: 1.6 };
 
-/** Towards the sun: high noon-ish, so shafts from the sun-side drum windows land across the crossing. */
-export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 63), THREE.MathUtils.degToRad(90 + 20));
+/**
+ * Towards the sun: low enough (38°) that light through the dome's open top only gilds the far drum wall, so what reaches
+ * the floor comes through the sun-side windows and the breach as separate slanting shafts.
+ */
+export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 38), THREE.MathUtils.degToRad(90 + 20));
 
 /** The spot that plays the sun: far up the sun direction, aimed at the dome, cone just wider than the opening. */
 export function makeSunbeam() {
-  const aim = new THREE.Vector3(SUN_DIR.x, 0, SUN_DIR.z).normalize().multiplyScalar(7).setY(HALL.CEIL + 8);
+  const aim = new THREE.Vector3(0, HALL.CEIL + 17, 0);
   const D = 240;
-  const spot = new THREE.SpotLight(new THREE.Color(1.0, 0.9, 0.74), 11, 0, Math.atan(31 / D), 0.12, 0);
+  const spot = new THREE.SpotLight(new THREE.Color(1.0, 0.9, 0.74), 11, 0, Math.atan(36 / D), 0.12, 0);
   spot.position.copy(aim).addScaledVector(SUN_DIR, D);
   spot.target.position.copy(aim);
   spot.castShadow = true;
-  spot.shadow.camera.near = D - 60;
-  spot.shadow.camera.far = D + 70;
+  spot.shadow.camera.near = D - 75;
+  spot.shadow.camera.far = D + 95;
   spot.shadow.bias = -0.00012;
   spot.shadow.normalBias = 0.04;
   spot.shadow.radius = 2;
@@ -75,7 +78,7 @@ export class MuseumRaysEffect extends Effect {
         ['uRaysSize', new THREE.Uniform(new THREE.Vector2(1, 1))],
         ['uProjInvC', new THREE.Uniform(new THREE.Matrix4())],
         ['uColor', new THREE.Uniform(new THREE.Color(1.0, 0.86, 0.66))],
-        ['uDensity', new THREE.Uniform(0.0105)],
+        ['uDensity', new THREE.Uniform(0.006)],
       ]),
     });
     this.cam = camera;
@@ -126,8 +129,8 @@ export class MuseumRaysEffect extends Effect {
           vec3 rd = normalize((uCamWorld * vec4(vp, 1.0)).xyz - uCamPos);
           // only the hall under the dome can hold a shaft: spend every step there
           vec3 inv = 1.0 / (rd + vec3(equal(rd, vec3(0.0))) * 1e-6);
-          vec3 ta = (vec3(-34.0, 0.0, -32.0) - uCamPos) * inv;
-          vec3 tb = (vec3(34.0, ${f(HALL.CEIL + 30)}, 32.0) - uCamPos) * inv;
+          vec3 ta = (vec3(${f(-HALL.HX)}, 0.0, ${f(-HALL.HZ)}) - uCamPos) * inv;
+          vec3 tb = (vec3(${f(HALL.HX)}, ${f(HALL.CEIL + 30)}, ${f(HALL.HZ)}) - uCamPos) * inv;
           vec3 tn = min(ta, tb), tx = max(ta, tb);
           float t0 = max(max(tn.x, tn.y), max(tn.z, 0.0));
           float t1 = min(min(tx.x, tx.y), min(tx.z, min(dist, 300.0)));
@@ -151,7 +154,7 @@ export class MuseumRaysEffect extends Effect {
     this.quadScene.add(this.quad);
   }
   /** Shaft strength (scaled down during Yeat's doom). */
-  baseDensity = 0.0105;
+  baseDensity = 0.006;
   setSteps(steps: number) { this.march.defines.STEPS = String(steps); this.march.needsUpdate = true; }
   setDepthTexture(depthTexture: THREE.Texture) { this.march.uniforms.tDepth.value = depthTexture; }
   setSize(width: number, height: number) {

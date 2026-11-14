@@ -8,6 +8,37 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.16.0',
+    date: '2026-11-14',
+    title: 'The Grand Museum',
+    sections: [
+      {
+        heading: 'A new arena: the Grand Museum',
+        items: [
+          'A colossal marble museum hall with its dome broken open to the sky. Pick it on the home screen (Arena: Museum).',
+          'Sunlight slants through the windows of the shattered dome in long golden shafts that cross the hall, with dust drifting in the beams.',
+          'Two tiers of gilded columns and laurel niches line the walls, under a coffered ceiling, with 24 paintings hanging in the arches (look for a starry night, the sunflowers, a chalked E = mc² and a glowing green bell).',
+          'The floor is polished inlaid marble: a giant compass rose under the dome, a red and gold runner down the nave, and real reflections of the hall in the polish.',
+        ],
+      },
+      {
+        heading: 'How it plays',
+        items: [
+          'The T-rex skeleton holds the middle. You can weave between its legs and under its ribs, and its plinth is cover.',
+          'Two winged victories and two rearing bronze riders on tall pedestals guard the lanes around it.',
+          'A grand staircase on each long wall climbs to a balcony landing: high ground that overlooks the whole crossing.',
+          'An arched gallery screen shields each spawn, and the column alcoves along the walls are cover you can step into.',
+        ],
+      },
+      {
+        heading: 'Under the hood',
+        items: [
+          "The museum's textures stay compressed on your graphics card (KTX2), using several times less video memory, and every repeated piece is drawn in one go.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.1',
     date: '2026-11-14',
     title: 'Hall of Sound',
