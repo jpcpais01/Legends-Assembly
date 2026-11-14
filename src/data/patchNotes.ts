@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.5',
+    date: '2026-11-14',
+    title: 'Mickey Finds His Voice',
+    sections: [
+      {
+        heading: 'Mickey Mouse',
+        items: ["Mickey talks now: 64 fully voiced lines, from his \"Hot dog!\" kill cheers to his banter and rival taunts with every other legend, all run through a crackly old-cartoon soundtrack filter."],
+      },
+    ],
+  },
+  {
     version: '0.21.4',
     date: '2026-11-14',
     title: 'Gum-Gum Voice',
