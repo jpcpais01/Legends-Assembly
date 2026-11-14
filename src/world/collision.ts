@@ -4,6 +4,13 @@ import type { HeightGrid } from './HeightGrid';
 export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top: number }
 export interface BoxCollider { kind: 'box'; x: number; z: number; hx: number; hz: number; rot: number; top: number; cos: number; sin: number }
 export type Collider = CircleCollider | BoxCollider;
+/**
+ * A solid block column raised during a match (Steve's Build Up): blocks movement and shots, and you can stand on it.
+ * `top` may animate (the blocks rise), and anyone standing on it rides up with it.
+ */
+export interface DynBlock extends BoxCollider { base: number }
+/** How far up a legend steps onto a dynamic block without jumping (less than one block, so a 1 m block needs a jump). */
+const BLOCK_STEP = 0.55;
 
 export const ARENA_RADIUS = 40;
 export const SPAWNS: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(-33, 0, 0), new THREE.Vector3(33, 0, 0)];
@@ -12,6 +19,8 @@ export type Bounds = { kind: 'circle'; r: number } | { kind: 'rect'; hx: number;
 
 export class World {
   colliders: Collider[] = [];
+  /** Block columns raised during the match (see DynBlock). */
+  dyn: DynBlock[] = [];
   /** Team spawn points (team 0, team 1). */
   spawns: [THREE.Vector3, THREE.Vector3] = [SPAWNS[0].clone(), SPAWNS[1].clone()];
   bounds: Bounds = { kind: 'circle', r: ARENA_RADIUS };
@@ -42,13 +51,38 @@ export class World {
     this.colliders.push({ kind: 'box', x, z, hx, hz, rot, top, cos: Math.cos(rot), sin: Math.sin(rot) });
   }
 
+  /** Raise a block column (returned so its owner can animate `top` and remove it later). */
+  addBlock(x: number, z: number, hx: number, hz: number, rot: number, base: number, top: number): DynBlock {
+    const b: DynBlock = { kind: 'box', x, z, hx, hz, rot, top, base, cos: Math.cos(rot), sin: Math.sin(rot) };
+    this.dyn.push(b);
+    return b;
+  }
+
+  removeBlock(b: DynBlock) {
+    const i = this.dyn.indexOf(b);
+    if (i >= 0) this.dyn.splice(i, 1);
+  }
+
+  /** Top of the block column under (x, z) that someone with feet at refY can stand on, or -Infinity. */
+  private blockTop(x: number, z: number, refY: number) {
+    let best = -Infinity;
+    for (const b of this.dyn) {
+      if (b.top <= b.base + 0.02 || refY < b.top - BLOCK_STEP || refY < b.base - 0.5) continue;
+      const dx = x - b.x, dz = z - b.z;
+      const lx = dx * b.cos + dz * b.sin, lz = -dx * b.sin + dz * b.cos;
+      if (Math.abs(lx) <= b.hx && Math.abs(lz) <= b.hz && b.top > best) best = b.top;
+    }
+    return best;
+  }
+
   /**
    * Ground height under (x, z). `refY` is the feet height of whoever asks: with mesh collision it decides
    * whether a tall column is something to stand on or an overhang to walk under.
    */
   heightAt(x: number, z: number, refY = 0.5) {
     const h = this.ground(x, z);
-    return this.grid ? Math.max(h, this.grid.surface(x, z, refY)) : h;
+    const g = this.grid ? Math.max(h, this.grid.surface(x, z, refY)) : h;
+    return this.dyn.length ? Math.max(g, this.blockTop(x, z, refY)) : g;
   }
 
   /** Push a vertical capsule (xz circle) out of colliders. Mutates pos. Returns true if collided. */
@@ -91,6 +125,21 @@ export class World {
           }
         }
       }
+    }
+    for (const c of this.dyn) {
+      // a block you're on top of (or close enough to step onto) doesn't push you; neither does one far over your head
+      if (feetY > c.top - BLOCK_STEP || feetY + 1.8 < c.base) continue;
+      const dx = pos.x - c.x, dz = pos.z - c.z;
+      const lx = dx * c.cos + dz * c.sin, lz = -dx * c.sin + dz * c.cos;
+      const qx = Math.max(-c.hx, Math.min(c.hx, lx)), qz = Math.max(-c.hz, Math.min(c.hz, lz));
+      const ex = lx - qx, ez = lz - qz, d2 = ex * ex + ez * ez;
+      if (d2 >= radius * radius) continue;
+      let nx: number, nz: number;
+      if (d2 > 1e-8) { const d = Math.sqrt(d2); nx = (ex / d) * (radius - d); nz = (ez / d) * (radius - d); }
+      else { const px = c.hx - Math.abs(lx), pz = c.hz - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) * (px + radius); nz = 0; } else { nx = 0; nz = Math.sign(lz) * (pz + radius); } }
+      pos.x += nx * c.cos - nz * c.sin;
+      pos.z += nx * c.sin + nz * c.cos;
+      hit = true;
     }
     if (this.grid && this.grid.resolve(pos, radius, feetY)) hit = true;
     // arena boundary
@@ -152,6 +201,25 @@ export class World {
         const y = a.y + dy * t;
         if (y < c.top + pad) best = t;
       }
+    }
+    for (const c of this.dyn) {
+      if (c.top <= c.base + 0.05) continue;
+      // slab test on all three axes (blocks can sit on a desk, so they have a bottom too)
+      const ox = a.x - c.x, oz = a.z - c.z;
+      const lx = ox * c.cos + oz * c.sin, lz = -ox * c.sin + oz * c.cos;
+      const ldx = dx * c.cos + dz * c.sin, ldz = -dx * c.sin + dz * c.cos;
+      const cy = (c.base + c.top) / 2, hy = (c.top - c.base) / 2 + pad;
+      let tmin = 0, tmax = 1, ok = true;
+      for (const [o, d, h] of [[lx, ldx, c.hx + pad], [lz, ldz, c.hz + pad], [a.y - cy, dy, hy]] as const) {
+        if (Math.abs(d) < 1e-9) { if (o < -h || o > h) { ok = false; break; } }
+        else {
+          let t1 = (-h - o) / d, t2 = (h - o) / d;
+          if (t1 > t2) { const tt = t1; t1 = t2; t2 = tt; }
+          tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+          if (tmin > tmax) { ok = false; break; }
+        }
+      }
+      if (ok && tmin < best) best = tmin;
     }
     if (this.grid) best = Math.min(best, this.grid.raycast(a, b, pad));
     // terrain: march coarse steps

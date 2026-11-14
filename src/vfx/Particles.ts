@@ -19,6 +19,8 @@ export const enum Shape {
   Plus = 14,
   /** Rotating rune circle: rim, tick marks and an inner ring (target markers, cast circles). */
   Rune = 15,
+  /** Crisp square block-break chip with a 2x2 shaded face (Steve). Use aux for its shading seed. */
+  Pixel = 16,
 }
 
 export interface ParticleOpts {
@@ -129,6 +131,7 @@ export class ParticleSystem {
           vec2 d = vUv - 0.5;
           float r = length(d) * 2.0;
           float a = 0.0;
+          float shade = 1.0;
           int sh = int(vShape + 0.5);
           if (sh == 0 || sh == 1) {
             a = pow(max(0.0, 1.0 - r), 1.8);
@@ -210,11 +213,16 @@ export class ParticleSystem {
             float seg = step(0.3, fract(ang * (5.0 / 6.2831))) * smoothstep(th * 0.8, 0.0, abs(r - 0.72));
             float inner = smoothstep(th * 0.7, 0.0, abs(r - 0.6)) * 0.8;
             a = max(rim, max(tk * 0.9, max(seg, inner)));
+          } else if (sh == 16) {
+            // pixel chip: a hard square split into 2x2 shaded texels
+            a = step(max(abs(d.x), abs(d.y)), 0.42);
+            vec2 cell = floor(vUv * 2.0);
+            shade = 0.72 + 0.42 * fract(sin(dot(cell + vAux * 13.0, vec2(12.9898, 78.233))) * 43758.5453);
           } else {
             a = 1.0 - r;
           }
           if (a <= 0.003) discard;
-          gl_FragColor = vec4(vCol.rgb, vCol.a * a);
+          gl_FragColor = vec4(vCol.rgb * shade, vCol.a * a);
           #ifdef PREMUL
           gl_FragColor.rgb *= gl_FragColor.a;
           #endif

@@ -30,7 +30,8 @@ interface LegRig { hip: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object
 
 const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
-export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'punch' | 'blast';
+export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'punch' | 'blast'
+  | 'slash' | 'backslash' | 'chop' | 'loose' | 'place';
 /** heavy: a big machine (Blitzcrank): long arms carried forward, a planted stomp, little swing. */
 /** cartoon: 1928 rubber-hose bounce (Mickey): footfall dips and an idle bop to the beat. */
 export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'heavy' | 'cartoon';
@@ -71,6 +72,16 @@ const GESTURES: Record<AttackKind, Gesture> = {
   launch: { end: 0.9, dip: 0.55, keys: [k(0, -1.1, 0.3, -1.8, 0, -0.3, -0.05), k(0.07, -0.95, 0.38, -2.3, 0, -0.48, -0.08), k(0.13, -1.62, 0.0, 0.0, 0.25, 0.5, 0.14), k(0.62, -1.58, 0.02, -0.02, 0.25, 0.44, 0.12), k(0.9, -1.05, 0.2, -1.2, 0, 0.06, 0.02)] },
   // two-fisted hammer slam into the floor (Static Field); played on both arms, so the chest lean is split
   slam: { end: 0.85, dip: 1.1, keys: [k(0, -2.1, 0.35, -0.9, 0.3, 0, -0.08, 0), k(0.13, -2.95, 0.28, -0.5, 0.4, 0, -0.14, 0), k(0.24, -1.25, 0.1, -0.1, -0.4, 0, 0.32, 0), k(0.45, -1.15, 0.12, -0.2, -0.2, 0, 0.28, 0), k(0.85, -0.7, 0.2, -0.8, 0, 0, 0.02, 0)] },
+  // Steve (the procedural fallback reuses the closest gestures)
+  slash: { end: 0.56, dip: 0.4, keys: [k(0, -1.4, 0.55, -0.9, 0.3, -0.2, -0.04), k(0.1, -2.15, 0.95, -0.75, 0.55, -0.42, -0.1), k(0.21, -1.05, -0.38, -0.2, -0.45, 0.42, 0.14), k(0.34, -0.8, -0.5, -0.35, -0.2, 0.34, 0.1), k(0.56, -0.9, 0.0, -0.7, 0, 0.08, 0.02)] },
+
+  backslash: { end: 0.56, dip: 0.4, keys: [k(0, -1.4, 0.55, -0.9, 0.3, -0.2, -0.04), k(0.1, -2.15, 0.95, -0.75, 0.55, -0.42, -0.1), k(0.21, -1.05, -0.38, -0.2, -0.45, 0.42, 0.14), k(0.34, -0.8, -0.5, -0.35, -0.2, 0.34, 0.1), k(0.56, -0.9, 0.0, -0.7, 0, 0.08, 0.02)] },
+
+  chop: { end: 0.72, dip: 0.8, keys: [k(0, -1.6, 0.5, -1.4, 0.2, -0.25, -0.08, 0.3), k(0.14, -2.75, 0.55, -2.0, 0.5, -0.5, -0.2, 0), k(0.25, -1.35, 0.1, -0.15, -0.5, 0.5, 0.26), k(0.42, -0.75, -0.2, -0.3, -0.2, 0.38, 0.18, 0.5), k(0.72, -0.6, 0.1, -0.6, 0, 0.08, 0.03, 0.3)] },
+
+  loose: { end: 0.34, dip: 0.25, keys: [k(0, -0.45, 0.22, -1.6, 0.35, -0.2, -0.02), k(0.05, -0.3, 0.28, -2.05, 0.5, -0.3, -0.05), k(0.1, -1.55, 0.02, -0.1, -0.35, 0.3, 0.08), k(0.2, -1.45, 0.06, -0.28, -0.1, 0.22, 0.05), k(0.34, -1.15, 0.12, -0.7, 0, 0.08, 0.02)] },
+
+  place: { end: 0.66, dip: 0.55, keys: [k(0, -0.2, 0.2, -0.3, 0.1, -0.1, 0.04, 0), k(0.13, 0.65, 0.25, -0.2, 0.3, -0.28, 0.12, 0), k(0.26, -1.55, 0.05, -0.35, -0.4, 0.3, -0.04, 0.4), k(0.42, -1.95, 0.1, -0.45, -0.2, 0.2, -0.06, 0.4), k(0.66, -1.2, 0.15, -0.6, 0, 0.05, 0, 0.3)] },
 };
 
 interface ArmGesture { g: Gesture | null; t: number; struck: boolean; x: Spring; z: Spring; e: Spring; w: Spring }

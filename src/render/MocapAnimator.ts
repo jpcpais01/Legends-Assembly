@@ -151,7 +151,44 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.45, [0.17, -0.6, 0.7], [0, -0.72, 0.69], [-0.95, -0.2, -0.2], 0, 0.22),
     key(0.72, [0.18, -0.5, 0.42], [0, -0.3, 0.95], [-0.95, -0.25, 0.15], 0, 0.04),
   ] },
+  // Steve's diamond sword: a flat forehand sweep from high outside, right across the front and down
+  slash: { out: 0.2, keys: [
+    key(0.06, [0.62, 0.45, 0.25], [0.3, 0.25, -0.92], [0, -1, 0], -0.4, -0.04, [0.8, -0.3, -0.5]),
+    key(0.13, [0.05, 0.12, 1.0], [-0.95, 0.05, 0.3], [0, -1, 0], 0.4, 0.1),
+    key(0.21, [-0.55, -0.08, 0.72], [-0.6, -0.05, -0.8], [0, -1, 0], 0.55, 0.14),
+    key(0.38, [0.12, -0.45, 0.5], [-0.3, -0.2, 0.93], [-0.9, -0.3, 0.2], 0.12, 0.03),
+  ] },
+  // ...and the backhand on the way back, from across the body out to the right
+  backslash: { out: 0.2, keys: [
+    key(0.06, [-0.5, 0.3, 0.55], [-0.4, 0.2, -0.9], [0, 1, 0], 0.4, 0.02, [0.5, -0.4, -0.75]),
+    key(0.13, [0.1, 0.15, 1.0], [0.95, 0.05, 0.3], [0, 1, 0], -0.15, 0.08),
+    key(0.21, [0.75, 0.0, 0.5], [0.6, -0.05, -0.8], [0, 1, 0], -0.4, 0.1),
+    key(0.38, [0.15, -0.45, 0.5], [-0.3, -0.2, 0.93], [-0.9, -0.3, 0.2], 0.0, 0.03),
+  ] },
+  // falling crit: the sword raised overhead and chopped down
+  chop: { out: 0.22, keys: [
+    key(0.07, [0.15, 1.0, 0.15], [0, 0.3, -0.95], [-1, 0, 0], -0.15, -0.14, [0.9, 0.1, -0.4]),
+    key(0.14, [0.05, 0.1, 1.0], [0, -0.7, 0.7], [-1, 0, 0], 0.3, 0.22),
+    key(0.22, [0.05, -0.55, 0.65], [0, -0.95, 0.3], [-1, 0, 0], 0.32, 0.26),
+    key(0.42, [0.12, -0.45, 0.5], [-0.3, -0.2, 0.93], [-0.9, -0.3, 0.2], 0.08, 0.03),
+  ] },
+  // the string hand springs open and back after the arrow leaves
+  loose: { out: 0.18, keys: [
+    key(0.05, [-0.1, 0.32, -0.05], [-0.3, 0.2, 0.93], [0.2, -0.95, 0], -0.15, 0, [1, 0.1, -0.5]),
+    key(0.14, [0.25, 0.22, -0.2], [0.4, 0.3, 0.86], [0.2, -0.95, 0], -0.1, 0, [1, -0.2, -0.4]),
+    key(0.3, [0.15, -0.3, 0.3], [0, 0.2, 0.98], [-0.9, -0.3, 0.2], 0, 0),
+  ] },
+  // Build Up: a quick reach down and forward, placing a block
+  place: { out: 0.2, keys: [
+    key(0.07, [0.15, -0.1, 0.85], [0, -0.3, 0.95], [0, -0.95, -0.3], 0.25, 0.1),
+    key(0.15, [0.1, -0.38, 1.0], [0, -0.6, 0.8], [0, -0.8, -0.6], 0.3, 0.2),
+    key(0.34, [0.15, -0.4, 0.5], [0, 0.2, 0.98], [-0.9, -0.3, 0.2], 0.05, 0.02),
+  ] },
 };
+/** Archer's stance (Steve): the bow arm locked down the crosshair, the string hand from the bow (R0) to the cheek (R1). */
+const BOW_L = key(0, [-0.08, 0.12, 1.02], [-0.95, 0, 0.3], [0, 0, 1], 0.32, 0.02, [0.6, -0.7, -0.3]);
+const BOW_R0 = key(0, [-0.62, 0.16, 0.9], [-0.4, 0, 0.92], [0, -1, 0], -0.05, 0.02, [0.8, -0.5, -0.3]);
+const BOW_R1 = key(0, [-0.3, 0.32, 0.08], [-0.3, 0.1, 0.95], [0, -1, 0], -0.12, 0, [1, 0.25, -0.55]);
 /** Sustained channels (ultimates). On the ground the striking arm sweeps up to the sky; floating, both arms open wide with the palms forward. */
 const CAST_UP = key(0, [0.3, 0.8, 0.5], [0.05, 0.92, 0.38], [0, -0.38, 0.92], 0.16, -0.1, [0.9, -0.3, -0.3]);
 const CAST_OPEN = key(0, [0.66, -0.22, 0.3], [0.78, -0.5, 0.36], [0, 0.58, 0.81], 0, -0.06, [0.3, -0.5, -0.8]);
@@ -193,7 +230,7 @@ export class MocapAnimator {
   private lastAttack = 0; private lastHit = 0;
   private hit: { c: Baked; t: number } | null = null;
   private deadT = 0;
-  private castW = 0; private lev = 0; private reachW = 0;
+  private castW = 0; private lev = 0; private reachW = 0; private bowW = 0; private drawK = 0;
   private prevVX = 0; private prevVZ = 0; private accF = 0; private accR = 0; private hasPrev = false;
   private lean = new Spring(); private bank = new Spring();
   /** hit recoil: the torso is shoved along the blow and springs back (pitch, roll, twist) */
@@ -377,6 +414,8 @@ export class MocapAnimator {
     // ── attacks: start a gesture on the striking arm ──
     this.castW = damp(this.castW, s.cast, 9, dt);
     this.reachW = damp(this.reachW, s.reach ?? 0, 16, dt);
+    this.bowW = damp(this.bowW, s.bow ?? 0, 14, dt);
+    this.drawK = damp(this.drawK, s.bowDraw ?? 0, 14, dt);
     if (s.attack > this.lastAttack + 0.3) {
       const side = (s.attackSide ?? 1) < 0 ? 0 : 1;
       for (let k = 0; k < 2; k++) {
@@ -515,8 +554,8 @@ export class MocapAnimator {
       const a = this.arm[k], sgn = k ? -1 : 1;
       const sh = k ? I.shoulderR : I.shoulderL, hd = k ? I.handR : I.handL;
       // channel: the striking arm on the ground, both arms when floating
-      const rw = this.reachW;
-      const cw = Math.max(this.castW * (k ? 1 : lev), rw);
+      const rw = this.reachW, bw = this.bowW;
+      const cw = Math.max(this.castW * (k ? 1 : lev), rw, bw);
       const casting = !a.g && cw > 0.01;
       if (!a.g && !casting && a.w < 0.005) { a.w = 0; a.cy = a.cp = 0; continue; }
       any = true;
@@ -550,6 +589,11 @@ export class MocapAnimator {
       } else {
         a.w = damp(a.w, cw, rw > 0.01 ? 18 : 10, dt);
         if (rw > 0.01) { tx = REACH.p[0]; ty = REACH.p[1]; tz = REACH.p[2]; cy = 0; cpv = REACH.cp; }
+        else if (bw > 0.01) {
+          const d = this.drawK;
+          if (k) { tx = lerp(BOW_R0.p[0], BOW_R1.p[0], d); ty = lerp(BOW_R0.p[1], BOW_R1.p[1], d); tz = lerp(BOW_R0.p[2], BOW_R1.p[2], d); cy = lerp(BOW_R0.cy, BOW_R1.cy, d); cpv = BOW_R0.cp; }
+          else { tx = BOW_L.p[0]; ty = BOW_L.p[1]; tz = BOW_L.p[2]; cy = BOW_L.cy; cpv = BOW_L.cp; }
+        }
         else {
           tx = lerp(CAST_UP.p[0], CAST_OPEN.p[0], lev); ty = lerp(CAST_UP.p[1], CAST_OPEN.p[1], lev) + Math.sin(s.time * 2.1 + k * 1.7) * 0.04; tz = lerp(CAST_UP.p[2], CAST_OPEN.p[2], lev);
           cy = lerp(CAST_UP.cy, CAST_OPEN.cy, lev); cpv = lerp(CAST_UP.cp, CAST_OPEN.cp, lev);
@@ -585,6 +629,10 @@ export class MocapAnimator {
         h = ka.h; n = ka.n; el = ka.el; h2 = kb.h; n2 = kb.n; el2 = kb.el;
         if (a.t >= K[K.length - 1].t) u = 1;
       } else if (this.reachW > 0.01) { h = h2 = REACH.h; n = n2 = REACH.n; el = el2 = REACH.el; }
+      else if (this.bowW > 0.01) {
+        if (k) { h = BOW_R0.h; n = BOW_R0.n; el = BOW_R0.el; h2 = BOW_R1.h; n2 = BOW_R1.n; el2 = BOW_R1.el; u = this.drawK; }
+        else { h = h2 = BOW_L.h; n = n2 = BOW_L.n; el = el2 = BOW_L.el; }
+      }
       const aim = (v: V3, w: V3, out: THREE.Vector3) => {
         const x = lerp(v[0], w[0], u) * sgn, y = lerp(v[1], w[1], u), z = lerp(v[2], w[2], u);
         return out.set(x, y * cp0 + z * sp0, -y * sp0 + z * cp0);
