@@ -4,11 +4,25 @@
     "headY": 1.085,
     "neckBaseY": 1.04,
     "armR": 0.045,
-    "handLen": 0.17
+    "handLen": 0.17,
+    "beardZ": 0.06,
+    "faceR": 0.075
   },
   "vangogh": {
     "chinY": 1.47,
     "headY": 1.525,
     "beardZ": 0.045
+  },
+  "luffy": {
+    "chinY": 1.44,
+    "beardZ": 0.06
+  },
+  "einstein": {
+    "chinY": 1.425,
+    "beardZ": 0.095
+  },
+  "ironman": {
+    "chinY": 1.54,
+    "beardZ": 0.115
   }
 }

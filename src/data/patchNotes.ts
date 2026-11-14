@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.24.0',
+    version: '0.26.0',
     date: '2026-11-14',
     title: 'Gilded Frame',
     sections: [
@@ -42,6 +42,106 @@ export const PATCH_NOTES: PatchNote[] = [
         items: [
           'Your health, abilities and special sit on soft backplates. Ability tiles have gold-bevelled cut corners, the cooldown sweep has a bright leading edge, and the special ring has a gold tick bezel.',
           'The score bar, kill feed, scoreboard, death card and enemy-special warning share the same gold-framed style.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.3',
+    date: '2026-11-14',
+    title: 'True to Form',
+    sections: [
+      {
+        heading: 'Legends',
+        items: [
+          'Fixed a lighting bug that hit surfaces facing straight at the camera on many graphics cards: it tore black patches through Mickey\'s shorts and shoes and blew faces and armour out to flat white. Legends now look like their original models.',
+          "Faces no longer stretch when a legend looks up, looks down or runs: Mickey's cheeks, Luffy's and Einstein's jaws and Iron Man's helmet chin now move as one piece with the head.",
+          'Faces on the home stage and hero select get a bit more light.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.2',
+    date: '2026-11-14',
+    title: 'Full Voices',
+    sections: [
+      {
+        heading: 'Steve, Bob Marley and the T-Rex find their voices',
+        items: [
+          'Steve, Bob Marley and the T-Rex now speak with fully recorded voices: match openers, ability calls, kills, deaths, rivalries with every other legend and banter with teammates.',
+          'Steve has a new voice that is calmer, friendlier and drier, so he no longer shares one with Bob Marley.',
+        ],
+      },
+      {
+        heading: 'Recorded sound effects',
+        items: [
+          'The T-Rex is recorded from tooth to tail: earth-shaking footsteps, snapping jaws, crunching bites, tail sweeps, the charging stampede, wall crashes, the ground rumbling as he rears up, meteors whistling down and slamming in, and a colossal roar for Extinction Event.',
+          'Bob Marley’s guitar is now a real muted reggae skank, his chord drops hit with a deep dub bass, his notes pluck when they land, his smoke exhales slowly and One Love rises out of a rumbling speaker stack into a ringing chord.',
+          'Steve’s Ender Dragon tears its portal open and roars with real recordings.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.1',
+    date: '2026-11-14',
+    title: 'Old Masters',
+    sections: [
+      {
+        heading: 'The Grand Museum',
+        items: [
+          'The green bells and the other placeholder art are gone. Every frame in the hall now holds a real masterpiece, and no two frames repeat.',
+          'On show: The Night Watch, the Mona Lisa, The Birth of Venus, Las Meninas, Girl with a Pearl Earring, The Kiss, The Arnolfini Portrait, Impression, Sunrise, The Starry Night, The Scream, Woman with a Parasol and The Swing.',
+          'Each frame widens or narrows a little to fit its painting, so the works are shown close to their true proportions.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.0',
+    date: '2026-11-14',
+    title: 'The Tyrant King',
+    sections: [
+      {
+        heading: 'New legend: T-Rex, the Tyrant King',
+        items: [
+          'The T-Rex stomps into the arena: a 6 metre Vanguard with 550 health whose footsteps shake the camera of anyone nearby.',
+          'Tyrant Bite (LMB): two snapping bites that heal you for part of the damage, then a tail sweep that knocks everyone around you away and slows them.',
+          'Stampede (RMB): charge forward like a freight train. The first enemy you hit is caught in your jaws and flung at the end, anyone else in the way gets trampled, and anyone pinned against a wall is stunned.',
+          'Extinction Event (SHIFT): rear up and roar. Enemies in front are slowed and silenced, the sky burns red, and meteors rain down around you while you rage, tougher and faster.',
+          'He has a fully animated dinosaur body: real walking legs that plant on the ground, a swaying tail that drags through turns, and a jaw that opens on every bite and roar.',
+        ],
+      },
+      {
+        heading: 'Gameplay',
+        items: [
+          'Hitboxes now match each legend\'s body, so the T-Rex is a big target and abilities reach his whole frame.',
+          'The camera pulls back and up to frame bigger legends.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.24.0',
+    date: '2026-11-14',
+    title: 'One Love',
+    sections: [
+      {
+        heading: 'New legend: Bob Marley (Strategist)',
+        items: [
+          'Bob Marley joins the roster with his guitar slung on its strap: his fretting hand rides the neck and every attack is a real strum.',
+          'Skank Chords (LMB): offbeat chords fly as rings of sound in red, gold and green. Every 4th strum is the drop, a heavy bass wave that splashes enemies and heals allies near where it lands.',
+          'Kaya Cloud (RMB): blow a big rolling cloud of smoke ahead. Enemies inside are slowed and turn Drowsy.',
+          'One Love (SHIFT): a giant Jamaican sound system rises beside you and pumps bass on the one drop for 7 seconds. Every pulse heals allies around it and hits, knocks back, slows and drowses enemies.',
+          'Bots play him too: they blow smoke on whoever they fight and drop the sound system when their team is hurt.',
+        ],
+      },
+      {
+        heading: 'New status: Drowsy',
+        items: [
+          'A Drowsy legend sees their own screen sway, swim and double, with a warm haze closing in at the edges. Lazy wisps of smoke and a floating "z" show who is affected.',
+          'Drowsy bots aim worse and turn slower.',
         ],
       },
     ],

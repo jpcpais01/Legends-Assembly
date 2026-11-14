@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { HeroDef, HeroInput, HeroKit } from './types';
-import { ProceduralHeroModel, type HeroModel, type AnimState } from '../render/HeroRig';
-import { GltfHeroModel } from '../render/GltfHeroModel';
+import { type HeroModel, type AnimState } from '../render/HeroRig';
+import { createHeroModel } from '../render/GltfHeroModel';
 import { clamp, damp, dampAngle } from '../core/math';
 import type { World } from '../world/collision';
 
@@ -58,6 +58,9 @@ export class Hero {
   silenceT = 0;
   /** >0 = stunned: no actions and no steering, but gravity and knockback still apply (unlike a channel). */
   stunT = 0;
+  /** >0 = drowsy (Bob Marley's smoke): the legend's own screen sways and blurs. Strength 0..1 eases in and out. */
+  drowsyT = 0;
+  drowsyK = 0;
   moveLock = 0;
   overrideVel: THREE.Vector3 | null = null;
   flashT = 0;
@@ -86,13 +89,21 @@ export class Hero {
     this.kit = def.createKit();
     this.maxHp = def.maxHp;
     this.hp = def.maxHp;
-    this.model = def.modelUrl ? new GltfHeroModel(def, rim) : new ProceduralHeroModel(def.look, rim);
+    this.model = createHeroModel(def, rim);
+    this.hitR = def.body?.hitR ?? HERO_RADIUS;
+    this.hitH = def.body?.hitH ?? 1.65;
+    this.worldR = def.body?.worldR ?? HERO_RADIUS;
   }
+
+  /** Hit capsule radius / top and wall radius (bigger for the T-Rex). */
+  hitR: number;
+  hitH: number;
+  worldR: number;
 
   get forward() { return new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }
   get right() { return new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)); }
-  get center() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.0, this.pos.z); }
-  get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.3, this.pos.z); }
+  get center() { return new THREE.Vector3(this.pos.x, this.pos.y + (this.def.body?.centerY ?? 1.0), this.pos.z); }
+  get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + (this.def.body?.chestY ?? 1.3), this.pos.z); }
 
   /** Direction from a muzzle point to the aim point. */
   aimDir(from: THREE.Vector3, out = new THREE.Vector3()) {
@@ -121,6 +132,8 @@ export class Hero {
   applyStun(dur: number) { this.stunT = Math.max(this.stunT, dur); }
 
   applySilence(dur: number) { this.silenceT = Math.max(this.silenceT, dur); }
+
+  applyDrowsy(dur: number) { this.drowsyT = Math.max(this.drowsyT, dur); }
 
   applyImpulse(v: THREE.Vector3) {
     this.impulse.add(v);
@@ -162,7 +175,7 @@ export class Hero {
     this.impulse.x = damp(this.impulse.x, 0, fr, dt);
     this.impulse.z = damp(this.impulse.z, 0, fr, dt);
 
-    world.resolve(this.pos, HERO_RADIUS, this.pos.y);
+    world.resolve(this.pos, this.worldR, this.pos.y);
     const h = world.heightAt(this.pos.x, this.pos.z, this.pos.y);
     if (this.pos.y <= h) {
       this.pos.y = h;
@@ -209,7 +222,7 @@ export class Hero {
     this.hp = this.maxHp;
     this.alive = true;
     this.spawnT = 0;
-    this.slowT = 0; this.slowAmt = 0; this.silenceT = 0; this.stunT = 0;
+    this.slowT = 0; this.slowAmt = 0; this.silenceT = 0; this.stunT = 0; this.drowsyT = 0; this.drowsyK = 0;
     this.channel = 0; this.moveLock = 0; this.overrideVel = null;
     this.speedMult = 1; this.dmgMult = 1; this.dmgTakenMult = 1;
     this.anim.cast = 0; this.anim.levitate = 0; this.anim.dash = 0;

@@ -1,0 +1,22 @@
+{
+  "note": "The Grand Museum's collection: public-domain masterpieces (photographs of the originals, as published on Wikimedia Commons), packed into one KTX2 atlas by scripts/build-paintings.mjs. aspect is the source image's width/height; focus is where the crop sits (0 = left/top edge, 1 = right/bottom) when the painting is cropped to its frame. The frame is widened or narrowed by up to maxStretch to meet the painting halfway; the rest is cropped.",
+  "frameAspect": 0.961,
+  "maxStretch": 0.1,
+  "cols": 4,
+  "cell": [640, 672],
+  "gutter": 8,
+  "paintings": [
+    { "id": "night_watch", "title": "The Night Watch", "artist": "Rembrandt van Rijn", "year": "1642", "aspect": 1.229, "focus": 0.5 },
+    { "id": "mona_lisa", "title": "Mona Lisa", "artist": "Leonardo da Vinci", "year": "c. 1503", "aspect": 0.673, "focus": 0.3 },
+    { "id": "birth_of_venus", "title": "The Birth of Venus", "artist": "Sandro Botticelli", "year": "c. 1485", "aspect": 1.594, "focus": 0.41 },
+    { "id": "las_meninas", "title": "Las Meninas", "artist": "Diego Velázquez", "year": "1656", "aspect": 0.869, "focus": 0.5 },
+    { "id": "girl_pearl", "title": "Girl with a Pearl Earring", "artist": "Johannes Vermeer", "year": "c. 1665", "aspect": 0.846, "focus": 0.5 },
+    { "id": "kiss_1907", "title": "The Kiss", "artist": "Gustav Klimt", "year": "1908", "aspect": 0.997, "focus": 0.5 },
+    { "id": "arnolfini_portrait", "title": "The Arnolfini Portrait", "artist": "Jan van Eyck", "year": "1434", "aspect": 0.742, "focus": 0.35 },
+    { "id": "impression_sunrise", "title": "Impression, Sunrise", "artist": "Claude Monet", "year": "1872", "aspect": 1.289, "focus": 0.5 },
+    { "id": "starry_night", "title": "The Starry Night", "artist": "Vincent van Gogh", "year": "1889", "aspect": 1.263, "focus": 0.35 },
+    { "id": "scream_1893", "title": "The Scream", "artist": "Edvard Munch", "year": "1893", "aspect": 0.806, "focus": 0.5 },
+    { "id": "woman_with_parasol", "title": "Woman with a Parasol", "artist": "Claude Monet", "year": "1875", "aspect": 0.807, "focus": 0.2 },
+    { "id": "the_swing", "title": "The Swing", "artist": "Jean-Honoré Fragonard", "year": "1767", "aspect": 0.78, "focus": 0.4 }
+  ]
+}

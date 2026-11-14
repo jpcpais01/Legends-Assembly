@@ -35,7 +35,8 @@ export interface ArenaLike {
   ready?: Promise<void>;
   placeProps(): void;
   applyQuality(): void;
-  setDoom(k: number): void;
+  /** kind 0: toxic green (The Bell), 1: burning red (Extinction Event). */
+  setDoom(k: number, kind?: number): void;
   update(time: number, camera: THREE.Camera): void;
   soundscape?: Soundscape;
   /** What is underfoot at a point (default: the arena's floor). */
@@ -43,3 +44,11 @@ export interface ArenaLike {
   /** Something big landed: the clutter jolts, rattles and the dust blows away. */
   shock?(pos: THREE.Vector3, strength: number): void;
 }
+
+/** Doom skies: what fog, sun and sky shift toward while a special darkens the world. */
+export const DOOM_SKY = [
+  // toxic green (Yeat's The Bell)
+  { fog: new THREE.Color(0.07, 0.26, 0.11), sun: new THREE.Color(0.45, 1.0, 0.5), sky: new THREE.Color(0.32, 0.8, 0.4), ground: new THREE.Color(0.02, 0.1, 0.03) },
+  // burning red (the T-Rex's Extinction Event)
+  { fog: new THREE.Color(0.32, 0.08, 0.03), sun: new THREE.Color(1.2, 0.42, 0.15), sky: new THREE.Color(0.9, 0.3, 0.12), ground: new THREE.Color(0.12, 0.03, 0.01) },
+];

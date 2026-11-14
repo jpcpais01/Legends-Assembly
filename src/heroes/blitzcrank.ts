@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { HeroDef, HeroKit } from '../game/types';
-import { HERO_RADIUS, type Hero } from '../game/Hero';
+import type { Hero } from '../game/Hero';
 import type { Game } from '../game/Game';
 import { Shape } from '../vfx/Particles';
 import { TrailStyle, type Trail } from '../vfx/Trails';
@@ -210,7 +210,7 @@ function strike(h: Hero, g: Game, upper: boolean, side: 1 | -1) {
   for (const e of g.heroes) {
     if (!e.alive || e.team === h.team) continue;
     const dx = e.pos.x - h.pos.x, dz = e.pos.z - h.pos.z, d = Math.hypot(dx, dz);
-    if (d > reach + HERO_RADIUS || Math.abs(e.pos.y - h.pos.y) > 2.4) continue;
+    if (d > reach + e.hitR || Math.abs(e.pos.y - h.pos.y) > 2.4) continue;
     const ang = Math.acos(clamp((dx * f.x + dz * f.z) / Math.max(1e-3, d), -1, 1));
     if (d > 1.4 && ang > CONE) continue;
     if (!g.los(h.chest, e.chest)) continue;
@@ -254,7 +254,7 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
     let best = 2, hit: Hero | null = null;
     for (const e of g.heroes) {
       if (!e.alive || e.team === h.team || !g.owns(h)) continue;
-      const t = segmentVsCapsule(gr.prev, gr.pos, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.65, HERO_RADIUS + GRAB_RADIUS);
+      const t = segmentVsCapsule(gr.prev, gr.pos, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + e.hitH, e.hitR + GRAB_RADIUS);
       if (t >= 0 && t < best) { best = t; hit = e; }
     }
     const wt = g.world.raycast(gr.prev, gr.pos, 0.15);

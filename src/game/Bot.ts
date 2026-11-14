@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, steve: 60 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, steve: 40 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48, steve: 60, marley: 68, trex: 1000 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28, steve: 40, marley: 30, trex: 4.8 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -166,7 +166,7 @@ export class Bot {
       this.errT -= dt;
       if (this.errT <= 0) {
         this.errT = rand(0.25, 0.6);
-        this.errVec.set(rand(-1, 1), rand(-0.6, 0.8), rand(-1, 1)).multiplyScalar(this.p.err * (0.5 + d / 30));
+        this.errVec.set(rand(-1, 1), rand(-0.6, 0.8), rand(-1, 1)).multiplyScalar(this.p.err * (0.5 + d / 30) * (1 + h.drowsyK * 1.6));
       }
       aimPoint = chest.add(lead).add(this.errVec);
       if (h.def.id === 'vangogh') aimPoint.y += d * d * 0.0016; // arc compensation for paint
@@ -176,7 +176,7 @@ export class Bot {
     const dir = aimPoint.clone().sub(h.chest);
     const wantYaw = Math.atan2(-dir.x, -dir.z);
     const wantPitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z));
-    const k = 1 - Math.exp(-this.p.turn * dt);
+    const k = 1 - Math.exp(-this.p.turn * (1 - h.drowsyK * 0.4) * dt);
     inp.yaw = h.yaw + angleDiff(h.yaw, wantYaw) * k;
     inp.pitch = h.pitch + (wantPitch - h.pitch) * k;
     inp.aim.copy(aimPoint);
@@ -276,11 +276,29 @@ export class Bot {
         }
         break;
       }
+      case 'marley': {
+        // Kaya Cloud: blow it onto a nearby enemy, or between you and a chaser when hurt
+        if (h.secondaryCd <= 0 && vis && tDist < 16 && (lowHp || Math.random() < 0.7)) { inp.aim.copy(t.pos); inp.secondary = true; }
+        // One Love: when the team is hurt and fighting, or several enemies are close
+        if (h.ult >= 1) {
+          let hurt = 0;
+          for (const a of g.alliesNear(h.team, h.pos, 12)) if (a.hp / a.maxHp < 0.6) hurt++;
+          if (hurt >= 2 || enemiesClose(12) >= 2 || (hurt >= 1 && enemiesClose(12) >= 1)) inp.ult = true;
+        }
+        break;
+      }
       case 'steve': {
         // Build Up: cover when hurt in a ranged fight, or high ground to shoot from
         if (h.secondaryCd <= 0 && vis && tDist > 7 && tDist < 26 && (lowHp || Math.random() < 0.25)) inp.secondary = true;
         // the dragon wants a fight to circle: a tough target or a group near the crosshair
         if (h.ult >= 1 && vis && tDist < 26 && (t.hp > 110 || g.enemiesNear(h.team, t.pos, 8).length >= 2)) inp.ult = true;
+        break;
+      }
+      case 'trex': {
+        // Stampede: run down a target a little way off, in a clean line (or crash them into a wall behind them)
+        if (h.secondaryCd <= 0 && vis && tDist > 4 && tDist < 20 && yawErr < 0.2 && Math.random() < 0.6) inp.secondary = true;
+        // Extinction Event: roar into a crowd in front, or when brawling and losing
+        if (h.ult >= 1 && vis && (enemiesClose(12) >= 2 || (enemiesClose(7) >= 1 && (t.hp > 150 || hpFrac < 0.4)))) inp.ult = true;
         break;
       }
       case 'blitzcrank': {
