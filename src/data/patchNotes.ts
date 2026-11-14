@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.6',
+    date: '2026-11-14',
+    title: 'Iron Man Speaks',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'Iron Man now talks: a cocky, quick-witted voice for his abilities, eliminations, Unibeam call-outs, victories and defeats, instead of subtitles only.',
+          'He trades fully voiced banter and rival lines with Einstein, Yeat, Van Gogh, Blitzcrank, Luffy and even another Iron Man.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.5',
     date: '2026-11-14',
     title: 'Mickey Finds His Voice',
