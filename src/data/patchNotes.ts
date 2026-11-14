@@ -8,6 +8,19 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.6',
+    date: '2026-11-14',
+    title: 'Clean Shave',
+    sections: [
+      {
+        heading: 'Vincent van Gogh',
+        items: [
+          "Van Gogh's beard and jaw no longer stretch into a point when he looks up or down. His whole beard, chin and bandage strap now move with his head, in the menus and in matches.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.5',
     date: '2026-11-14',
     title: 'Unibeam Overhaul',
