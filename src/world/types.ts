@@ -12,6 +12,8 @@ export interface Soundscape {
   chandelier?: THREE.Vector3;
   watch?: THREE.Vector3;
   metronome?: THREE.Vector3;
+  /** The Newton's cradle (clacks twice per 1.3 s cycle, on the arena clock). */
+  cradle?: THREE.Vector3;
   /** The room's volume, for creaks in the walls and beams. */
   room?: THREE.Box3;
 }

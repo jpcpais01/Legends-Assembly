@@ -721,6 +721,8 @@ export class Game {
       }
       this.vfx.update(rawDt);
       this.arena.grass?.setPushers(this.showcase ? [this.showcase.pos] : []);
+      // behind the menus you hear the room from the showcase dais
+      audio.setListener(this.camRig.camera.position, this.camRig.camera, this.arena.showcasePos);
       return;
     }
     if (this.paused) return;

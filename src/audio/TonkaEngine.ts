@@ -34,7 +34,6 @@ export class TonkaEngine {
   private cut = 0;
   private dead = false;
   private t = 0;
-  private rpm = IDLE;
   private lastPos = new THREE.Vector3();
 
   static create(pos: THREE.Vector3) {
@@ -91,7 +90,6 @@ export class TonkaEngine {
     const load = this.cut > 0 ? 0.08 : throttle;
     // a small rev-limiter flutter when pinned at the top of the last gear
     if (g === GEARS.length - 1 && want > 6300) want += Math.sin(this.t * 38) * 60;
-    this.rpm = want;
     this.param('rpm').setTargetAtTime(want, now, this.cut > 0 ? 0.05 : 0.04);
     this.param('load').setTargetAtTime(load, now, 0.03);
     // whine pitched to the crank (blower overdriven ~2.1x, 4 lobes)

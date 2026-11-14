@@ -55,6 +55,7 @@ const MATTER: Record<string, { surface: Surface; rattle?: Sfx }> = {
   desk_lamp: { surface: 'metal' }, globe_stand: { surface: 'metal' },
   antique_books: { surface: 'leather' }, closed_book: { surface: 'leather' }, book_stack: { surface: 'leather' },
   eraser_block: { surface: 'leather' },
+  newtons_cradle: { surface: 'metal', rattle: 'rattleCoins' },
   teacup_saucer: { surface: 'stone', rattle: 'rattleChina' }, coffee_mug: { surface: 'stone', rattle: 'rattleChina' },
 };
 
@@ -84,6 +85,10 @@ interface DeskProp {
   stackOn?: number;
   /** Light a candle flame on its top. */
   flame?: boolean;
+  /** Hang the swinging balls of a Newton's cradle in it. */
+  cradle?: boolean;
+  /** What it is made of (MATTER key) when it has no Meshy name. */
+  matter?: string;
 }
 
 /**
@@ -151,6 +156,7 @@ export class StudyArena implements ArenaLike {
   private anim: {
     hour?: THREE.Object3D; minute?: THREE.Object3D; second?: THREE.Object3D;
     globe?: THREE.Object3D; arm?: THREE.Object3D; chandelier?: THREE.Object3D; flames?: THREE.InstancedMesh; fire?: THREE.Mesh;
+    cradle?: { balls: THREE.InstancedMesh; strings: THREE.InstancedMesh; at: THREE.Matrix4; xs: number[]; top: number };
     beacons: THREE.Mesh[];
   } = { beacons: [] };
   private floorY = -31;
@@ -189,7 +195,8 @@ export class StudyArena implements ArenaLike {
   surfaceAt(x: number, y: number, z: number): Surface {
     let best: Surface = 'wood', bestTop = -Infinity;
     for (const p of this.prints) {
-      if (y < p.top - 0.7 || p.top < bestTop) continue;
+      // low, flat things (paper, pencils) count from the desk top up; tall ones only when you stand on them
+      if (y < (p.top < 2 ? -0.3 : p.top - 0.7) || p.top < bestTop) continue;
       const dx = x - p.x, dz = z - p.z;
       const u = dx * p.c - dz * p.s, w = dx * p.s + dz * p.c;
       if (Math.abs(u) <= p.hx && Math.abs(w) <= p.hz) { best = p.surface; bestTop = p.top; }
@@ -338,8 +345,10 @@ export class StudyArena implements ArenaLike {
       } else {
         for (const p of d.parts()) {
           statics.push({ geo: p.geo, mat: p.mat, m: world, collide: p.collide ?? true });
-          if (d.meshy) this.footprint(d.meshy.name, p.geo, world);
+          const nm = d.meshy?.name ?? d.matter;
+          if (nm) this.footprint(nm, p.geo, world);
         }
+        if (d.cradle) this.hangCradle(world, grid);
         tops.push(NaN);
       }
     }
@@ -499,10 +508,10 @@ export class StudyArena implements ArenaLike {
     const tall = (name: string, cm: number) => ({ name, cm, fit: 'h' as const, collide: true });
     return [
       // papers
-      { parts: () => P.paperSheet(M, 0, 1, 0), meshy: flat('paper_einstein', 27.9), x: -2, z: -8, yaw: 0.22 },
-      { parts: () => P.paperSheet(M, 1, 2, 1), meshy: flat('letter_vangogh', 27.9), x: 13, z: 9, yaw: -0.42 },
-      { parts: () => P.paperSheet(M, 2, 3, 0), meshy: flat('music_sheet_yeat', 27.9), x: -29, z: -13, yaw: 1.32 },
-      { parts: () => P.indexCards(M), meshy: flat('index_cards', 13.5), x: -26, z: 5, yaw: 0.5 },
+      { parts: () => P.paperSheet(M, 0, 1, 0), matter: 'paper_einstein', x: -2, z: -8, yaw: 0.22 },
+      { parts: () => P.paperSheet(M, 1, 2, 1), matter: 'letter_vangogh', x: 13, z: 9, yaw: -0.42 },
+      { parts: () => P.paperSheet(M, 2, 3, 0), matter: 'music_sheet_yeat', x: -29, z: -13, yaw: 1.32 },
+      { parts: () => P.indexCards(M), matter: 'index_cards', x: -26, z: 5, yaw: 0.5 },
       { parts: () => P.envelope(M), meshy: flat('envelope_wax_seal', 22), x: 24, z: 24, yaw: -0.18 },
       { parts: () => P.decal(M, 0, 13), x: 27.5, z: 9.5, yaw: 0 },
       { parts: () => P.decal(M, 1, 9), x: -13.5, z: -15.5, yaw: 0.7 },
@@ -513,9 +522,9 @@ export class StudyArena implements ArenaLike {
       { parts: () => P.pencil(M, C(0.95, 0.66, 0.05)), meshy: flat('pencil', 18.5), x: -6, z: 15, yaw: 0.5 },
       { parts: () => P.pencil(M, C(0.03, 0.2, 0.1), 13.5), meshy: flat('pencil', 16), x: 16, z: -1, yaw: 2.25 },
       { parts: () => P.ruler(M), meshy: flat('ruler', 30.5), x: 1, z: 25, yaw: -0.05 },
-      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: -1, z: -17, yaw: 0.9 },
-      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: 22, z: 21, yaw: 2.6 },
-      { parts: () => P.paperClip(M), meshy: flat('paper_clip', 3.3), x: -23, z: -16, yaw: -0.4 },
+      { parts: () => P.paperClip(M), matter: 'paper_clip', x: -1, z: -17, yaw: 0.9 },
+      { parts: () => P.paperClip(M), matter: 'paper_clip', x: 22, z: 21, yaw: 2.6 },
+      { parts: () => P.paperClip(M), matter: 'paper_clip', x: -23, z: -16, yaw: -0.4 },
       // reading and looking
       { parts: () => P.magnifier(M), meshy: lying('magnifying_glass', 15.5), x: -19, z: 23, yaw: 0.6 },
       { parts: () => P.spectacles(M), meshy: flat('spectacles', 11), x: -8, z: -5, yaw: 0.45 },
@@ -534,7 +543,47 @@ export class StudyArena implements ArenaLike {
       { parts: () => P.coins(M), meshy: tall('coin_stack', 4), x: 12, z: 20, yaw: 0 },
       { parts: () => P.brushJar(M), meshy: tall('brush_jar', 22), x: -38, z: -6, yaw: 0.2 },
       { parts: () => P.hourglass(M), meshy: tall('hourglass', 15), x: 3, z: 17, yaw: 0.5 },
+      // code-built on purpose: the balls swing
+      { parts: () => P.newtonsCradle(M), matter: 'newtons_cradle', x: 20.3, z: -22, yaw: Math.PI / 2 + 0.12, cradle: true },
     ];
+  }
+
+  /** The five chrome balls of the Newton's cradle: two instanced draws, re-posed every frame in update(). */
+  private hangCradle(at: THREE.Matrix4, grid: HeightGrid) {
+    const { r, gap, top, n } = P.CRADLE;
+    const g = P.cradleBall();
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xe6e9ee, metalness: 1, roughness: 0.07, envMapIntensity: 1.6 });
+    const line = new THREE.MeshStandardMaterial({ color: 0x9a948a, roughness: 0.6 });
+    const balls = new THREE.InstancedMesh(g.ball, chrome, n);
+    const strings = new THREE.InstancedMesh(g.strings, line, n);
+    balls.castShadow = true; balls.receiveShadow = true;
+    strings.frustumCulled = balls.frustumCulled = false;
+    const xs = Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * gap * P.U);
+    this.anim.cradle = { balls, strings, at, xs, top: top * P.U };
+    this.soundscape.cradle = new THREE.Vector3(0, (top - P.CRADLE.L) * P.U, 0).applyMatrix4(at);
+    this.poseCradle(0);
+    // heroes bump into the balls where they hang at rest
+    const rest = new THREE.BoxGeometry(n * gap * P.U, 2 * r * P.U, 2 * r * P.U).translate(0, (top - P.CRADLE.L) * P.U, 0);
+    grid.addGeometry(rest, at);
+    this.scene.add(balls, strings);
+  }
+
+  /** Classic cradle loop: the end ball swings out and back, clacks, and the far ball answers. */
+  private poseCradle(time: number) {
+    const c = this.anim.cradle!;
+    const T = 1.3; // one full left-right cycle in seconds
+    const th = 0.55 * Math.sin((time / T) * Math.PI * 2);
+    const m = _cm, rz = _cr;
+    for (let i = 0; i < c.xs.length; i++) {
+      const last = c.xs.length - 1;
+      // the inner balls only shiver as the momentum passes through them
+      const a = i === last ? Math.max(th, 0) : i === 0 ? Math.min(th, 0) : th * 0.006;
+      m.makeTranslation(c.xs[i], c.top, 0).multiply(rz.makeRotationZ(a)).premultiply(c.at);
+      c.balls.setMatrixAt(i, m);
+      c.strings.setMatrixAt(i, m);
+    }
+    c.balls.instanceMatrix.needsUpdate = true;
+    c.strings.instanceMatrix.needsUpdate = true;
   }
 
   private buildSpawns() {
@@ -978,6 +1027,7 @@ export class StudyArena implements ArenaLike {
       a.hour!.rotation.y = -(time / 43200 + 0.3) * Math.PI * 2;
     }
     if (a.globe) a.globe.rotation.y = time * 0.08;
+    if (a.cradle) this.poseCradle(time);
     if (a.arm) a.arm.rotation.z = Math.sin(time * Math.PI * 1.1) * 0.42;
     if (a.chandelier) {
       a.chandelier.rotation.z = Math.sin(time * 0.35) * 0.018 + Math.sin(this.swayPhase) * this.sway;
@@ -990,6 +1040,8 @@ export class StudyArena implements ArenaLike {
     for (let i = 0; i < a.beacons.length; i++) { const bc = a.beacons[i]; bc.rotation.y = time * 0.8; bc.position.y = 6.5 + Math.sin(time * 1.4 + i) * 0.35; }
   }
 }
+
+const _cm = new THREE.Matrix4(), _cr = new THREE.Matrix4();
 
 /** Ring of a globe stand: center + inner radius from the upper part of the template. */
 function ringOf(g: THREE.BufferGeometry) {

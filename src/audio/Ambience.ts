@@ -9,7 +9,7 @@ import type { Soundscape } from '../world/types';
  * - the fireplace crackling on its wall, flaring up now and then
  * - wind and rain at each window, with birds and a distant city drifting in through them
  * - the pocket watch on the desk ticking in time with its second hand, the metronome
- *   clicking on each swing
+ *   clicking on each swing, the Newton's cradle clacking as its balls meet
  * - the old house creaking in its beams, the chandelier chain groaning as it sways
  * The ruins get their outdoor bed and birds around the meadow.
  */
@@ -22,6 +22,7 @@ class AmbienceDirector {
   private loops: Emitter[] = [];
   private lastSec = -1;
   private lastBeat = -1;
+  private lastClack = -1;
   private timers = { creak: 6, chain: 9, outside: 7, surge: 18, birds: 4 };
   private refresh = 0;
   private _p = new THREE.Vector3();
@@ -73,6 +74,12 @@ class AmbienceDirector {
     if (beat !== this.lastBeat) {
       if (this.lastBeat >= 0 && sc.metronome) audio.play('metronome', sc.metronome, 1, { variant: beat & 1 });
       this.lastBeat = beat;
+    }
+    // the Newton's cradle: the balls meet at the bottom of every half swing (T = 1.3 s)
+    const clack = Math.floor((time * 2) / 1.3);
+    if (clack !== this.lastClack) {
+      if (this.lastClack >= 0 && sc.cradle) audio.play('cradleClack', sc.cradle, 0.85 + Math.random() * 0.15);
+      this.lastClack = clack;
     }
     const t = this.timers;
     t.creak -= dt; t.chain -= dt; t.outside -= dt; t.surge -= dt;

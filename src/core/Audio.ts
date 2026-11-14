@@ -285,7 +285,7 @@ export class AudioEngine {
     this.right.y = 0;
     if (this.right.lengthSq() < 1e-6) this.right.set(1, 0, 0);
     this.right.normalize();
-    this.fwd.set(-this.right.z, 0, this.right.x); // right × up, flattened: where you face
+    this.fwd.set(this.right.z, 0, -this.right.x); // up × right: where you face, flattened
   }
 
   /** 0..1: The Bell's doom sky muffles the music. */

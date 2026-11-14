@@ -183,170 +183,175 @@ export const SAMPLE_FILES: Record<string, string[]> = {
     "starFall-2.ogg?v=48f491f9"
   ],
   "ambStudy": [
-    "ambStudy-0.ogg?v=bfe293eb"
+    "ambStudy-0.ogg?v=a12c7e78"
   ],
   "ambRuins": [
     "ambRuins-0.ogg?v=e45d1c87"
   ],
   "fireLoop": [
-    "fireLoop-0.ogg?v=f0d51f34"
+    "fireLoop-0.ogg?v=83af44ca"
   ],
   "windowLoop": [
-    "windowLoop-0.ogg?v=61eb3c5c"
+    "windowLoop-0.ogg?v=636ab62c"
   ],
   "watchTick": [
-    "watchTick-0.ogg?v=5ded1f48",
-    "watchTick-1.ogg?v=0596b0d1"
+    "watchTick-0.ogg?v=65b568d1",
+    "watchTick-1.ogg?v=f3bc3f21"
+  ],
+  "cradleClack": [
+    "cradleClack-0.ogg?v=8c187be3",
+    "cradleClack-1.ogg?v=527f610f",
+    "cradleClack-2.ogg?v=ee510a4a"
   ],
   "metronome": [
-    "metronome-0.ogg?v=23c731d5",
-    "metronome-1.ogg?v=622afc16"
+    "metronome-0.ogg?v=3c1c0259",
+    "metronome-1.ogg?v=3e2f14c0"
   ],
   "woodCreak": [
-    "woodCreak-0.ogg?v=56798cc4",
-    "woodCreak-1.ogg?v=8beb64b7",
-    "woodCreak-2.ogg?v=9504b751",
-    "woodCreak-3.ogg?v=30398ad4"
+    "woodCreak-0.ogg?v=ee3f688e",
+    "woodCreak-1.ogg?v=2aef6ad2",
+    "woodCreak-2.ogg?v=ac20d2b9",
+    "woodCreak-3.ogg?v=3e80d757"
   ],
   "chainCreak": [
-    "chainCreak-0.ogg?v=0bdf1b9e",
-    "chainCreak-1.ogg?v=6c6ed1bf"
+    "chainCreak-0.ogg?v=f3cf2665",
+    "chainCreak-1.ogg?v=4d5978b1"
   ],
   "cityDistant": [
-    "cityDistant-0.ogg?v=69025e8e",
-    "cityDistant-1.ogg?v=5041bdff",
-    "cityDistant-2.ogg?v=79be80da"
+    "cityDistant-0.ogg?v=06424937",
+    "cityDistant-1.ogg?v=4d2acf06",
+    "cityDistant-2.ogg?v=c2cd7736"
   ],
   "birdsWindow": [
-    "birdsWindow-0.ogg?v=8e75e4d1"
+    "birdsWindow-0.ogg?v=bfcb0ec3"
   ],
   "fireSurge": [
-    "fireSurge-0.ogg?v=5c51d929",
-    "fireSurge-1.ogg?v=2b60d25a"
+    "fireSurge-0.ogg?v=db4716c8",
+    "fireSurge-1.ogg?v=50935f71"
   ],
   "rattleChina": [
-    "rattleChina-0.ogg?v=1295a7cb",
-    "rattleChina-1.ogg?v=1a188577"
+    "rattleChina-0.ogg?v=5409ae9b",
+    "rattleChina-1.ogg?v=60f28c52"
   ],
   "rattleCoins": [
-    "rattleCoins-0.ogg?v=ba491a0a",
-    "rattleCoins-1.ogg?v=5ad18f04"
+    "rattleCoins-0.ogg?v=2cc7c907",
+    "rattleCoins-1.ogg?v=ebe552c8"
   ],
   "rattleGlass": [
-    "rattleGlass-0.ogg?v=d0774fed",
-    "rattleGlass-1.ogg?v=906bed96"
+    "rattleGlass-0.ogg?v=1d20ca59",
+    "rattleGlass-1.ogg?v=c66de9e3"
   ],
   "rattleWood": [
-    "rattleWood-0.ogg?v=cc11b1de",
-    "rattleWood-1.ogg?v=9d0b0773"
+    "rattleWood-0.ogg?v=2a3b840e",
+    "rattleWood-1.ogg?v=cbd3c180"
   ],
   "paperFlutter": [
-    "paperFlutter-0.ogg?v=4c23a8b1",
-    "paperFlutter-1.ogg?v=86d24074"
+    "paperFlutter-0.ogg?v=2dbbddd5",
+    "paperFlutter-1.ogg?v=a7a995cc"
   ],
   "chandelierTinkle": [
-    "chandelierTinkle-0.ogg?v=16382a8f"
+    "chandelierTinkle-0.ogg?v=f2f27584"
   ],
   "deskThud": [
-    "deskThud-0.ogg?v=bdaa827d",
-    "deskThud-1.ogg?v=032e94ef"
+    "deskThud-0.ogg?v=93718e67",
+    "deskThud-1.ogg?v=367015fd"
   ],
   "stepEinstein": [
-    "stepEinstein-0.ogg?v=db53912b",
-    "stepEinstein-1.ogg?v=735a1cd8",
-    "stepEinstein-2.ogg?v=cbf7668c",
-    "stepEinstein-3.ogg?v=b6d6e16e",
-    "stepEinstein-4.ogg?v=f7266050"
+    "stepEinstein-0.ogg?v=2142f196",
+    "stepEinstein-1.ogg?v=a23074b2",
+    "stepEinstein-2.ogg?v=3880d387",
+    "stepEinstein-3.ogg?v=724aff84",
+    "stepEinstein-4.ogg?v=36002361"
   ],
   "stepYeat": [
-    "stepYeat-0.ogg?v=4c72844f",
-    "stepYeat-1.ogg?v=8dc3b19f",
-    "stepYeat-2.ogg?v=e0eb9ed8",
-    "stepYeat-3.ogg?v=43978774",
-    "stepYeat-4.ogg?v=7a3d914e"
+    "stepYeat-0.ogg?v=4a403ff0",
+    "stepYeat-1.ogg?v=65b94364",
+    "stepYeat-2.ogg?v=276f731d",
+    "stepYeat-3.ogg?v=26964d48",
+    "stepYeat-4.ogg?v=2946a1a3"
   ],
   "stepVangogh": [
-    "stepVangogh-0.ogg?v=43731215",
-    "stepVangogh-1.ogg?v=8f80f9e0",
-    "stepVangogh-2.ogg?v=43850297",
-    "stepVangogh-3.ogg?v=be696aec",
-    "stepVangogh-4.ogg?v=7ab2fb6a"
+    "stepVangogh-0.ogg?v=ff2e104a",
+    "stepVangogh-1.ogg?v=24d1a77c",
+    "stepVangogh-2.ogg?v=ab04708c",
+    "stepVangogh-3.ogg?v=d3f7c3fb",
+    "stepVangogh-4.ogg?v=d3ed19bc"
   ],
   "stepPaper": [
-    "stepPaper-0.ogg?v=1660296b",
-    "stepPaper-1.ogg?v=56140699",
-    "stepPaper-2.ogg?v=a59f0e22",
-    "stepPaper-3.ogg?v=2bcf4c6c"
+    "stepPaper-0.ogg?v=d87f96da",
+    "stepPaper-1.ogg?v=fa92061a",
+    "stepPaper-2.ogg?v=37f7a1af",
+    "stepPaper-3.ogg?v=9226731e"
   ],
   "stepMetal": [
-    "stepMetal-0.ogg?v=f567b3c8",
-    "stepMetal-1.ogg?v=ab11b718",
-    "stepMetal-2.ogg?v=0a6806af",
-    "stepMetal-3.ogg?v=291216e1"
+    "stepMetal-0.ogg?v=862f674c",
+    "stepMetal-1.ogg?v=940b2882",
+    "stepMetal-2.ogg?v=7a7f7651",
+    "stepMetal-3.ogg?v=1b4ceb21"
   ],
   "stepLeather": [
-    "stepLeather-0.ogg?v=8bf75111",
-    "stepLeather-1.ogg?v=b725a75f",
-    "stepLeather-2.ogg?v=4b56239f",
-    "stepLeather-3.ogg?v=92c9de3e"
+    "stepLeather-0.ogg?v=929ded73",
+    "stepLeather-1.ogg?v=fc94bf13",
+    "stepLeather-2.ogg?v=06a7cdf8",
+    "stepLeather-3.ogg?v=6b0666d7"
   ],
   "stepStone": [
-    "stepStone-0.ogg?v=a33f4c86",
-    "stepStone-1.ogg?v=e9982936",
-    "stepStone-2.ogg?v=d7c6cbdf",
-    "stepStone-3.ogg?v=75f8bc62"
+    "stepStone-0.ogg?v=d90a79cf",
+    "stepStone-1.ogg?v=b5563ee3",
+    "stepStone-2.ogg?v=14d40e1b",
+    "stepStone-3.ogg?v=26cf3d94"
   ],
   "hitHeavy": [
-    "hitHeavy-0.ogg?v=7acc9bba",
-    "hitHeavy-1.ogg?v=e943969c"
+    "hitHeavy-0.ogg?v=1104aaed",
+    "hitHeavy-1.ogg?v=785b8724"
   ],
   "killDrop": [
-    "killDrop-0.ogg?v=fdf9c619"
+    "killDrop-0.ogg?v=e236c742"
   ],
   "assist": [
-    "assist-0.ogg?v=357a98c6"
+    "assist-0.ogg?v=9ca4a45e"
   ],
   "heartbeat": [
-    "heartbeat-0.ogg?v=2758f06d"
+    "heartbeat-0.ogg?v=8c04aa5b"
   ],
   "lowHealth": [
-    "lowHealth-0.ogg?v=17111af6"
+    "lowHealth-0.ogg?v=1e2c537e"
   ],
   "ultAlly": [
-    "ultAlly-0.ogg?v=21d27d60"
+    "ultAlly-0.ogg?v=3a4b7b96"
   ],
   "ultEnemy": [
-    "ultEnemy-0.ogg?v=5a61c226"
+    "ultEnemy-0.ogg?v=1b6a9e61"
   ],
   "finalTick": [
-    "finalTick-0.ogg?v=1894314e"
+    "finalTick-0.ogg?v=82a0516f"
   ],
   "slowmo": [
-    "slowmo-0.ogg?v=a54a489e"
+    "slowmo-0.ogg?v=3bb75c29"
   ],
   "matchPointSting": [
-    "matchPointSting-0.ogg?v=b7def0e3"
+    "matchPointSting-0.ogg?v=b7c1abe3"
   ],
   "backfire": [
-    "backfire-0.ogg?v=bbf9c3b5",
-    "backfire-1.ogg?v=87490a63",
-    "backfire-2.ogg?v=709aace9"
+    "backfire-0.ogg?v=dd21a6f7",
+    "backfire-1.ogg?v=a262d8fb",
+    "backfire-2.ogg?v=d762b9ed"
   ],
   "gearShift": [
-    "gearShift-0.ogg?v=8e574888",
-    "gearShift-1.ogg?v=09a65500"
+    "gearShift-0.ogg?v=f054f9eb",
+    "gearShift-1.ogg?v=b8dc2e97"
   ],
   "musicMenu": [
-    "musicMenu-0.ogg?v=c3b6bfa1"
+    "musicMenu-0.ogg?v=92671a48"
   ],
   "musicCalm": [
-    "musicCalm-0.ogg?v=3a7d83bd"
+    "musicCalm-0.ogg?v=093cca72"
   ],
   "musicCombat": [
-    "musicCombat-0.ogg?v=a94a719f"
+    "musicCombat-0.ogg?v=1dc71ea3"
   ],
   "musicClutch": [
-    "musicClutch-0.ogg?v=121a6da5"
+    "musicClutch-0.ogg?v=c8ea781c"
   ]
 };
 
