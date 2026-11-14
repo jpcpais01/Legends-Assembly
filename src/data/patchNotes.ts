@@ -8,6 +8,45 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.24.0',
+    date: '2026-11-14',
+    title: 'Gilded Frame',
+    sections: [
+      {
+        heading: 'A brand new opening',
+        items: [
+          'The game now opens with a cinematic logo reveal: the emblem slams in with a ring burst, gold rays turn behind it and the title wipes in under a light sweep.',
+          'The whole roster assembles along the bottom while the game loads, lighting up one by one as each legend is painted.',
+          'A sleek segmented loading bar with the real loading stage, a live percentage and rotating tips. Pressing a key lifts the screen away into the menu with a sting.',
+        ],
+      },
+      {
+        heading: 'Menus that feel like a game',
+        items: [
+          'Every panel, card and button has a new look: cut corners, a gold bevel edge, subtle grain, and gold (not white) for whatever you have selected.',
+          'Play, Lock In, Create Party and Resume are now skewed gold slabs that lift, glow and press down under your cursor.',
+          'The tab bar has a gold slider with Q and E keycaps either side, and a light sweep crosses the screen when you change page.',
+          'Keyboard hints are proper keycaps, toggles and sliders are gold, and every menu button now ticks when you hover it.',
+        ],
+      },
+      {
+        heading: 'No more cut-off text',
+        items: [
+          'Long names like Blitzcrank and Mickey Mouse now always fit, on hero select, Home, the roster, the pause card and the results, from 1280x720 up to 2560x1440.',
+          'The roster tiles size themselves to the window, so the Lock In button never covers a legend, however many join the roster.',
+          'The versus loading screen fits a full 5v5 on small windows, and the match-start lineup no longer sits on top of your health and abilities.',
+        ],
+      },
+      {
+        heading: 'HUD',
+        items: [
+          'Your health, abilities and special sit on soft backplates. Ability tiles have gold-bevelled cut corners, the cooldown sweep has a bright leading edge, and the special ring has a gold tick bezel.',
+          'The score bar, kill feed, scoreboard, death card and enemy-special warning share the same gold-framed style.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-11-14',
     title: 'Steve Joins the Fight',
