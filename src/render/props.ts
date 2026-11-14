@@ -25,7 +25,7 @@ export const PROPS: Partial<Record<PropName, PropTemplate>> = {};
  * Bump a prop's version whenever its GLB changes: /models/ is cache-first on players' devices, so an
  * unversioned URL can keep serving an old copy (or keep a failed load failing) indefinitely.
  */
-const PROP_VER: Partial<Record<PropName, number>> = { tonka_truck: 2, giant_bell: 2, golden_bell: 2 };
+const PROP_VER: Partial<Record<PropName, number>> = { tonka_truck: 2, giant_bell: 2, golden_bell: 2, luffy_hat: 2 };
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
