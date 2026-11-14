@@ -83,7 +83,7 @@ export const SFX = [
   { name: 'grabHit', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A giant mechanical claw clamps onto someone: heavy metal clank, a buzzing magnetic lock zap and a metal arm snapping taut with a servo groan' },
   { name: 'staticCharge', dur: 1.0, takes: 4, keep: 1, inf: 0.5, text: 'Electric generators overloading: a rising high-voltage whine climbing in pitch with fizzing electrical crackles and humming coils, about to explode' },
   { name: 'staticBlast', dur: 3.0, takes: 4, keep: 1, inf: 0.5, text: 'Huge electric shockwave slammed into the ground: a thunderclap boom, a wall of crackling static and arcing electricity, deep sub impact and a buzzing electric ring-out, cinematic' },
-  { name: 'staticZap', dur: 0.4, takes: 6, keep: 4, inf: 0.6, text: 'A single short electric arc zap jumping to a target, crisp crackle, short' },
+  { name: 'staticZap', dur: 0.5, takes: 6, keep: 4, inf: 0.6, text: 'A single short electric arc zap jumping to a target, crisp crackle, short' },
   { name: 'stepBlitz', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single heavy footstep of a big brass robot on a hardwood floor, hollow metal clank with a tiny servo whirr, close mic, dry, one step only' },
   { name: 'comm', dur: 0.6, takes: 3, keep: 1, inf: 0.6, text: 'Two short square-wave robot beeps, a tiny retro comm stinger', variant: 3 },
 
@@ -193,6 +193,7 @@ export const PICKS = {
   backfire: [5, 4, 1], gearShift: [1, 4],
   hallAmb: [3], stageSwap: [4, 1], musicSelect: [3],
   musicMenu: [1], musicCalm: [2], musicCombat: [1], musicClutch: [2],
+  blitzJab: [1, 4, 6], blitzPunchHit: [2, 4, 6], blitzUppercut: [2], grabLaunch: [2], grabReel: [1], grabHit: [2], staticCharge: [2], staticBlast: [1], staticZap: [1, 3, 4, 5], stepBlitz: [4, 1, 3, 2, 6],
 };
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
