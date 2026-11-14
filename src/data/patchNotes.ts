@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.2',
+    date: '2026-11-14',
+    title: 'Best Light Forward',
+    sections: [
+      {
+        heading: 'Menus',
+        items: [
+          'Legends on the home stage and hero select are now portrait lit: a soft warm key at face height, a cool fill and tinted rims behind. No more blown-out white faces or faces lost in shadow under a hat brim.',
+          "The stage's colour tint stays on the edges instead of washing over skin, so nobody looks neon or ghostly anymore.",
+          'Showcased legends hold a calm idle instead of twitching into random attack gestures.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.1',
     date: '2026-11-14',
     title: 'Free Cursor',
