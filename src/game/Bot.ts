@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -206,6 +206,14 @@ export class Bot {
         // The Bell: drop it on a visible target, ideally one that's busy fighting
         if (h.ult >= 1 && vis && tDist < 40 && (t.hp > 120 || g.enemiesNear(h.team, t.pos, 6).length >= 2)) inp.ult = true;
         break;
+      case 'luffy': {
+        const g5 = !!h.kitState.luffy?.gear;
+        // Gum-Gum Rocket: dive onto a target in reach, or bail out of a losing fight toward cover
+        if (h.secondaryCd <= 0 && vis && tDist > 6 && tDist < 24 && yawErr < 0.25 && (!lowHp || g5) && Math.random() < 0.55) inp.secondary = true;
+        // Gear Fifth: when brawling at close range with a healthy target or several enemies around
+        if (h.ult >= 1 && !g5 && (enemiesClose(8) >= 2 || (enemiesClose(7) >= 1 && t.hp > 120) || (lowHp && enemiesClose(6) >= 1))) inp.ult = true;
+        break;
+      }
       case 'vangogh': {
         if (h.secondaryCd <= 0) {
           let hurt: Hero | null = null;

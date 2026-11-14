@@ -209,10 +209,54 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_blitzcrank', vs: 'blitzcrank', text: 'Another steam golem? Running diagnostics on you.', reply: 'Diagnostics complete. You are going down.' },
     ],
   },
+  luffy: {
+    short: 'Luffy',
+    // bright and bouncy: a little room, no grit
+    chain: { hp: 120, lp: 14500, drive: 0, slap: 0, slapMix: 0, reverb: 0.14, rate: 1.03, gain: 1.05 },
+    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cheerful young pirate, loud, fearless, always grinning]', stability: 0.3, style: 0.75 },
+    lines: {
+      matchStart: L('matchStart', '[excited] Alright! Let\'s go have an adventure!', '[laughs] Shishishi! This is gonna be fun!', 'I\'m not losing to anybody!', '[hungry] Can we eat after this? Okay, let\'s fight!'),
+      primary: L('primary', 'Gum-Gum Pistol!', '[shouting] Pistol!'),
+      secondary: L('secondary', '[shouting] Gum-Gum Rocket!', 'Here I come!', '[laughs] Wheee!'),
+      secondaryHit: L('secondaryHit', '[laughs] Got ya!', 'Bullseye!', 'Heads up!'),
+      ult: L('ult', '[laughing] Shishishi! Gear Fifth!', '[shouting] I can hear the drums!', '[joyful] Now I can do anything!'),
+      ultEnemy: L('ultEnemy', '[shouting] Hey! Watch this!', '[laughing] You\'re gonna love this part!'),
+      kill: L('kill', 'Down you go!', '[laughs] Shishishi! Too slow!', 'That one\'s for my crew!', 'Rubber beats you!', '[proud] Told ya I\'d win!', 'Next!'),
+      multiKill: L('multiKill', '[excited] Who\'s next? Come on!', '[laughing] I could do this all day!', '[shouting] Everybody at once? Sure!'),
+      death: L('death', '[groans] Ow... I\'m so hungry...', '[annoyed] Hey! No fair!', 'I\'ll get you next time!'),
+      respawn: L('respawn', '[cheerful] I\'m back! Did ya miss me?', 'Okay, round two!', 'That didn\'t even hurt! ...Much.'),
+      ultReady: L('ultReady', '[excited] My heart\'s drumming!', 'I feel a big one coming!', '[laughs] Ready to go wild!'),
+      lowHp: L('lowHp', '[worried] I need meat! Lots of meat!', '[panicked] Okay, that one hurt!', 'Gotta bounce back!'),
+      victory: L('victory', '[cheering] We did it! Party time!', '[laughs] Shishishi! Told ya!', 'Let\'s feast!'),
+      defeat: L('defeat', '[sighs] I\'ll get stronger. Just watch.', 'Next time, we win. Promise.'),
+      assist: L('assist', '[excited] Nice one!', 'That\'s my crew!', '[laughs] Teamwork!'),
+      revenge: L('revenge', '[angry] That\'s for earlier!', 'Remember me?', 'I don\'t forget!'),
+      streak: L('streak', '[laughing] Nobody can stop me!', '[excited] I\'m on a roll!', 'Keep \'em coming!'),
+      heal: L('heal', '[happy] Ahh, that\'s the stuff!', 'All better!'),
+      takeLead: L('takeLead', '[excited] We\'re winning! Keep going!', 'Lead\'s ours!'),
+      behind: L('behind', '[determined] We\'re not done yet!', 'We can still turn this around!'),
+      matchPoint: L('matchPoint', '[shouting] One more! Let\'s finish it!', 'Last one, everybody!'),
+      overtime: L('overtime', '[laughs] More fighting? Yes!', 'Overtime! I love it!'),
+      enemyUlt: L('enemyUlt', '[shouting] Whoa, look out!', '[urgent] Something big\'s coming!'),
+      allyDown: L('allyDown', '[angry] Hey! Nobody hurts my friends!', 'Hang in there!'),
+      shutdown: L('shutdown', '[laughs] Your streak\'s over!', 'Not so tough now!'),
+    },
+    rival: {
+      einstein: R('einstein', 'Smart guy, but I hit harder!', '[laughs] Your hair\'s cooler than mine, though.'),
+      yeat: R('yeat', 'Your bell\'s too loud!', '[laughs] I like your music. Still beat ya!'),
+      vangogh: R('vangogh', 'Paint me a picture of meat!', '[laughs] Pretty colors!'),
+      luffy: R('luffy', 'Hey! There\'s only one me!', '[confused] Wait, which one\'s the real me?'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Hey, old man! Can your science make infinite meat?', reply: 'In theory... yes. In practice, sadly no.' },
+      { id: 'vs_yeat', vs: 'yeat', text: 'Your music\'s cool! Can you play at my party?', reply: 'Only if the party\'s loud.' },
+      { id: 'vs_vangogh', vs: 'vangogh', text: 'Will you paint my Jolly Roger?', reply: 'With the brightest yellow I have.' },
+      { id: 'vs_luffy', vs: 'luffy', text: 'Whoa! Are you me?', reply: 'Nope! You\'re me!' },
+    ],
+  },
 };
-
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).

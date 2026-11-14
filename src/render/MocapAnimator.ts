@@ -102,6 +102,12 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.25, [-0.62, -0.32, 0.66], [-0.7, -0.4, 0.6], [-0.4, -0.8, -0.4], 0.5, 0.16),
     key(0.4, [-0.3, -0.5, 0.5], [-0.3, -0.6, 0.74], [0.5, -0.6, -0.6], 0.2, 0.06),
   ] },
+  // straight rubber jab: the arm locks out down the crosshair and stays there while it stretches (Luffy)
+  punch: { out: 0.14, keys: [
+    key(0.04, [0.02, 0.04, 1.3], [0, 0.03, 1], [0, -1, 0.03], 0.22, 0.05),
+    key(0.3, [0.02, 0.04, 1.3], [0, 0.03, 1], [0, -1, 0.03], 0.2, 0.04),
+    key(0.42, [0.12, -0.3, 0.6], [0, 0.2, 0.98], [0, -0.98, 0.2], 0.06, 0.01),
+  ] },
   // underhand lob: swing back low, scoop forward and up with an open palm (Van Gogh's seeds)
   toss: { out: 0.22, keys: [
     key(0.085, [0.16, -0.86, -0.36], [0, -0.92, -0.4], [0.2, -0.4, 0.9], -0.2, 0.12),
@@ -141,6 +147,8 @@ const GESTURES: Record<AttackKind, Gesture> = {
 /** Sustained channels (ultimates). On the ground the striking arm sweeps up to the sky; floating, both arms open wide with the palms forward. */
 const CAST_UP = key(0, [0.3, 0.8, 0.5], [0.05, 0.92, 0.38], [0, -0.38, 0.92], 0.16, -0.1, [0.9, -0.3, -0.3]);
 const CAST_OPEN = key(0, [0.66, -0.22, 0.3], [0.78, -0.5, 0.36], [0, 0.58, 0.81], 0, -0.06, [0.3, -0.5, -0.8]);
+/** Both arms straight down the crosshair, hands grabbing (Luffy's Gum-Gum Rocket). */
+const REACH = key(0, [-0.06, 0.08, 1.3], [0, 0.08, 1], [0, -1, 0.08], 0, 0.08, [0.6, -0.6, -0.4]);
 
 interface ArmState { g: Gesture | null; t: number; w: number; p0: number[]; h0: number[]; n0: number[]; sp: [Spring, Spring, Spring]; cy: number; cp: number; hold: number }
 const newArm = (): ArmState => ({ g: null, t: 0, w: 0, p0: [0.1, -1, 0], h0: [0, -1, 0], n0: [-1, 0, 0], sp: [new Spring(), new Spring(), new Spring()], cy: 0, cp: 0, hold: 0 });
@@ -177,7 +185,7 @@ export class MocapAnimator {
   private lastAttack = 0; private lastHit = 0;
   private hit: { c: Baked; t: number } | null = null;
   private deadT = 0;
-  private castW = 0; private lev = 0;
+  private castW = 0; private lev = 0; private reachW = 0;
   private prevVX = 0; private prevVZ = 0; private accF = 0; private accR = 0; private hasPrev = false;
   private lean = new Spring(); private bank = new Spring();
   /** hit recoil: the torso is shoved along the blow and springs back (pitch, roll, twist) */
@@ -354,6 +362,7 @@ export class MocapAnimator {
 
     // ── attacks: start a gesture on the striking arm ──
     this.castW = damp(this.castW, s.cast, 9, dt);
+    this.reachW = damp(this.reachW, s.reach ?? 0, 16, dt);
     if (s.attack > this.lastAttack + 0.3) {
       const side = (s.attackSide ?? 1) < 0 ? 0 : 1;
       for (let k = 0; k < 2; k++) {
@@ -479,7 +488,8 @@ export class MocapAnimator {
       const a = this.arm[k], sgn = k ? -1 : 1;
       const sh = k ? I.shoulderR : I.shoulderL, hd = k ? I.handR : I.handL;
       // channel: the striking arm on the ground, both arms when floating
-      const cw = this.castW * (k ? 1 : lev);
+      const rw = this.reachW;
+      const cw = Math.max(this.castW * (k ? 1 : lev), rw);
       const casting = !a.g && cw > 0.01;
       if (!a.g && !casting && a.w < 0.005) { a.w = 0; a.cy = a.cp = 0; continue; }
       any = true;
@@ -511,9 +521,12 @@ export class MocapAnimator {
           a.hold = i + u; // key cursor, for the hand orientation
         }
       } else {
-        a.w = damp(a.w, cw, 10, dt);
-        tx = lerp(CAST_UP.p[0], CAST_OPEN.p[0], lev); ty = lerp(CAST_UP.p[1], CAST_OPEN.p[1], lev) + Math.sin(s.time * 2.1 + k * 1.7) * 0.04; tz = lerp(CAST_UP.p[2], CAST_OPEN.p[2], lev);
-        cy = lerp(CAST_UP.cy, CAST_OPEN.cy, lev); cpv = lerp(CAST_UP.cp, CAST_OPEN.cp, lev);
+        a.w = damp(a.w, cw, rw > 0.01 ? 18 : 10, dt);
+        if (rw > 0.01) { tx = REACH.p[0]; ty = REACH.p[1]; tz = REACH.p[2]; cy = 0; cpv = REACH.cp; }
+        else {
+          tx = lerp(CAST_UP.p[0], CAST_OPEN.p[0], lev); ty = lerp(CAST_UP.p[1], CAST_OPEN.p[1], lev) + Math.sin(s.time * 2.1 + k * 1.7) * 0.04; tz = lerp(CAST_UP.p[2], CAST_OPEN.p[2], lev);
+          cy = lerp(CAST_UP.cy, CAST_OPEN.cy, lev); cpv = lerp(CAST_UP.cp, CAST_OPEN.cp, lev);
+        }
       }
       a.sp[0].step(tx, SPR_F, SPR_Z, dt); a.sp[1].step(ty, SPR_F, SPR_Z, dt); a.sp[2].step(tz, SPR_F, SPR_Z, dt);
       a.cy = cy; a.cp = cpv;
@@ -544,7 +557,7 @@ export class MocapAnimator {
         const kb = K[i], ka = i ? K[i - 1] : K[0];
         h = ka.h; n = ka.n; el = ka.el; h2 = kb.h; n2 = kb.n; el2 = kb.el;
         if (a.t >= K[K.length - 1].t) u = 1;
-      }
+      } else if (this.reachW > 0.01) { h = h2 = REACH.h; n = n2 = REACH.n; el = el2 = REACH.el; }
       const aim = (v: V3, w: V3, out: THREE.Vector3) => {
         const x = lerp(v[0], w[0], u) * sgn, y = lerp(v[1], w[1], u), z = lerp(v[2], w[2], u);
         return out.set(x, y * cp0 + z * sp0, -y * sp0 + z * cp0);

@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.19.0',
+    date: '2026-11-14',
+    title: 'Gum-Gum',
+    sections: [
+      {
+        heading: 'New legend: Monkey D. Luffy, the Rubber Pirate (Duelist)',
+        items: [
+          'Gum-Gum Pistol (LMB): his fists stretch out to whatever you aim at, up to 21 m, and snap back like a rubber band. Alternate hands, 40 damage, headshots deal 50% more.',
+          'Gum-Gum Rocket (RMB): both arms shoot out, grab a wall or an enemy, and slingshot him in. Anyone in the way gets body-slammed for 75 and launched. Works as an escape too.',
+          'Gear Fifth (SHIFT): the Drums of Liberation. He floats up as the drums quicken, then bursts out white in a ring of clouds that throws nearby enemies back. For 10 seconds his fists turn giant and splash, he runs faster, bounces higher, takes less damage, and his Rocket recharges twice as fast.',
+          'His arms really stretch: it is his own body, stretched by the rig, not a special effect.',
+          'He plays with a stand-in body until his full model arrives. His lines show as subtitles until they are recorded.',
+          'Bots can play Luffy and use his whole kit.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-11-14',
     title: 'Full Steam Ahead',
