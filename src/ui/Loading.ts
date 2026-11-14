@@ -2,7 +2,7 @@ import { HEROES } from '../heroes';
 import type { HeroId } from '../game/types';
 import { MODE_INFO, type Mode } from '../game/Game';
 import { portraits } from './portraits';
-import { esc, splitName } from './uikit';
+import { esc, splitName, fitSoon } from './uikit';
 import { arenaInfo } from './Menu';
 import type { ArenaKind } from '../net/Party';
 
@@ -44,7 +44,7 @@ export class Loading {
       <div class="ld-shade"></div>
       <header class="ld-head">
         <small><span class="chip">${o.mode}</span>${info.label}${o.online ? ' · Online' : ''} · First to ${info.target}</small>
-        <h1>${a.name}</h1>
+        <h1 data-fit>${a.name}</h1>
         <p>${a.kicker}</p>
       </header>
       <div class="ld-teams">
@@ -58,6 +58,7 @@ export class Loading {
         <span class="ld-label">Loading</span>
       </footer>`;
     document.getElementById('ui')!.appendChild(el);
+    fitSoon(el);
     this.el = el;
     requestAnimationFrame(() => el.classList.add('show'));
   }
