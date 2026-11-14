@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.2',
+    date: '2026-11-14',
+    title: 'Clean Finish',
+    sections: [
+      {
+        heading: 'Results screen',
+        items: [
+          'The results screen now always fits your window: no more page scrollbar, and the Play Again and Main Menu buttons are always visible, even in a full 5v5 on a laptop screen.',
+          'On shorter screens the scoreboard switches to compact one-line rows so all ten players fit.',
+          'The faded "Final Elimination" banner no longer lingers behind the results.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.1',
     date: '2026-11-14',
     title: 'Free Cursor',
