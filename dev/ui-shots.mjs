@@ -2,7 +2,7 @@
  * Dev tool: boots the real game in headless Chromium and screenshots the menus and the in-match HUD.
  *   npm run dev            (in another shell)
  *   node dev/ui-shots.mjs <outDir> [width] [height] [pages...]
- * pages: home select legends settings learn news hud results pause (default: all)
+ * pages: home select legends settings learn news map loading hud results pause (default: all)
  */
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(process.env.NODE_TOOLS ?? '/opt/node-tools/')('playwright');
@@ -30,16 +30,24 @@ if (process.env.EVAL) await page.evaluate(process.env.EVAL);
 const L = '__legends';
 const snap = async (name, wait = 900) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${name}-${W}x${H}.png` }); console.log('shot', name); };
 for (const p of pages) {
-  if (['home', 'select', 'legends', 'settings', 'learn', 'news'].includes(p)) {
+  if (['home', 'select', 'legends', 'settings', 'learn', 'news', 'map'].includes(p)) {
     if (process.env.HERO) await page.evaluate(([L, h]) => { window.__hero = h; window[L].menu.setHero?.(h); }, [L, process.env.HERO]);
     await page.evaluate(([L, p]) => window[L].menu.go(p, true), [L, p]);
     await snap(p, 1600);
+  } else if (p === 'loading') {
+    await page.evaluate((L) => {
+      const seat = (name, hero, me) => ({ name, hero, me, bot: !me });
+      window[L].loading.show({ arena: 'museum', mode: '5v5', teams: [[seat('Player', 'blitzcrank', true), seat('Wolfgang Amadeus', 'mickey'), seat('Juno', 'luffy'), seat('Pixel', 'ironman'), seat('Vale', 'vangogh')], [seat('Zephyr', 'mickey'), seat('Rex', 'blitzcrank'), seat('Orion', 'yeat'), seat('Mika', 'einstein'), seat('Ember', 'ironman')]] });
+      window[L].loading.progress?.(0.6, 'Loading arena');
+    }, L);
+    await snap('loading', 1800);
+    await page.evaluate((L) => window[L].loading.hide(true), L);
   } else if (p === 'hud') {
     if (process.env.HERO) await page.evaluate((h) => { window.__hero = h; }, process.env.HERO);
     // the arena is far too slow under SwiftShader: hide the 3D view and check the HUD over a neutral backdrop
     await page.evaluate((L) => { window[L].startMatch('3v3', window.__hero ?? 'einstein'); const c = document.querySelector('canvas'); c.style.visibility = 'hidden'; document.body.style.background = 'radial-gradient(80% 80% at 50% 40%, #5b6a7c, #20262f)'; window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 50); window[L].renderer.render = () => {}; }, L);
     await page.waitForTimeout(800);
-    await page.evaluate((L) => { const l = window[L]; l.menu.pause(false); l.game.paused = false; }, L);
+    await page.evaluate((L) => { const l = window[L]; l.menu.pause(false); l.game.paused = true; }, L);
     await snap('hud-intro', 1200);
     await page.evaluate((L) => {
       const l = window[L]; const g = l.game; const me = g.local;

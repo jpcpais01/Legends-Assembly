@@ -5,6 +5,7 @@ import '@fontsource/barlow-condensed/latin-800.css';
 import '@fontsource/barlow-condensed/latin-700-italic.css';
 import '@fontsource/barlow-condensed/latin-800-italic.css';
 import './ui/ui.css';
+import './ui/skin.css';
 import * as THREE from 'three';
 import { registerSW } from 'virtual:pwa-register';
 import { Renderer } from './core/Renderer';
@@ -22,6 +23,8 @@ import type { ArenaLike, Soundscape } from './world/types';
 import { loadProps, PROPS } from './render/props';
 import { Game, partyRoster, rollLineup, type RosterSlot } from './game/Game';
 import { Loading, type LoadSeat } from './ui/Loading';
+import { BootScreen } from './ui/bootScreen';
+import { PATCH_NOTES } from './data/patchNotes';
 import { NetMatch } from './net/NetMatch';
 import { parseCode, type Party, type ArenaKind, type Msg } from './net/Party';
 import { Hud } from './ui/Hud';
@@ -41,9 +44,8 @@ const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()
 
 async function boot() {
   const bootEl = document.getElementById('boot')!;
-  const bar = bootEl.querySelector('.bar i') as HTMLElement;
-  const hint = bootEl.querySelector('.hint') as HTMLElement;
-  const progress = async (p: number, label: string) => { bar.style.width = `${p}%`; hint.textContent = label; await nextFrame(); };
+  const bootScreen = new BootScreen(bootEl, HERO_LIST, PATCH_NOTES[0].version);
+  const progress = async (p: number, label: string) => { bootScreen.progress(p, label); await nextFrame(); };
 
   await progress(5, 'Preparing the canvas');
   let scene = new THREE.Scene();
@@ -101,6 +103,7 @@ async function boot() {
 
   await progress(70, 'Painting the legends');
   await renderPortraits(renderer.gl, scene.environment);
+  bootScreen.revealRoster();
 
   await progress(85, 'Warming up the shaders');
   /** Compile every hero, ability and effect shader against an arena's lights, so the first fight doesn't hitch. */
@@ -324,7 +327,7 @@ async function boot() {
     game.setShowcase(hero, stage);
     stage.setHero(HEROES[hero].color, HEROES[hero].accent);
   }
-  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, startMatch: (m: Mode, h: HeroId, l?: Lineup) => startMatch(m, h, l) });
+  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, loading, startMatch: (m: Mode, h: HeroId, l?: Lineup) => startMatch(m, h, l) });
   showcase(menu.hero);
   try { await renderer.gl.compileAsync(stage.scene, camera); } catch { renderer.gl.compile(stage.scene, camera); }
 
@@ -440,16 +443,15 @@ async function boot() {
     if (inMatch() && !input.locked && !document.querySelector('.panel')) engage();
   });
 
-  await progress(100, 'Press any key to start');
-  hint.classList.add('pulse');
+  bootScreen.ready('Press any key to start');
   const enter = () => {
     audio.unlock();
     audio.setVolume(settings.volume);
     audio.setVoice(settings.voice);
     enterWorld('hall');
     music.preload();
-    bootEl.classList.add('fade');
-    setTimeout(() => bootEl.remove(), 900);
+    audio.play('lockIn');
+    bootScreen.leave();
     menu.show(true);
     window.removeEventListener('pointerdown', enter);
     window.removeEventListener('keydown', enter);

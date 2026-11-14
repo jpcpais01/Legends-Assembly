@@ -38,7 +38,7 @@ export class MenuStage {
     const s = this.scene;
     s.fog = new THREE.FogExp2(0x05060d, 0.045);
     s.environment = buildEnv(gl);
-    s.environmentIntensity = 0.55;
+    s.environmentIntensity = 0.7;
 
     // ── lights ──
     // Portrait lighting for the legend: a soft warm key from the front at face height, a cool fill from the
@@ -57,7 +57,7 @@ export class MenuStage {
     key.shadow.camera.far = 16;
     s.add(key, key.target);
     this.key = key;
-    const face = new THREE.DirectionalLight(0xffe7cf, 2.1);
+    const face = new THREE.DirectionalLight(0xffe7cf, 2.8);
     face.position.set(-2.6, 3.2, -4.4);
     face.target.position.set(0, 1.4, 0);
     const fill = new THREE.DirectionalLight(0xd6e2ff, 0.75);

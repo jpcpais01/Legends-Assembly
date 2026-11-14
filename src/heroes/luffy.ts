@@ -563,7 +563,7 @@ export const LUFFY: HeroDef = {
   accent: '#ffd23f',
   maxHp: 275,
   // Meshy model (scripts/build-luffy-standin.mjs made the old stand-in); bump ?v= whenever the file changes
-  modelUrl: '/models/heroes/luffy.glb?v=2',
+  modelUrl: '/models/heroes/luffy.glb?v=3',
   motion: 'default',
   speed: 6.4,
   secondaryCd: 7,
