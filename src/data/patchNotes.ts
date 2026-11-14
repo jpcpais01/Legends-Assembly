@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.23.1',
+    version: '0.25.1',
     date: '2026-11-14',
     title: 'Old Masters',
     sections: [
@@ -18,6 +18,54 @@ export const PATCH_NOTES: PatchNote[] = [
           'The green bells and the other placeholder art are gone. Every frame in the hall now holds a real masterpiece, and no two frames repeat.',
           'On show: The Night Watch, the Mona Lisa, The Birth of Venus, Las Meninas, Girl with a Pearl Earring, The Kiss, The Arnolfini Portrait, Impression, Sunrise, The Starry Night, The Scream, Woman with a Parasol and The Swing.',
           'Each frame widens or narrows a little to fit its painting, so the works are shown close to their true proportions.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.0',
+    date: '2026-11-14',
+    title: 'The Tyrant King',
+    sections: [
+      {
+        heading: 'New legend: T-Rex, the Tyrant King',
+        items: [
+          'The T-Rex stomps into the arena: a 6 metre Vanguard with 550 health whose footsteps shake the camera of anyone nearby.',
+          'Tyrant Bite (LMB): two snapping bites that heal you for part of the damage, then a tail sweep that knocks everyone around you away and slows them.',
+          'Stampede (RMB): charge forward like a freight train. The first enemy you hit is caught in your jaws and flung at the end, anyone else in the way gets trampled, and anyone pinned against a wall is stunned.',
+          'Extinction Event (SHIFT): rear up and roar. Enemies in front are slowed and silenced, the sky burns red, and meteors rain down around you while you rage, tougher and faster.',
+          'He has a fully animated dinosaur body: real walking legs that plant on the ground, a swaying tail that drags through turns, and a jaw that opens on every bite and roar.',
+        ],
+      },
+      {
+        heading: 'Gameplay',
+        items: [
+          'Hitboxes now match each legend\'s body, so the T-Rex is a big target and abilities reach his whole frame.',
+          'The camera pulls back and up to frame bigger legends.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.24.0',
+    date: '2026-11-14',
+    title: 'One Love',
+    sections: [
+      {
+        heading: 'New legend: Bob Marley (Strategist)',
+        items: [
+          'Bob Marley joins the roster with his guitar slung on its strap: his fretting hand rides the neck and every attack is a real strum.',
+          'Skank Chords (LMB): offbeat chords fly as rings of sound in red, gold and green. Every 4th strum is the drop, a heavy bass wave that splashes enemies and heals allies near where it lands.',
+          'Kaya Cloud (RMB): blow a big rolling cloud of smoke ahead. Enemies inside are slowed and turn Drowsy.',
+          'One Love (SHIFT): a giant Jamaican sound system rises beside you and pumps bass on the one drop for 7 seconds. Every pulse heals allies around it and hits, knocks back, slows and drowses enemies.',
+          'Bots play him too: they blow smoke on whoever they fight and drop the sound system when their team is hurt.',
+        ],
+      },
+      {
+        heading: 'New status: Drowsy',
+        items: [
+          'A Drowsy legend sees their own screen sway, swim and double, with a warm haze closing in at the edges. Lazy wisps of smoke and a floating "z" show who is affected.',
+          'Drowsy bots aim worse and turn slower.',
         ],
       },
     ],

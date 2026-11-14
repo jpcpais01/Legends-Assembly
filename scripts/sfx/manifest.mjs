@@ -138,12 +138,32 @@ export const SFX = [
   // ── the Assembly Hall (menu stage) ──
   { name: 'hallAmb', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Vast dark cosmic hall ambience: deep soft warm drone, slow airy shimmer like distant stars, faint low wind high above, calm and majestic, no melody, no drums, seamless loop' },
   { name: 'stageSwap', dur: 1.6, takes: 4, keep: 2, inf: 0.55, text: 'A hero appears on a glowing stage: soft rising magical whoosh into a warm shimmering chime with a gentle low boom, elegant, short' },
+  // ── Bob Marley ──
+  { name: 'skank', dur: 0.5, takes: 8, keep: 4, inf: 0.65, text: 'One single muted reggae guitar skank: a short choppy upstroke chord on a clean electric guitar, palm-muted and choked immediately, dry, close mic, one strum only' },
+  { name: 'skankDrop', dur: 1.0, takes: 6, keep: 3, inf: 0.6, text: 'A muted reggae guitar upstroke chord followed instantly by a deep warm sub bass note dropping in pitch, dub style, one hit only' },
+  { name: 'noteHit', dur: 0.5, takes: 6, keep: 3, inf: 0.6, text: 'A bright plucked guitar note impact: a single sharp twangy clean electric guitar pluck with a soft thump, short, game hit sound' },
+  { name: 'smokeBlow', dur: 1.6, takes: 4, keep: 1, inf: 0.6, text: 'A long slow relaxed human exhale blowing out a cloud of smoke, soft airy breath fading away, close mic, calm' },
+  { name: 'loveRise', dur: 2.2, takes: 4, keep: 1, inf: 0.55, text: 'A huge reggae sound system speaker stack powering up: deep sub bass rumble rising and swelling into a warm ringing major guitar chord, epic and joyful' },
+  { name: 'bassPulse', dur: 1.1, takes: 6, keep: 2, inf: 0.6, text: 'A reggae one drop beat hit: a round deep sub bass note with a dry rimshot click on the same beat, then a short muted guitar skank on the offbeat, one bar only' },
+
   // ── music (generated as seamless loops; the Music API takes replace these when available) ──
   { name: 'musicMenu', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game main menu music loop: warm cinematic orchestral hybrid theme, mellow felt piano melody over soft strings and a gentle pulsing synth, adventurous and inviting, mid tempo, seamless loop' },
   { name: 'musicSelect', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game hero select screen music loop: building anticipation, pulsing cinematic hybrid orchestral, steady driving low strings ostinato, deep synth pulse, light percussion, confident and exciting, mid tempo, seamless loop' },
   { name: 'musicCalm', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter match music loop, low intensity: tense atmospheric hybrid orchestral underscore, ticking pizzicato strings, soft pulsing synth bass and light percussion, anticipation, seamless loop' },
   { name: 'musicCombat', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter battle music loop, high intensity: driving epic hybrid orchestral action with heavy trap drums, booming 808 bass, fast staccato strings and bold brass hits, energetic, seamless loop' },
   { name: 'musicClutch', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Final moments of a match music loop: urgent epic orchestral climax, racing strings, pounding taiko and trap drums, rising brass, ticking clock pulse, maximum tension, seamless loop' },
+  // T-Rex
+  { name: 'rexStep', dur: 0.8, takes: 6, keep: 4, inf: 0.55, text: 'A giant dinosaur footstep: a huge heavy foot slams onto a wooden floor, deep sub thump, wood creak and a short rumble, one step only' },
+  { name: 'rexSnap', dur: 0.6, takes: 6, keep: 3, inf: 0.6, text: 'Giant dinosaur jaws snapping shut on air: a fast whoosh and a huge hollow clack of teeth with a short wet snarl, one bite only' },
+  { name: 'rexChomp', dur: 0.8, takes: 6, keep: 3, inf: 0.65, text: 'A tyrannosaurus bites into its prey: enormous teeth crunching, a wet meaty chomp and a low satisfied growl, one bite only' },
+  { name: 'rexSweep', dur: 0.8, takes: 4, keep: 2, inf: 0.55, text: 'A massive dinosaur tail swung hard through the air: a deep heavy whoosh with a scaly rustle, one swing only' },
+  { name: 'rexSweepHit', dur: 0.7, takes: 4, keep: 2, inf: 0.6, text: 'A huge dinosaur tail slams into someone: deep meaty body thud with a heavy whip crack, punchy, one hit only' },
+  { name: 'stampede', dur: 1.6, takes: 4, keep: 1, inf: 0.55, text: 'A tyrannosaurus breaks into a furious charge: angry bellowing roar over thunderous pounding footsteps accelerating on a wooden floor' },
+  { name: 'rexCrash', dur: 1.2, takes: 4, keep: 1, inf: 0.6, text: 'A charging dinosaur crashes into a wall: huge splintering wooden impact, deep boom, debris falling and a dazed grunt' },
+  { name: 'rexRumble', dur: 2.0, takes: 4, keep: 1, inf: 0.5, text: 'Deep ground rumble as something gigantic rears up: low earthquake growl rising with a long breathing intake from an enormous ribcage' },
+  { name: 'rexRoar', dur: 3.0, takes: 6, keep: 1, inf: 0.6, text: 'The mightiest tyrannosaurus rex roar: a colossal, deep, rattling bellow that shakes the room, cinematic, with a long rumbling tail' },
+  { name: 'meteorFall', dur: 1.2, takes: 4, keep: 2, inf: 0.55, text: 'A flaming meteor falling from the sky: a rising fiery whistle and roaring rush of burning air coming closer, no impact' },
+  { name: 'meteorImpact', dur: 1.5, takes: 4, keep: 3, inf: 0.6, text: 'A meteor smashes into the ground: huge explosive boom, rock debris and crackling flames, deep sub rumble, one impact' },
 ];
 
 /** Announcer lines (ElevenLabs text to speech, premade voice "Brian", eleven_v3 with audio tags). */

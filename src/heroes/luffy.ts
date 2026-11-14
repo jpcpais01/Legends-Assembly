@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import type { HeroDef, HeroKit } from '../game/types';
 import type { Hero } from '../game/Hero';
-import { HERO_RADIUS } from '../game/Hero';
 import type { Game } from '../game/Game';
 import { Shape } from '../vfx/Particles';
 import { clamp, damp, rand, segmentVsCapsule, TAU } from '../core/math';
@@ -118,7 +117,7 @@ function updateFist(h: Hero, g: Game, k: number, f: Fist, dt: number) {
     if (wt >= 0) best = wt;
     for (const e of g.heroes) {
       if (!e.alive || e.team === h.team) continue;
-      const t = segmentVsCapsule(f.prevTip, tip, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.7, HERO_RADIUS + P.r);
+      const t = segmentVsCapsule(f.prevTip, tip, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + e.hitH + 0.05, e.hitR + P.r);
       if (t >= 0 && t < best) { best = t; hit = e; }
     }
     if (best <= 1) {
@@ -205,7 +204,7 @@ function startRocket(h: Hero, g: Game, st: LuffyState) {
   if (wt >= 0) best = wt;
   for (const e of g.heroes) {
     if (!e.alive || e.team === h.team) continue;
-    const t = segmentVsCapsule(from, to, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.7, HERO_RADIUS + 0.35);
+    const t = segmentVsCapsule(from, to, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + e.hitH + 0.05, e.hitR + 0.35);
     if (t >= 0 && t < best) { best = t; target = e; }
   }
   const anchor = new THREE.Vector3().lerpVectors(from, to, Math.min(1, best));

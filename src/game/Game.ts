@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../world/types';
 import type { ArenaLike } from '../world/types';
 import { Vfx, InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
-import { Hero, HERO_RADIUS } from './Hero';
+import { Hero } from './Hero';
 import { CameraRig } from './CameraRig';
 import { Bot } from './Bot';
 import type { HeroDef, HeroId, Projectile, Zone } from './types';
@@ -14,7 +14,7 @@ import { VoiceDirector } from '../audio/VoiceDirector';
 import { music } from '../audio/Music';
 import type { Surface } from '../world/types';
 import { globalUniforms } from '../render/materials';
-import { clamp, pick, rand, segmentVsCapsule, shuffle, TAU } from '../core/math';
+import { clamp, damp, pick, rand, segmentVsCapsule, shuffle, TAU } from '../core/math';
 import { settings } from '../core/settings';
 import { screenFx } from '../vfx/ScreenFx';
 
@@ -32,7 +32,7 @@ const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
 const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 /** Each legend's own shoes on bare wood, and what each surface adds underneath them. */
-const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', steve: 'stepSteve' };
+const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', steve: 'stepSteve', marley: 'stepVangogh', trex: 'rexStep' };
 const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal: 'stepMetal', leather: 'stepLeather', stone: 'stepStone', grass: 'stepGrass' };
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
@@ -156,7 +156,7 @@ export interface Callout {
 
 const MULTI_WINDOW = 4.5;
 /** View kick per primary shot (radians). */
-const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, steve: 0.004 };
+const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, steve: 0.004, marley: 0.005, trex: 0.012 };
 const MULTI = [
   null, null,
   { title: 'Double Elimination', vox: 'double' },
@@ -208,6 +208,8 @@ export class Game {
   paused = false;
   /** 0..1 "doom sky" (The Bell): zones raise it each frame, it falls back on its own. */
   doom = 0;
+  /** Which sky the doom is: 0 toxic green (The Bell), 1 burning red (Extinction Event). */
+  doomKind = 0;
   timeScale = 1;
   endT = 0;
   winner = -1;
@@ -375,7 +377,7 @@ export class Game {
   }
 
   clearMatch() {
-    this.doom = 0;
+    this.doom = 0; this.doomKind = 0;
     audio.setLowHealth(0);
     audio.setSlowmo(0);
     this.stopT = 0;
@@ -414,12 +416,12 @@ export class Game {
 
   enemiesNear(team: number, pos: THREE.Vector3, r: number) {
     const out: Hero[] = [];
-    for (const h of this.heroes) if (h.alive && h.team !== team && h.pos.distanceTo(pos) <= r + HERO_RADIUS) out.push(h);
+    for (const h of this.heroes) if (h.alive && h.team !== team && h.pos.distanceTo(pos) <= r + h.hitR) out.push(h);
     return out;
   }
   alliesNear(team: number, pos: THREE.Vector3, r: number) {
     const out: Hero[] = [];
-    for (const h of this.heroes) if (h.alive && h.team === team && h.pos.distanceTo(pos) <= r + HERO_RADIUS) out.push(h);
+    for (const h of this.heroes) if (h.alive && h.team === team && h.pos.distanceTo(pos) <= r + h.hitR) out.push(h);
     return out;
   }
   los(a: THREE.Vector3, b: THREE.Vector3) { return this.world.raycast(a, b) < 0; }
@@ -557,7 +559,7 @@ export class Game {
     victim.stats.deaths++;
     const victimStreak = victim.stats.streak;
     victim.stats.streak = 0;
-    victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0; victim.stunT = 0;
+    victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0; victim.stunT = 0; victim.drowsyT = 0;
     victim.kit.onDeath?.(victim, this);
     const assists: Hero[] = called ? called.assists : [];
     if (called) for (const a of assists) a.stats.assists++;
@@ -782,7 +784,7 @@ export class Game {
       let bestT = 2; let bestH: Hero | null = null;
       for (const h of this.heroes) {
         if (!h.alive || h.team === p.owner.team) continue;
-        const t = segmentVsCapsule(p.prev, p.pos, h.pos.x, h.pos.z, h.pos.y + 0.15, h.pos.y + 1.65, HERO_RADIUS + p.radius);
+        const t = segmentVsCapsule(p.prev, p.pos, h.pos.x, h.pos.z, h.pos.y + 0.15, h.pos.y + h.hitH, h.hitR + p.radius);
         if (t >= 0 && t < bestT) { bestT = t; bestH = h; }
       }
       const wt = this.world.raycast(p.prev, p.pos, p.radius * 0.5);
@@ -986,7 +988,7 @@ export class Game {
     let best = 1;
     for (const e of this.heroes) {
       if (!e.alive || e.team === h.team) continue;
-      const tt = segmentVsCapsule(origin, far, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + 1.7, HERO_RADIUS);
+      const tt = segmentVsCapsule(origin, far, e.pos.x, e.pos.z, e.pos.y + 0.15, e.pos.y + e.hitH + 0.05, e.hitR);
       if (tt >= 0 && tt < best) best = tt;
     }
     const wt = this.world.raycast(origin, far);
@@ -1039,6 +1041,10 @@ export class Game {
     this.heroAmbient(h, dt);
     if (h.moveLock > 0) h.moveLock -= dt;
     if (h.silenceT > 0) h.silenceT -= dt;
+    if (h.drowsyT > 0) h.drowsyT -= dt;
+    h.drowsyK = damp(h.drowsyK, h.drowsyT > 0 ? 1 : 0, h.drowsyT > 0 ? 3.5 : 1.4, dt);
+    if (h.drowsyK < 0.005) h.drowsyK = 0;
+    if (h.isLocal && h.drowsyK > 0) screenFx.drowsy = Math.max(screenFx.drowsy, h.drowsyK);
     if (h.stunT > 0) h.stunT -= dt;
     if (h.channel > 0) h.channel -= dt;
     const wasGrounded = h.grounded;
@@ -1142,6 +1148,15 @@ export class Game {
       const a = rand(0, TAU), y = h.pos.y + rand(0.3, 1.7);
       this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.45, y, z: h.pos.z + Math.sin(a) * 0.45, vx: rand(-2, 2), vy: rand(-1, 2), vz: rand(-2, 2), r: 0.8, g: 2.2, b: 3.4, size: rand(0.08, 0.16), life: rand(0.08, 0.16), shape: Shape.Spark, stretch: 0.05 });
     }
+    // drowsy: lazy wisps of smoke curling off the head and a slow "z"
+    if (h.drowsyK > 0.2 && Math.random() < dt * 7 * h.drowsyK) {
+      const a = rand(0, TAU);
+      this.vfx.pa({ x: h.pos.x + Math.cos(a) * 0.25, y: h.pos.y + rand(1.5, 1.9), z: h.pos.z + Math.sin(a) * 0.25, vx: rand(-0.2, 0.2), vy: rand(0.25, 0.55), vz: rand(-0.2, 0.2), r: 0.62, g: 0.68, b: 0.56, a: 0.22, size: rand(0.18, 0.3), grow: 1.8, life: rand(1.1, 1.6), drag: 0.6, shape: Shape.Smoke, spin: rand(-0.8, 0.8), fadeIn: 0.25 });
+    }
+    if (h.drowsyT > 0 && !h.isLocal && this.time - (h.kitState.zzzT ?? -9) > 1.1) {
+      h.kitState.zzzT = this.time;
+      this.vfx.glyph('z', this._v3.set(h.pos.x + rand(-0.2, 0.2), h.pos.y + 2.05, h.pos.z), { color: '#e9f7d0', glow: '#5c9a3a', scale: rand(0.75, 1), dur: 1.2 });
+    }
     // stunned: little sparks circling the head
     if (h.stunT > 0 && Math.random() < dt * 12) {
       const a = this.time * 9 + rand(0, 0.4);
@@ -1156,7 +1171,8 @@ export class Game {
 
   /** Footsteps: one per stride, paced by real ground speed. */
   private footsteps(h: Hero, dt: number, wasGrounded: boolean) {
-    if (!h.grounded || !wasGrounded || h.overrideVel || h.kitState.truck) return;
+    // the T-Rex stomps in time with his own walk cycle (trex.ts footfalls)
+    if (!h.grounded || !wasGrounded || h.overrideVel || h.kitState.truck || h.def.id === 'trex') return;
     const sp = Math.hypot(h.vel.x, h.vel.z);
     if (sp < 1.2) { this.steps.set(h.id, 0.6); return; }
     let acc = (this.steps.get(h.id) ?? 0) + sp * dt;

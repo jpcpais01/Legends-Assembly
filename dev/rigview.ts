@@ -170,3 +170,4 @@ function paintWeights(bone: string | null) {
 }
 
 (window as any).rv = api;
+(window as any).rvScene = scene;

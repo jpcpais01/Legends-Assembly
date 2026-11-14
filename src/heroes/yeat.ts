@@ -602,6 +602,7 @@ function dropTheBell(h: Hero, g: Game) {
       // doom sky: dark & sickly green while the bell is up, fading after it lands
       const doom = phase === 'landed' ? Math.max(0, 1 - (landT - 0.6) / 1.6) : Math.min(1, z.t / 0.6);
       g.doom = Math.max(g.doom, doom);
+      if (doom > 0.05) g.doomKind = 0;
       // track the victim until it starts to swing down
       if (follow && follow.alive && z.t < 1.45) {
         groundAt.x += (follow.pos.x - groundAt.x) * Math.min(1, dt * 3.5);

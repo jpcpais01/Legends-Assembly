@@ -45,7 +45,7 @@ export class GltfHeroModel implements HeroModel {
   private animator: RigAnimator | null = null;
   /** Motion-capture animator; replaces the procedural one once the clips are retargeted. */
   private mocap: MocapAnimator | null = null;
-  private heldMesh: THREE.Mesh | null = null;
+  private heldMesh: THREE.Object3D | null = null;
   private heldGrip: THREE.Group | null = null;
   private heldRest = new THREE.Euler();
   /** Swappable hand items (HeroDef.items), shown one at a time by AnimState.item. */
@@ -111,17 +111,21 @@ export class GltfHeroModel implements HeroModel {
         this.handRest = [bones.handL.position.clone(), bones.handR.position.clone()];
         if (def.rubber) obj.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) rubberHands(o as THREE.SkinnedMesh, [bones.handL, bones.handR]); });
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
-        if (held && t) {
-          const m = new THREE.Mesh(t.geometry, t.material);
-          const sc = held.size / Math.max(t.size.x, t.size.z);
-          m.scale.setScalar(sc);
-          m.castShadow = true;
+        if (held && (t || held.fallback)) {
+          let m: THREE.Object3D;
+          let sc = 1;
+          if (t) {
+            m = new THREE.Mesh(t.geometry, t.material);
+            sc = held.size / Math.max(t.size.x, t.size.z);
+            m.scale.setScalar(sc);
+            m.castShadow = true;
+          } else m = held.fallback!();
           const grip = new THREE.Group();
           grip.position.set(...held.pos);
           grip.rotation.set(...held.rot);
           if (held.ring) m.position.y = -sc; // hangs from its handle
           grip.add(m);
-          (held.hand === 'L' ? bones.handL : bones.handR).add(grip);
+          (held.bone === 'chest' ? bones.chest : held.hand === 'L' ? bones.handL : bones.handR).add(grip);
           this.heldMesh = m;
           this.heldGrip = held.ring ? grip : null;
           this.heldRest.copy(grip.rotation);
@@ -272,7 +276,13 @@ function rubberHands(mesh: THREE.SkinnedMesh, hands: THREE.Object3D[]) {
 
 /** Loads every hero GLB once (fills the cache) and returns posed instances so the main scene can pre-compile their shaders. */
 export async function warmupHeroModels(defs: HeroDef[]) {
-  const models = defs.filter((d) => d.modelUrl).map((d) => new GltfHeroModel(d, new THREE.Color(d.color)));
+  const models = defs.filter((d) => d.modelUrl || d.createModel).map((d) => createHeroModel(d, new THREE.Color(d.color)));
   await Promise.all(models.map((m) => m.ready));
   return models;
+}
+
+/** The model a legend wears: its own (non-humanoid) model, the rigged Meshy GLB, or the procedural stand-in. */
+export function createHeroModel(def: HeroDef, rim: THREE.Color): HeroModel {
+  if (def.createModel) return def.createModel(rim);
+  return def.modelUrl ? new GltfHeroModel(def, rim) : new ProceduralHeroModel(def.look, rim);
 }
