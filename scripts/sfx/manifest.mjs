@@ -146,6 +146,9 @@ export const SFX = [
   { name: 'loveRise', dur: 2.2, takes: 4, keep: 1, inf: 0.55, text: 'A huge reggae sound system speaker stack powering up: deep sub bass rumble rising and swelling into a warm ringing major guitar chord, epic and joyful' },
   { name: 'bassPulse', dur: 1.1, takes: 6, keep: 2, inf: 0.6, text: 'A reggae one drop beat hit: a round deep sub bass note with a dry rimshot click on the same beat, then a short muted guitar skank on the offbeat, one bar only' },
 
+  // ── Steve ──
+  { name: 'dragonSummon', dur: 2.4, takes: 4, keep: 1, inf: 0.55, text: 'A dark dimensional portal tearing open: a deep sub bass drop, a swirling shimmering whoosh and an eerie choir-like hum swelling, then a huge dragon wingbeat' },
+  { name: 'dragonRoar', dur: 2.2, takes: 6, keep: 2, inf: 0.6, text: 'A huge ancient dragon roaring: a long deep guttural growling roar with a rumbling chest, echoing, terrifying and majestic, one roar only' },
   // ── music (generated as seamless loops; the Music API takes replace these when available) ──
   { name: 'musicMenu', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game main menu music loop: warm cinematic orchestral hybrid theme, mellow felt piano melody over soft strings and a gentle pulsing synth, adventurous and inviting, mid tempo, seamless loop' },
   { name: 'musicSelect', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game hero select screen music loop: building anticipation, pulsing cinematic hybrid orchestral, steady driving low strings ostinato, deep synth pulse, light percussion, confident and exciting, mid tempo, seamless loop' },
@@ -184,6 +187,8 @@ export const ANNOUNCER = [
  * sounds (comm = one stinger per hero).
  */
 export const PICKS = {
+  // Marley + Steve (bassPulse stays procedural: no take kept the one-drop clean)
+  skank: [6, 5, 3, 4], skankDrop: [3, 1, 4], noteHit: [4, 3, 2], smokeBlow: [3], loveRise: [4], dragonSummon: [1], dragonRoar: [3, 1],
   ui: [3], uiHover: [4], uiTab: [3], uiBack: [3], lockIn: [2], denied: [4], countdown: [3], go: [4], ultReady: [4],
   victory: [3], defeat: [1],
   hit: [4, 2], crit: [2], kill: [3], hurt: [5, 3, 2], heal: [3],
@@ -206,4 +211,4 @@ export const PICKS = {
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
 export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy',
-  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch']);
+  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch', 'loveRise', 'dragonSummon', 'dragonRoar']);

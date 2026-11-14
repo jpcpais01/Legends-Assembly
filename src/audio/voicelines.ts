@@ -39,7 +39,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Steve',
     // plain and close, a touch of crunch: a quiet builder, not a showman
     chain: { hp: 120, lp: 11000, drive: 0.06, slap: 0, slapMix: 0, reverb: 0.08, rate: 1, gain: 1.05 },
-    tts: { voice: 'iP95p4xoKVk53GoZ742B', direction: '[calm, friendly young builder, understated, dry humour]', stability: 0.5, style: 0.45 },
+    tts: { voice: 'ErXwobaYiN019PkySvjV', direction: '[calm, friendly young builder, understated, dry humour]', stability: 0.5, style: 0.45 },
     lines: {
       matchStart: L('matchStart', 'Alright. Day one. Let\'s get to work.', '[calm] Sword\'s sharp, bow\'s strung. Ready.', 'New world, same plan: build, fight, survive.', '[dry] Nobody touch my blocks.'),
       primary: L('primary', 'Hyah!', '[calm] Got you lined up.', 'Steady... and loose.'),
