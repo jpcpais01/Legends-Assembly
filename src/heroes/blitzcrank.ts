@@ -12,7 +12,7 @@ import { ICONS } from './icons';
 /**
  * Blitzcrank, the Great Steam Golem. A Vanguard who wins fights by choosing who is in them:
  *  - LMB Power Fist: alternating piston jabs; every third blow is an uppercut that launches the target.
- *  - RMB Rocket Grab: the right forearm telescopes out behind a rocketing fist, clamps the first enemy it meets and reels them in.
+ *  - RMB Rocket Grab: his upper arm telescopes out behind the rocketing forearm and fist, clamps the first enemy it meets and reels them in.
  *    A caught enemy is stunned on arrival and primes the next punch into the uppercut.
  *  - SHIFT Static Field: the boilers overload, both fists hammer the floor and a lightning shockwave shocks,
  *    slows and silences everyone around him. For a few seconds after, stray bolts jump to anyone close.
@@ -235,8 +235,9 @@ function strike(h: Hero, g: Game, upper: boolean, side: 1 | -1) {
 function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
   gr.t += dt;
   const sh = h.muzzle('R', new THREE.Vector3());
-  // the punch lands first, then the forearm telescopes out after the fist
+  // the punch lands first, then the upper arm telescopes out behind the whole forearm and fist
   h.anim.armTarget = gr.pos;
+  h.anim.armReach = 'upper';
   h.anim.armTargetW = clamp((gr.t - 0.05) / 0.06, 0, 1);
   gr.prev.copy(gr.pos);
   if (gr.phase === 'out') {
@@ -577,7 +578,7 @@ export const BLITZCRANK: HeroDef = {
   color: '#f5b532',
   accent: '#3fd8ff',
   maxHp: 425,
-  // modelUrl: '/models/heroes/blitzcrank.glb?v=1', // set once the Meshy model is processed (npm run models)
+  modelUrl: '/models/heroes/blitzcrank.glb?v=1', // set once the Meshy model is processed (npm run models)
   motion: 'heavy',
   speed: 5.6,
   secondaryCd: 9,

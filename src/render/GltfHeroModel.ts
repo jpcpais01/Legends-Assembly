@@ -103,7 +103,7 @@ export class GltfHeroModel implements HeroModel {
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         // the procedural animator only stands in when the motion library could not be loaded
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
-        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'], bounce: def.motion === 'cartoon' ? 1 : 0 });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'], bounce: def.motion === 'cartoon' ? 1 : 0, upright: def.motion === 'heavy' ? 1.1 : 0 });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         this.armBones = [bones.shoulderR, bones.elbowR, bones.handR];
         this.handRest = [bones.handL.position.clone(), bones.handR.position.clone()];
@@ -155,7 +155,7 @@ export class GltfHeroModel implements HeroModel {
       (this.mocap ?? this.animator).update(dt, s);
       if (this.armBones && (s.armTarget || this.reaching)) {
         this.root.updateWorldMatrix(true, false);
-        reachArm(this.armBones[0], this.armBones[1], this.armBones[2], s.armTarget, s.armTargetW ?? 1);
+        reachArm(this.armBones[0], this.armBones[1], this.armBones[2], s.armTarget, s.armTargetW ?? 1, s.armReach);
         this.reaching = !!s.armTarget;
       }
       if (this.handRest && (s.stretchL !== undefined || s.stretchR !== undefined)) {

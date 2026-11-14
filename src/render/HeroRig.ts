@@ -41,6 +41,8 @@ export interface AnimState {
   armTarget?: THREE.Vector3 | null;
   /** 0..1 blend of armTarget over the animated pose. */
   armTargetW?: number;
+  /** Which segment telescopes: the forearm (default) or the upper arm, so a big forearm + fist flies out whole. */
+  armReach?: 'fore' | 'upper';
   fistL?: number;
   fistR?: number;
 }
@@ -270,12 +272,12 @@ function turnWorld(b: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, w:
 
 /**
  * Telescoping arm: after the animation pose, straighten the elbow, swing the arm onto `target` and lengthen the
- * forearm (its bone scaled along the limb, the hand counter-scaled so the fist keeps its size) until the hand is
- * there. Works on any rig whose limb bones point down -Y (procedural rigs and auto-rigged Meshy GLBs).
+ * forearm or the upper arm (its bone scaled along the limb, the next bone counter-scaled so the rest keeps its
+ * size) until the hand is there. Works on any rig whose limb bones point down -Y (procedural rigs and auto-rigged Meshy GLBs).
  * Call every frame while active, and once with target null to put the arm back.
  */
-export function reachArm(sh: THREE.Object3D, el: THREE.Object3D, hd: THREE.Object3D, target: THREE.Vector3 | null | undefined, w = 1) {
-  el.scale.set(1, 1, 1); hd.scale.set(1, 1, 1);
+export function reachArm(sh: THREE.Object3D, el: THREE.Object3D, hd: THREE.Object3D, target: THREE.Vector3 | null | undefined, w = 1, seg: 'fore' | 'upper' = 'fore') {
+  sh.scale.set(1, 1, 1); el.scale.set(1, 1, 1); hd.scale.set(1, 1, 1);
   if (!target || w <= 0.001) return;
   // the fist lines up with the forearm (also keeps the counter-scale below free of shear)
   hd.quaternion.slerp(_rI.identity(), w);
@@ -288,11 +290,13 @@ export function reachArm(sh: THREE.Object3D, el: THREE.Object3D, hd: THREE.Objec
   turnWorld(sh, _rA.subVectors(_rH, _rS), _rB.subVectors(target, _rS), w);
   el.getWorldPosition(_rE); hd.getWorldPosition(_rH);
   const extra = (target.distanceTo(_rS) - _rH.distanceTo(_rS)) * w;
-  const fore = _rH.distanceTo(_rE);
-  if (extra <= 0 || fore < 1e-4) return;
-  const k = (fore + extra) / fore;
-  el.scale.set(1, k, 1);
-  hd.scale.set(1, 1 / k, 1);
+  // the stretched bone is scaled along the limb and its child counter-scaled, so only that segment grows
+  // (the elbow was just straightened, so what's left between the two is a twist about the limb: no shear)
+  const [b, c, len] = seg === 'upper' ? [sh, el, _rE.distanceTo(_rS)] : [el, hd, _rH.distanceTo(_rE)];
+  if (extra <= 0 || len < 1e-4) return;
+  const k = (len + extra) / len;
+  b.scale.set(1, k, 1);
+  c.scale.set(1, 1 / k, 1);
 }
 
 export const RIG_BONE_NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'handL', 'handR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'footL', 'footR'] as const;
@@ -322,7 +326,7 @@ export class ProceduralHeroModel implements HeroModel {
     this.anim.update(dt, s);
     if (s.armTarget || this.reaching) {
       this.root.updateWorldMatrix(true, false);
-      reachArm(this.r.shoulderR, this.r.elbowR, this.r.handR, s.armTarget, s.armTargetW ?? 1);
+      reachArm(this.r.shoulderR, this.r.elbowR, this.r.handR, s.armTarget, s.armTargetW ?? 1, s.armReach);
       this.reaching = !!s.armTarget;
     }
     if (s.stretchL !== undefined || this.handRest) {
