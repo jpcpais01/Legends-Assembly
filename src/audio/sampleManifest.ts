@@ -359,6 +359,47 @@ export const SAMPLE_FILES: Record<string, string[]> = {
   ],
   "musicClutch": [
     "musicClutch-0.ogg?v=c8ea781c"
+  ],
+  "blitzJab": [
+    "blitzJab-0.ogg?v=caa44458",
+    "blitzJab-1.ogg?v=b29c5900",
+    "blitzJab-2.ogg?v=7d2496c6"
+  ],
+  "blitzPunchHit": [
+    "blitzPunchHit-0.ogg?v=c6b8c996",
+    "blitzPunchHit-1.ogg?v=0bb13892",
+    "blitzPunchHit-2.ogg?v=40498539"
+  ],
+  "blitzUppercut": [
+    "blitzUppercut-0.ogg?v=5adf9138"
+  ],
+  "grabLaunch": [
+    "grabLaunch-0.ogg?v=fabebfc7"
+  ],
+  "grabReel": [
+    "grabReel-0.ogg?v=93527f47"
+  ],
+  "grabHit": [
+    "grabHit-0.ogg?v=bc6b46d4"
+  ],
+  "staticCharge": [
+    "staticCharge-0.ogg?v=5b373b49"
+  ],
+  "staticBlast": [
+    "staticBlast-0.ogg?v=a543a244"
+  ],
+  "staticZap": [
+    "staticZap-0.ogg?v=2d39f4a3",
+    "staticZap-1.ogg?v=d6ae9924",
+    "staticZap-2.ogg?v=8f0c4df0",
+    "staticZap-3.ogg?v=6f42ce46"
+  ],
+  "stepBlitz": [
+    "stepBlitz-0.ogg?v=16caa748",
+    "stepBlitz-1.ogg?v=baabac7d",
+    "stepBlitz-2.ogg?v=669ef82a",
+    "stepBlitz-3.ogg?v=42298b12",
+    "stepBlitz-4.ogg?v=6adba4c8"
   ]
 };
 

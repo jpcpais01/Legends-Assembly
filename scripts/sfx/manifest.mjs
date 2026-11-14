@@ -78,12 +78,12 @@ export const SFX = [
   { name: 'blitzJab', dur: 0.5, takes: 6, keep: 3, inf: 0.6, text: 'A giant steam-powered robot throws a fast piston punch: sharp pneumatic hiss and a heavy iron fist cutting the air ending in a metallic piston clunk, one punch only, no impact' },
   { name: 'blitzPunchHit', dur: 0.7, takes: 6, keep: 3, inf: 0.65, text: 'A heavy brass robot fist slams into someone: deep meaty body thud with a hollow metallic clang and gritty crunch, punchy, one hit only' },
   { name: 'blitzUppercut', dur: 1.4, takes: 4, keep: 1, inf: 0.6, text: 'Giant robot uppercut: rising air whoosh into an enormous metallic clang and a deep sub boom launching someone into the air, cinematic, one hit' },
-  { name: 'grabLaunch', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A robot arm launches like a rocket on a chain: thruster ignition burst, short rocket roar flying away and a heavy iron chain rattling out fast' },
-  { name: 'grabReel', dur: 0.8, takes: 4, keep: 1, inf: 0.6, text: 'A heavy iron chain being reeled back in fast by a motor: ratcheting chain clatter and a rising motor whine ending in a metallic clunk' },
-  { name: 'grabHit', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A giant mechanical claw clamps onto someone: heavy metal clank, a buzzing magnetic lock zap and an iron chain snapping taut' },
+  { name: 'grabLaunch', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A robot arm fires out like a rocket and telescopes: thruster ignition burst, short rocket roar flying away and rapid metal sleeves sliding out with pneumatic hiss and clacks' },
+  { name: 'grabReel', dur: 0.8, takes: 4, keep: 1, inf: 0.6, text: 'A long telescoping robot arm retracting fast: metal sleeves sliding back into each other with ratcheting clacks, a falling pneumatic hiss and a heavy metallic clunk at the end' },
+  { name: 'grabHit', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A giant mechanical claw clamps onto someone: heavy metal clank, a buzzing magnetic lock zap and a metal arm snapping taut with a servo groan' },
   { name: 'staticCharge', dur: 1.0, takes: 4, keep: 1, inf: 0.5, text: 'Electric generators overloading: a rising high-voltage whine climbing in pitch with fizzing electrical crackles and humming coils, about to explode' },
   { name: 'staticBlast', dur: 3.0, takes: 4, keep: 1, inf: 0.5, text: 'Huge electric shockwave slammed into the ground: a thunderclap boom, a wall of crackling static and arcing electricity, deep sub impact and a buzzing electric ring-out, cinematic' },
-  { name: 'staticZap', dur: 0.4, takes: 6, keep: 4, inf: 0.6, text: 'A single short electric arc zap jumping to a target, crisp crackle, short' },
+  { name: 'staticZap', dur: 0.5, takes: 6, keep: 4, inf: 0.6, text: 'A single short electric arc zap jumping to a target, crisp crackle, short' },
   { name: 'stepBlitz', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single heavy footstep of a big brass robot on a hardwood floor, hollow metal clank with a tiny servo whirr, close mic, dry, one step only' },
   { name: 'comm', dur: 0.6, takes: 3, keep: 1, inf: 0.6, text: 'Two short square-wave robot beeps, a tiny retro comm stinger', variant: 3 },
 
@@ -193,6 +193,7 @@ export const PICKS = {
   backfire: [5, 4, 1], gearShift: [1, 4],
   hallAmb: [3], stageSwap: [4, 1], musicSelect: [3],
   musicMenu: [1], musicCalm: [2], musicCombat: [1], musicClutch: [2],
+  blitzJab: [1, 4, 6], blitzPunchHit: [2, 4, 6], blitzUppercut: [2], grabLaunch: [2], grabReel: [1], grabHit: [2], staticCharge: [2], staticBlast: [1], staticZap: [1, 3, 4, 5], stepBlitz: [4, 1, 3, 2, 6],
 };
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */

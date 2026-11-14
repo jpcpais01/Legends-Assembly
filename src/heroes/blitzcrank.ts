@@ -7,13 +7,12 @@ import { TrailStyle, type Trail } from '../vfx/Trails';
 import { screenFx } from '../vfx/ScreenFx';
 import { clamp, rand, segmentVsCapsule, TAU, _v1, _v2 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
-import { propMesh } from '../render/props';
 import { ICONS } from './icons';
 
 /**
  * Blitzcrank, the Great Steam Golem. A Vanguard who wins fights by choosing who is in them:
  *  - LMB Power Fist: alternating piston jabs; every third blow is an uppercut that launches the target.
- *  - RMB Rocket Grab: the right fist flies out on a chain, clamps the first enemy it meets and reels them in.
+ *  - RMB Rocket Grab: his upper arm telescopes out behind the rocketing forearm and fist, clamps the first enemy it meets and reels them in.
  *    A caught enemy is stunned on arrival and primes the next punch into the uppercut.
  *  - SHIFT Static Field: the boilers overload, both fists hammer the floor and a lightning shockwave shocks,
  *    slows and silences everyone around him. For a few seconds after, stray bolts jump to anyone close.
@@ -83,67 +82,10 @@ function bodyArcs(g: Game, c: THREE.Vector3, r: number, h: number, count: number
   }
 }
 
-// ───────────────────────── rocket fist + chain ─────────────────────────
+// ───────────────────────── telescoping arm ─────────────────────────
 
-let fistTemplate: THREE.Group | null = null;
-let fistIsMeshy = false;
-/** Code-built rocket fist (faces +z): an open three-fingered claw on a brass cuff with two thrusters. Replaced by the Meshy `rocket_fist` prop. */
-function buildFist() {
-  const meshy = propMesh('rocket_fist', 0.62);
-  if (fistTemplate && (fistIsMeshy || !meshy)) return fistTemplate.clone();
-  fistIsMeshy = !!meshy;
-  const g = new THREE.Group();
-  const brass = new THREE.MeshStandardMaterial({ color: 0xd9a336, metalness: 0.9, roughness: 0.32 });
-  const iron = new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.85, roughness: 0.45 });
-  const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.4, 1.8, 0.5) });
-  if (meshy) {
-    // the Meshy fist is modelled pointing along +x: turn it down the chain
-    meshy.rotation.y = -Math.PI / 2;
-    meshy.position.y = -0.31;
-    g.add(meshy);
-  } else {
-    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 12), brass);
-    palm.scale.set(1.1, 0.85, 1.05);
-    g.add(palm);
-    // three thick claw fingers reaching forward, one thumb underneath
-    for (const [x, y, rx] of [[-0.1, 0.05, -0.35], [0, 0.07, -0.3], [0.1, 0.05, -0.35], [0, -0.12, 0.45]] as const) {
-      const f = new THREE.Group();
-      f.position.set(x, y, 0.12);
-      f.rotation.x = rx;
-      const p1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.12, 3, 8).rotateX(Math.PI / 2).translate(0, 0, 0.08), brass);
-      const kn = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), iron);
-      const p2 = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 8).rotateX(Math.PI / 2).translate(0, 0, 0.21), iron);
-      f.add(p1, kn, p2);
-      g.add(f);
-    }
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.3, 18).rotateX(Math.PI / 2).translate(0, 0, -0.2), brass);
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.025, 6, 20).translate(0, 0, -0.1), iron);
-    const socket = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.025, 6, 14).translate(0, 0, -0.36), iron);
-    g.add(cuff, band, socket);
-    for (const x of [-0.12, 0.12]) {
-      const th = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.16, 12).rotateX(Math.PI / 2).translate(x, 0.1, -0.3), iron);
-      const fl = new THREE.Mesh(new THREE.CircleGeometry(0.045, 12).rotateY(Math.PI).translate(x, 0.1, -0.385), glow);
-      g.add(th, fl);
-    }
-  }
-  g.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.castShadow = true; });
-  fistTemplate = g;
-  return g.clone();
-}
-
-const MAX_LINKS = 170;
-const LINK_STEP = 0.15;
-let linkGeo: THREE.BufferGeometry | null = null;
-let linkMat: THREE.MeshStandardMaterial | null = null;
-function chainMesh() {
-  linkGeo ??= new THREE.TorusGeometry(0.055, 0.016, 5, 10).scale(1.45, 1, 1); // long axis along x
-  linkMat ??= new THREE.MeshStandardMaterial({ color: 0x55585e, metalness: 0.9, roughness: 0.38 });
-  const m = new THREE.InstancedMesh(linkGeo, linkMat, MAX_LINKS);
-  m.count = 0;
-  m.frustumCulled = false;
-  m.castShadow = true;
-  return m;
-}
+/** Wrist to knuckles on his model: the hand bone is aimed this far short of the grab point. */
+const FIST_LEN = 0.35;
 
 interface Grab {
   phase: 'out' | 'pull' | 'back';
@@ -154,32 +96,8 @@ interface Grab {
   dist: number;
   target: Hero | null;
   trail: Trail | null;
-  fist: THREE.Group;
-  chain: THREE.InstancedMesh;
-  wobble: number;
-}
-
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1);
-const _X = new THREE.Vector3(1, 0, 0), _Z = new THREE.Vector3(0, 0, 1);
-
-/** Lay chain links from the shoulder to the fist's socket: alternating links turned 90°, a little flutter while flying. */
-function layChain(gr: Grab, from: THREE.Vector3, to: THREE.Vector3, time: number) {
-  const d = _p.subVectors(to, from), len = d.length();
-  if (len < 0.05) { gr.chain.count = 0; return; }
-  d.divideScalar(len);
-  _q.setFromUnitVectors(_X, d);
-  const n = Math.min(MAX_LINKS, Math.floor(len / LINK_STEP));
-  _n1.set(-d.z, 0, d.x).normalize();
-  for (let i = 0; i < n; i++) {
-    const u = (i + 0.5) / n;
-    const wob = Math.sin(u * 9 - time * 30) * Math.sin(Math.PI * u) * gr.wobble;
-    _a.copy(from).addScaledVector(d, (i + 0.5) * LINK_STEP).addScaledVector(_n1, wob);
-    _a.y += wob * 0.5 - Math.sin(Math.PI * u) * 0.08 * (gr.phase === 'back' ? 1 : 0.2);
-    _q2.setFromAxisAngle(_X, i % 2 ? Math.PI / 2 : 0).premultiply(_q);
-    gr.chain.setMatrixAt(i, _m.compose(_a, _q2, _s));
-  }
-  gr.chain.count = n;
-  gr.chain.instanceMatrix.needsUpdate = true;
+  /** Where the hand goes: just behind the fist's knuckles, so the fist itself lands on gr.pos. */
+  aim: THREE.Vector3;
 }
 
 // ───────────────────────── kit ─────────────────────────
@@ -218,12 +136,8 @@ class BlitzcrankKit implements HeroKit {
     g.vfx.flare(sh, FIRE, 1.4, 0.12);
     g.vfx.sparks(sh, BRASS, 10, 8, dir);
     for (let i = 0; i < 6; i++) g.vfx.pa({ x: sh.x, y: sh.y, z: sh.z, vx: -dir.x * rand(1, 3) + rand(-1, 1), vy: rand(0, 1.5), vz: -dir.z * rand(1, 3) + rand(-1, 1), r: STEAM.r, g: STEAM.g, b: STEAM.b, a: 0.3, size: rand(0.3, 0.5), grow: 3, life: rand(0.6, 0.9), drag: 2, shape: Shape.Smoke, rot: rand(0, TAU) });
-    const fist = buildFist();
-    fist.visible = false;
-    const chain = chainMesh();
-    g.scene.add(fist, chain);
     const trail = g.vfx.trail({ color: FIRE, endColor: new THREE.Color(0.5, 0.25, 0.1), width: 0.09, life: 0.18, style: TrailStyle.Smooth, minDist: 0.3 });
-    st.grab = { phase: 'out', t: 0, pos: sh.clone(), prev: sh.clone(), dir, dist: 0, target: null, trail, fist, chain, wobble: 0.12 } satisfies Grab;
+    st.grab = { phase: 'out', t: 0, pos: sh.clone(), prev: sh.clone(), dir, dist: 0, target: null, trail, aim: sh.clone() } satisfies Grab;
     if (h.isLocal) g.camRig.kick(2);
     return true;
   }
@@ -271,7 +185,7 @@ class BlitzcrankKit implements HeroKit {
     if (st.grab) endGrab(h, g);
     st.pending = null; st.ultT = 0; st.overT = 0;
     h.anim.cast = 0;
-    h.model.setHandScale?.('R', 1);
+    h.anim.armTarget = null;
   }
 }
 
@@ -326,14 +240,15 @@ function strike(h: Hero, g: Game, upper: boolean, side: 1 | -1) {
 function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
   gr.t += dt;
   const sh = h.muzzle('R', new THREE.Vector3());
-  // the arm decouples once it's punched out straight
-  if (gr.t > 0.09) { h.model.setHandScale?.('R', 0.001); gr.fist.visible = true; }
+  // the punch lands first, then the upper arm telescopes out behind the whole forearm and fist
+  h.anim.armTarget = gr.aim;
+  h.anim.armReach = 'upper';
+  h.anim.armTargetW = clamp((gr.t - 0.05) / 0.06, 0, 1);
   gr.prev.copy(gr.pos);
   if (gr.phase === 'out') {
     const step = GRAB_SPEED * dt;
     gr.pos.addScaledVector(gr.dir, step);
     gr.dist += step;
-    gr.wobble = Math.max(0.02, gr.wobble - dt * 0.2);
     // heroes first, then the world
     // online, only the machine that drives Blitzcrank decides who the claw catches (the others hear it via onNet)
     let best = 2, hit: Hero | null = null;
@@ -394,12 +309,24 @@ function updateGrab(h: Hero, g: Game, dt: number, gr: Grab) {
     if (l <= step + 0.3) { endGrab(h, g); return; }
     gr.pos.addScaledVector(d, step / l);
     gr.dir.copy(d).multiplyScalar(-1 / l);
-    gr.wobble = Math.max(0, gr.wobble - dt * 0.5);
   }
-  // orient the fist down the chain and lay the links
-  gr.fist.position.copy(gr.pos);
-  gr.fist.quaternion.setFromUnitVectors(_Z, gr.phase === 'back' ? _v2.subVectors(gr.pos, sh).normalize() : gr.dir);
-  layChain(gr, sh, _v2.copy(gr.pos).addScaledVector(gr.phase === 'back' ? _v1.subVectors(gr.pos, sh).normalize() : gr.dir, -0.36), g.time);
+  gr.aim.copy(gr.pos).addScaledVector(gr.dir, -FIST_LEN);
+  armFx(h, g, dt, gr, sh);
+}
+
+/** Pistons along the extended forearm: steam venting from the joints and a stray arc now and then. */
+function armFx(h: Hero, g: Game, dt: number, gr: Grab, sh: THREE.Vector3) {
+  const len = sh.distanceTo(gr.pos);
+  if (len < 1.5) return;
+  const n = Math.min(3, Math.floor(dt * len * 4 + Math.random()));
+  for (let i = 0; i < n; i++) {
+    const at = _a.lerpVectors(sh, gr.pos, rand(0.12, 0.92));
+    g.vfx.pa({ x: at.x, y: at.y, z: at.z, vx: rand(-0.4, 0.4), vy: rand(0.4, 1.1), vz: rand(-0.4, 0.4), r: STEAM.r, g: STEAM.g, b: STEAM.b, a: 0.22, size: rand(0.16, 0.28), grow: 3, life: rand(0.4, 0.7), drag: 2, shape: Shape.Smoke, rot: rand(0, TAU) });
+  }
+  if (Math.random() < dt * (gr.phase === 'pull' ? 14 : 5)) {
+    const u = rand(0.1, 0.8);
+    bolt(g, _v1.lerpVectors(sh, gr.pos, u), _v2.lerpVectors(sh, gr.pos, Math.min(1, u + rand(0.1, 0.25))), { width: 0.03, jag: 0.15, life: 0.07, forks: 0 });
+  }
 }
 
 function catchTarget(h: Hero, g: Game, gr: Grab, e: Hero) {
@@ -432,11 +359,9 @@ function endGrab(h: Hero, g: Game) {
   if (!gr) return;
   if (gr.target) { gr.target.overrideVel = null; gr.target = null; }
   gr.trail?.stop();
-  g.scene.remove(gr.fist, gr.chain);
-  gr.chain.dispose();
   h.kitState.grab = null;
-  h.model.setHandScale?.('R', 1);
-  // the fist snaps home with a puff of steam
+  h.anim.armTarget = null;
+  // the arm snaps home with a puff of steam
   const sh = h.muzzle('R');
   g.vfx.sparks(sh, BRASS, 6, 5);
   g.vfx.pa({ x: sh.x, y: sh.y, z: sh.z, vy: 0.8, r: STEAM.r, g: STEAM.g, b: STEAM.b, a: 0.3, size: 0.35, grow: 3, life: 0.6, drag: 2, shape: Shape.Smoke, rot: rand(0, TAU) });
@@ -659,7 +584,7 @@ export const BLITZCRANK: HeroDef = {
   color: '#f5b532',
   accent: '#3fd8ff',
   maxHp: 425,
-  // modelUrl: '/models/heroes/blitzcrank.glb?v=1', // set once the Meshy model is processed (npm run models)
+  modelUrl: '/models/heroes/blitzcrank.glb?v=1', // set once the Meshy model is processed (npm run models)
   motion: 'heavy',
   speed: 5.6,
   secondaryCd: 9,
@@ -668,16 +593,14 @@ export const BLITZCRANK: HeroDef = {
   ratings: { damage: 0.65, mobility: 0.3, support: 0.6, difficulty: 0.5 },
   abilities: {
     primary: { key: 'LMB', name: 'Power Fist', desc: 'Piston-driven punches with both fists. Every third blow is an uppercut that launches the target into the air.', stat: '32 · 32 · 55 + launch', icon: ICONS.fist },
-    secondary: { key: 'RMB', name: 'Rocket Grab', desc: 'Fire your fist on a chain. The first enemy it catches is dragged back to you and stunned, and your next punch becomes the uppercut.', stat: '40 dmg + pull · 24 m · 9 s cd', icon: ICONS.grab },
+    secondary: { key: 'RMB', name: 'Rocket Grab', desc: 'Your arm telescopes out and the fist rockets ahead. The first enemy it catches is dragged back to you and stunned, and your next punch becomes the uppercut.', stat: '40 dmg + pull · 24 m · 9 s cd', icon: ICONS.grab },
     ult: { key: 'SHIFT', name: 'Static Field', desc: 'Overload your coils and slam the floor: enemies around you are shocked, slowed and silenced. For 6 s after, stray bolts zap anyone who stays close.', stat: '85 dmg · 10 m · 2.5 s silence', icon: ICONS.staticField },
   },
   look: { build: buildBlitzcrank, armOut: 0.12, style: 'heavy' },
   createKit: () => new BlitzcrankKit(),
 };
 
-/** Pre-compiles the rocket fist and chain shaders so the first grab doesn't hitch. */
+/** The grab is the hero's own arm now, so there is nothing extra to pre-compile. */
 export function warmupBlitzcrank(_g: Game): THREE.Object3D[] {
-  const chain = chainMesh();
-  chain.count = 1;
-  return [buildFist(), chain];
+  return [];
 }

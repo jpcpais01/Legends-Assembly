@@ -205,12 +205,15 @@ export class MocapAnimator {
   private kind: AttackKind;
   /** Rubber-hose cartoon timing (Mickey): hips dip on every footfall, and he bops to a beat while standing. */
   private bounce: number;
+  /** 0..1: how much of the clips' forward pitch to drop (a top-heavy robot walks upright instead of tipping over). */
+  private upright: number;
   /** dev viewer: freeze on one clip */
   debugClip: { name: string; t: number } | null = null;
 
-  constructor(private body: THREE.Object3D, private b: THREE.Object3D[], private set: MocapSet, opts: { attack?: AttackKind; bounce?: number } = {}) {
+  constructor(private body: THREE.Object3D, private b: THREE.Object3D[], private set: MocapSet, opts: { attack?: AttackKind; bounce?: number; upright?: number } = {}) {
     this.kind = opts.attack ?? 'flick';
     this.bounce = opts.bounce ?? 0;
+    this.upright = opts.upright ?? 0;
     body.rotation.set(0, 0, 0); body.position.set(0, 0, 0);
     const rp = (i: number) => _v.fromArray(set.restP, i * 3).clone();
     this.legLen = rp(I.hipL).distanceTo(rp(I.kneeL)) + rp(I.kneeL).distanceTo(rp(I.footL));
@@ -347,7 +350,7 @@ export class MocapAnimator {
     const hx = P[0].x, hz = P[0].z;
     // the sprint and jog clips pitch far forward: keep part of it going forward, stand up when strafing, lean back when backpedaling
     const lean0 = Math.atan2(P[I.neck].z - P[0].z, P[I.neck].y - P[0].y);
-    const leanWant = lerp(lean0 * lerp(0.55, 0.3, sideways), -0.07, this.revW);
+    const leanWant = lerp(lean0 * lerp(0.55, 0.3, sideways) * (1 - this.upright), -0.07, this.revW);
     const posture = (leanWant - lean0) * mw * (1 - this.air);
     const cph = Math.cos(phi), sph = Math.sin(phi), cps = Math.cos(psi), sps = Math.sin(psi);
     // lanes: keep the feet from colliding when strides run across the pelvis

@@ -36,7 +36,7 @@ const CAMS: Record<string, [number, number, number, number, number]> = {
   // x (hero right), y, z (hero forward), look-at height, fov
   front: [0, 1.25, 5.2, 0.95, 24], back: [0, 1.5, -5.2, 0.95, 24], side: [5.2, 1.2, 0, 0.95, 24], sideL: [-5.2, 1.2, 0, 0.95, 24],
   q: [2.8, 1.5, 4.2, 0.95, 24], qb: [2.6, 1.7, -4.2, 0.95, 24], face: [0.15, 1.62, 1.5, 1.58, 22], faceS: [1.4, 1.62, 0.5, 1.58, 22],
-  top: [0, 7, 0.01, 0.9, 22], upper: [0.5, 1.5, 2.9, 1.3, 26], game: [0.5, 1.95, -3.3, 1.3, 42],
+  top: [0, 7, 0.01, 0.9, 22], upper: [0.5, 1.5, 2.9, 1.3, 26], game: [0.5, 1.95, -3.3, 1.3, 42], wide: [8, 1.5, 1.5, 1.2, 50], midS: [6.5, 1.3, 0.6, 0.95, 30], midQ: [3.6, 1.5, 5, 0.95, 30],
 };
 
 function render(name = 'front', w = 480, h = 600) {
@@ -53,6 +53,7 @@ function render(name = 'front', w = 480, h = 600) {
 }
 
 const api = {
+  get model() { return model; },
   /** Set hero fx uniforms (uWhite, uRim...) for look checks. */
   fx(u: Record<string, number>) { if (model) for (const [k, v] of Object.entries(u)) (model.fx as any)[k].value = v; },
   async load(id: keyof typeof HEROES) {
@@ -71,6 +72,7 @@ const api = {
   },
   set(p: Partial<AnimState & Extra> & { jump?: boolean }) {
     if (p.jump) { vy = 7.6; st.grounded = false; delete p.jump; }
+    if (Array.isArray(p.armTarget)) p.armTarget = new THREE.Vector3(...(p.armTarget as unknown as [number, number, number]));
     Object.assign(st, p);
     if (p.skel !== undefined && model) {
       if (skel) { scene.remove(skel); skel = null; }
