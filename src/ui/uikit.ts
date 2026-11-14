@@ -103,3 +103,31 @@ export class DomCache {
   }
   clear() { this.last.clear(); }
 }
+
+/**
+ * Shrinks an element's font until its text fits its own box, so long names (Blitzcrank, Mickey Mouse,
+ * long player names) never clip at any window size. The element needs a bounded width and `white-space: nowrap`.
+ */
+export function fitText(el: HTMLElement, min = 10) {
+  el.style.fontSize = '';
+  const avail = el.clientWidth;
+  if (!avail) return;
+  const need = el.scrollWidth;
+  if (need <= avail + 1) return;
+  const fs = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = `${Math.max(min, Math.floor(fs * (avail / need) * 0.97 * 10) / 10)}px`;
+}
+
+const fitQueue = new Set<ParentNode>();
+let fitFrame = 0;
+/** Fits every `[data-fit]` element under `root` on the next frame (after layout settles). Coalesced. */
+export function fitSoon(root: ParentNode) {
+  fitQueue.add(root);
+  if (fitFrame) return;
+  fitFrame = requestAnimationFrame(() => {
+    fitFrame = 0;
+    const roots = [...fitQueue];
+    fitQueue.clear();
+    for (const r of roots) r.querySelectorAll<HTMLElement>('[data-fit]').forEach((e) => fitText(e));
+  });
+}

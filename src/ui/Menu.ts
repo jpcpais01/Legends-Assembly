@@ -7,7 +7,7 @@ import { portraits } from './portraits';
 import { settings, saveSettings, type QualityLevel } from '../core/settings';
 import { PATCH_NOTES } from '../data/patchNotes';
 import { audio } from '../core/Audio';
-import { esc, icon, ROLE_ICONS, UI, logoMark, splitName, countUp, mmss } from './uikit';
+import { esc, icon, ROLE_ICONS, UI, logoMark, splitName, countUp, mmss, fitSoon } from './uikit';
 import { Party, parseCode, inviteLink, type ArenaKind, type Member } from '../net/Party';
 
 const VERSION = PATCH_NOTES[0].version;
@@ -152,11 +152,12 @@ export class Menu {
     this.root.className = 'menu hidden';
     this.root.innerHTML = `
       <div class="m-shade"></div>
+      <div class="m-wipe"><i></i></div>
       <header class="m-top">
         <div class="brand">${logoMark()}<div class="wm"><b>Legends</b><span>Assembly</span></div></div>
         <nav class="tabs">${TABS.map((t) => `<button class="tab" data-p="${t.id}">${t.label}</button>`).join('')}<i class="tab-ink"></i></nav>
         <div class="m-status">
-          <div class="prof"><div><b class="me-name"></b><small class="me-main"></small></div><span class="me-av"><img alt=""></span></div>
+          <div class="prof"><div><b class="me-name"></b><small class="me-main"></small></div><span class="me-av"><i><img alt=""></i></span></div>
         </div>
       </header>
       <main class="m-host"></main>
@@ -176,13 +177,14 @@ export class Menu {
     document.addEventListener('click', (e) => {
       if (e.detail > 0) (e.target as HTMLElement | null)?.closest?.('button')?.blur();
     }, true);
+    // every menu button ticks on hover, not just the big ones
     document.addEventListener('mouseover', (e) => {
-      const b = (e.target as HTMLElement | null)?.closest?.('[data-hover]');
+      const b = (e.target as HTMLElement | null)?.closest?.('[data-hover], .menu button:not([disabled]):not(.locked), .pause button, .results button, .overlay button');
       if (b && !b.contains(e.relatedTarget as Node | null)) audio.play('uiHover');
     });
     window.addEventListener('keydown', (e) => this.onKey(e));
-    window.addEventListener('resize', () => this.placeInk());
-    document.fonts?.ready.then(() => this.placeInk());
+    window.addEventListener('resize', () => { this.placeInk(); this.fit(); });
+    document.fonts?.ready.then(() => { this.placeInk(); this.fit(); });
     this.applyHeroTint();
     this.refreshProfile();
   }
@@ -235,9 +237,18 @@ export class Menu {
     else if (p === 'map') this.renderMap(el);
     this.renderHints();
     this.placeInk();
+    this.fit();
+    if (!force) { const w = this.root.querySelector('.m-wipe') as HTMLElement; w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); }
     if (p !== 'select' && p !== 'map') { this.revealTimers.forEach(clearTimeout); this.lineup = p === 'home' ? this.lineup : null; }
     // hook for menu music and ambience: listeners can follow which page is up and which legend is showcased
     window.dispatchEvent(new CustomEvent('la:menu', { detail: { page: p, hero: this.hero } }));
+  }
+
+  /** Shrink long names (legend titles, roster tiles, results) to fit their boxes. */
+  private fit() {
+    fitSoon(this.root);
+    if (this.resultsEl) fitSoon(this.resultsEl);
+    if (this.pauseEl) fitSoon(this.pauseEl);
   }
 
   private placeInk() {
@@ -562,10 +573,11 @@ export class Menu {
     const d = HEROES[this.hero];
     const [first, last] = splitName(d.name);
     spot.innerHTML = `<div class="hl-role">${icon(ROLE_ICONS[d.role])}${d.role}<i></i>${d.title}</div>
-      <h2>${first ? `<small>${first}</small>` : ''}${last}</h2>
+      <h2 data-fit>${first ? `<small>${first}</small>` : ''}${last}</h2>
       <button class="hl-change" data-hover><kbd>L</kbd>Change legend</button>`;
     spot.classList.remove('swap'); void spot.offsetWidth; spot.classList.add('swap');
     spot.querySelector('.hl-change')!.addEventListener('click', () => { audio.play('uiTab'); this.go('legends'); });
+    fitSoon(spot);
   }
 
   // ───────────────────────── hero select ─────────────────────────
@@ -591,10 +603,10 @@ export class Menu {
       <aside class="sel-team">${party ? '' : forPlay ? this.teamHtml() : this.tipsHtml()}</aside>
       <aside class="sel-info"></aside>
       <div class="sel-bottom">
-        <div class="roster" role="listbox" aria-label="Legends">${ROLES.map((r) => this.rosterGroup(r)).join('')}</div>
-        <button class="btn-lock" data-hover><span class="bl-t">${forPlay ? 'Lock in' : 'Play'}</span><small class="bl-s"></small><kbd>Enter</kbd></button>
+        <div class="roster" role="listbox" aria-label="Legends" style="--cards:${HERO_LIST.length + ROLES.length}">${ROLES.map((r) => this.rosterGroup(r)).join('')}</div>
+        <button class="btn-lock" data-hover><span class="bl-t">${forPlay ? 'Lock in' : 'Play'}</span><small class="bl-s" data-fit></small><kbd>Enter</kbd></button>
       </div>
-      <div class="lock-fx"><i></i><i class="l2"></i><b class="lock-name"></b><span>${icon(UI.check)}Locked in</span></div>`;
+      <div class="lock-fx"><i></i><i class="l2"></i><b class="lock-name" data-fit></b><span>${icon(UI.check)}Locked in</span></div>`;
     el.querySelector('.back')?.addEventListener('click', () => { if (this.party) this.partyBack(); else { audio.play('uiBack'); this.go('home'); } });
     el.querySelectorAll<HTMLButtonElement>('.rc[data-h]').forEach((b) => b.addEventListener('click', () => this.setHero(b.dataset.h as HeroId)));
     el.querySelectorAll<HTMLButtonElement>('.rc.locked').forEach((b) => b.addEventListener('click', () => audio.play('denied')));
@@ -638,6 +650,7 @@ export class Menu {
     if (btn) {
       (btn.querySelector('.bl-t') as HTMLElement).textContent = ready ? 'Locked' : 'Lock in';
       (btn.querySelector('.bl-s') as HTMLElement).textContent = ready ? (waiting ? `Waiting for ${waiting} player${waiting > 1 ? 's' : ''} · Esc to change` : 'Everyone is in') : `as ${splitName(HEROES[this.hero].name)[1]}`;
+      fitSoon(btn);
     }
   }
 
@@ -654,7 +667,7 @@ export class Menu {
     const [, last] = splitName(h.name);
     return `<button class="rc${h.id === this.hero ? ' on' : ''}" data-h="${h.id}" data-hover role="option" style="--hc:${h.color}">
       <span class="rc-in"><img src="${portraits[h.id] ?? ''}" alt=""></span>
-      <span class="rc-name">${last}</span></button>`;
+      <span class="rc-name" data-fit>${last}</span></button>`;
   }
 
   private teamHtml() {
@@ -747,7 +760,7 @@ export class Menu {
     const info = el.querySelector('.sel-info') as HTMLElement;
     info.innerHTML = `
       <div class="role-line">${icon(ROLE_ICONS[d.role])}<b>${d.role}</b><span>${d.title}</span></div>
-      <h1 class="sel-name">${first ? `<small>${first}</small>` : ''}<span>${last}</span></h1>
+      <h1 class="sel-name">${first ? `<small>${first}</small>` : ''}<span data-fit>${last}</span></h1>
       <p class="quote">“${d.tagline}”</p>
       <div class="sel-stats">
         <div class="hpc"><small>${icon(UI.heart)}Health</small><b>${d.maxHp}</b></div>
@@ -774,6 +787,7 @@ export class Menu {
     });
     showAb(this.abSel);
     info.classList.remove('swap'); void info.offsetWidth; info.classList.add('swap');
+    fitSoon(el);
     const sub = el.querySelector('.bl-s') as HTMLElement | null;
     if (sub) sub.textContent = el.classList.contains('for-play') ? `as ${last}` : `Take ${last} into a match`;
     if (this.party && el.classList.contains('for-play')) this.renderPartyTeams(el);
@@ -790,6 +804,7 @@ export class Menu {
       this.hooks.onLockIn(this.hero);
       store('la:lastHero', this.hero);
       (el.querySelector('.lock-name') as HTMLElement).textContent = splitName(HEROES[this.hero].name)[1];
+      fitSoon(el);
       el.classList.add('locking');
       this.party.setMine({ hero: this.hero, ready: true });
       setTimeout(() => { el.classList.remove('locking'); this.locking = false; }, 1500);
@@ -808,6 +823,7 @@ export class Menu {
     el.querySelectorAll<HTMLElement>('.ts.bot.pending').forEach((s) => { s.classList.remove('pending'); s.classList.add('picked'); });
     this.revealTimers.forEach(clearTimeout);
     (el.querySelector('.lock-name') as HTMLElement).textContent = splitName(HEROES[this.hero].name)[1];
+      fitSoon(el);
     el.classList.add('locking');
     // next: pick the arena (it loads after that, in place)
     setTimeout(() => { if (this.page === 'select') this.go('map'); }, 1250);
@@ -840,7 +856,7 @@ export class Menu {
         </button>`).join('')}
       </div>
       <div class="map-go">${guest ? `<span class="map-wait"><i class="ts-dots"><i></i><i></i><i></i></i>Waiting for ${esc(p!.state.members.find((m) => m.host)?.name ?? 'the host')}</span>`
-        : `<button class="btn-lock" data-hover><span class="bl-t">Play</span><small class="bl-s"></small><kbd>Enter</kbd></button>`}</div>`;
+        : `<button class="btn-lock" data-hover><span class="bl-t">Play</span><small class="bl-s" data-fit></small><kbd>Enter</kbd></button>`}</div>`;
     el.querySelector('.back')?.addEventListener('click', () => this.mapBack());
     el.querySelectorAll<HTMLButtonElement>('.map-card').forEach((b) => {
       b.addEventListener('click', () => { if (guest) return; if (this.mapSel === b.dataset.a) this.pickArena(); else this.selectMap(b.dataset.a as ArenaKind); });
@@ -857,6 +873,7 @@ export class Menu {
     el?.querySelectorAll<HTMLElement>('.map-card').forEach((c) => c.classList.toggle('on', c.dataset.a === id));
     const sub = el?.querySelector('.bl-s');
     if (sub) sub.textContent = arenaInfo(id).name;
+    if (el) fitSoon(el);
   }
 
   private mapBack() {
@@ -1157,6 +1174,7 @@ export class Menu {
     });
     document.getElementById('ui')!.appendChild(el);
     this.pauseEl = el;
+    fitSoon(el);
   }
 
   private pauseCard(me: Hero) {
@@ -1168,7 +1186,7 @@ export class Menu {
       <div class="pc-art"><img src="${portraits[d.id] ?? ''}" alt=""></div>
       <div class="pc-body">
         <div class="pc-role">${icon(ROLE_ICONS[d.role])}${d.role}</div>
-        <h3>${first ? `<small>${first}</small>` : ''}${last}</h3>
+        <h3 data-fit>${first ? `<small>${first}</small>` : ''}${last}</h3>
         <div class="pc-stats">
           <div><b>${s.kills}</b><small>Elims</small></div>
           <div><b>${s.deaths}</b><small>Deaths</small></div>
@@ -1223,7 +1241,7 @@ export class Menu {
           <div class="rm-art"><img src="${portraits[star.def.id] ?? ''}" alt=""></div>
           <div class="rm-tx">
             <span class="rm-k">${icon(UI.trophy)}${potg ? 'Play of the Game' : 'Match MVP'}</span>
-            <b class="rm-p">${esc(star.name)}</b>
+            <b class="rm-p" data-fit>${esc(star.name)}</b>
             <span class="rm-h">${mFirst ? mFirst + ' ' : ''}${mLast}</span>
             <span class="rm-s">${potg ? esc(potg.title) : `${mvp.stats.kills} / ${mvp.stats.deaths} / ${mvp.stats.assists}`}</span>
           </div>
@@ -1256,6 +1274,7 @@ export class Menu {
     el.querySelectorAll<HTMLElement>('.ry-grid b').forEach((b, i) => countUp(b, Number(b.dataset.n), 900, 900 + i * 90));
     this.resultsEl = el;
     this.resultsHandlers = { again, menu };
+    fitSoon(el);
   }
 }
 

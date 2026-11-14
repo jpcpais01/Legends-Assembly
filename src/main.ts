@@ -5,6 +5,7 @@ import '@fontsource/barlow-condensed/latin-800.css';
 import '@fontsource/barlow-condensed/latin-700-italic.css';
 import '@fontsource/barlow-condensed/latin-800-italic.css';
 import './ui/ui.css';
+import './ui/skin.css';
 import * as THREE from 'three';
 import { registerSW } from 'virtual:pwa-register';
 import { Renderer } from './core/Renderer';
@@ -324,7 +325,7 @@ async function boot() {
     game.setShowcase(hero, stage);
     stage.setHero(HEROES[hero].color, HEROES[hero].accent);
   }
-  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, startMatch: (m: Mode, h: HeroId) => startMatch(m, h) });
+  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, loading, startMatch: (m: Mode, h: HeroId) => startMatch(m, h) });
   showcase(menu.hero);
   try { await renderer.gl.compileAsync(stage.scene, camera); } catch { renderer.gl.compile(stage.scene, camera); }
 
