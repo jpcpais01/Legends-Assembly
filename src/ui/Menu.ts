@@ -34,7 +34,7 @@ const CAMS: Record<'home' | 'select' | 'page', MenuCam> = {
 };
 const ROLES: Role[] = ['Vanguard', 'Duelist', 'Strategist'];
 
-const ARENAS = [['study', "Giant's Study", 'Study'], ['museum', 'Grand Museum', 'Museum'], ['ruins', 'Sunset Ruins', 'Ruins']] as const;
+const ARENAS = [['study', "Giant's Study", 'Study'], ['museum', 'Grand Museum', 'Museum']] as const;
 
 type Page = 'home' | 'legends' | 'learn' | 'news' | 'settings' | 'select';
 const TABS: { id: Page; label: string }[] = [

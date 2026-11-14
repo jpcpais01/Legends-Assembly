@@ -20,7 +20,7 @@ WASD move · Space jump · Mouse aim · **LMB** basic attack · **RMB** ability 
 ## How it stays fast
 
 - Every hero is baked into **one rigidly skinned mesh** with per-vertex PBR → 1 draw call per hero.
-- Static ruins are merged per material; trees, rocks, columns and grass are instanced.
+- Static arena geometry is merged per material, and repeated pieces (books, columns, props) are instanced.
 - Grass, embers, dust motes, water, sky and fire are animated entirely on the GPU.
 - All VFX run through two instanced particle systems (one additive, one alpha) → 2 draw calls.
 - One half-float scene pass → one merged post pass (bloom, grade, ACES tonemap, vignette) → SMAA/FXAA.
@@ -57,7 +57,7 @@ change to `scripts/autorig.mjs`. Per-hero landmark fixes go in `scripts/rig-over
 - `dev/` holds the rig viewer and contact-sheet tools used to check all of this frame by frame
   (`npm run dev`, then open `/dev/rigview.html` or run `node dev/suite.mjs <outDir> <hero> <scenarios>`).
 
-Props such as statues, cauldrons, ruins, the sunflower, the palette, `tonka_truck` and `giant_bell` go in `models-src/props/<name>.glb`.
+Props such as the sunflower, the palette, `tonka_truck` and `giant_bell` go in `models-src/props/<name>.glb`.
 Run `npm run models:props` to process them. Textures shrink to 1K WebP and props are never decimated. `src/render/props.ts` loads every prop at boot.
 Anything missing keeps its procedural stand-in.
 

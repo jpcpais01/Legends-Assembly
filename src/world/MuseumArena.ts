@@ -6,7 +6,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { World } from './collision';
 import { HeightGrid } from './HeightGrid';
 import { Sky } from './Sky';
-import { TEAM_COLORS } from './Arena';
+import { TEAM_COLORS } from './types';
 import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { lerp } from '../core/math';

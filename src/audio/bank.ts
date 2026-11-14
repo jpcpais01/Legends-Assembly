@@ -794,7 +794,6 @@ export const RECIPES = {
   skid: { dur: 2, level: 0.26, loop: true, reverb: 0.05, sampleOnly: true },
   gravityCollapse: { dur: 1.1, level: 0.75, reverb: 0.25, sampleOnly: true },
   ambStudy: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
-  ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
 
   // ── the Assembly Hall (menu stage) ──
   hallAmb: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },

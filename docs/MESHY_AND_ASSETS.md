@@ -13,7 +13,7 @@ replace the placeholders automatically, keeping every VFX, hitbox and animation 
 > Tip: if an image has a shadow on the floor or a cropped foot, regenerate it. Meshy copies mistakes literally.
 
 ### Delivered so far
-Einstein, Yeat and Van Gogh are in. Props in: sunflower, palette, thinker statue, bronze cauldron and ivy ruins.
+Einstein, Yeat and Van Gogh are in. Props in: sunflower, palette, Tonka truck and the bells.
 
 ---
 
@@ -60,25 +60,6 @@ Props use this suffix. (Ability effects such as the Gravity Well core, beams, do
 | `tonka_truck.glb` | Yeat · RMB **Tonka** | big chunky classic yellow steel toy dump truck, oversized black rubber tires with deep treads, tilted dump bed, chrome front bumper and grille, round headlights, black and yellow hazard stripes, a few scuffs and dents, side view three-quarter + suffix |
 | `giant_bell.glb` | Yeat · Shift **The Bell** | colossal ancient bronze church bell hanging from a thick wooden yoke with iron straps, flared lip, engraved rings of runes around the waist, heavy iron clapper visible inside, green patina in the grooves, polished gold highlights + suffix |
 
-### Arena dressing (Sunset Ruins)
-| File name | Used for | Prompt |
-|---|---|---|
-| `fallen_column.glb` | cover | toppled fluted white marble Greek column broken into three chunky drum segments lying on the ground, cracked edges, moss and small flowers in the cracks + suffix |
-| `ruined_wall.glb` | cover | waist-high crumbling ancient stone wall segment, irregular sandstone blocks, one broken end, ivy draping over the top, tufts of grass at the base + suffix |
-| `healing_altar.glb` | health pads | low round ancient marble altar with a shallow carved basin on top, laurel-leaf reliefs around the side, four small steps, gold inlay lines + suffix |
-| `spawn_gate.glb` | team spawn gates | grand ancient marble triumphal gateway, two tall fluted columns, heavy carved lintel with an empty round crest in the middle, cloth banner hooks, slightly weathered + suffix |
-| `amphora_cluster.glb` | decor | cluster of four ancient terracotta amphorae and clay pots of different sizes, one tipped over and cracked, black-figure painted patterns + suffix |
-| `muse_statue.glb` | decor | weathered marble statue of a Greek muse in flowing robes holding a lyre, on a square plinth, cracked, missing one hand, moss at the feet + suffix |
-| `olive_tree.glb` | decor trees | gnarled ancient olive tree, twisted thick trunk, silver-green rounded leaf canopy, stylized hand-painted look + suffix |
-| `boulder_set.glb` | cover rocks | three mossy weathered granite boulders of different sizes grouped together, rounded stylized shapes + suffix |
-
-### Whole arena (experiment)
-Meshy builds one object, so a whole arena comes out as a single low-detail mesh with no clean collision. I'll use it as the **distant backdrop ring** around the playable area, which is where it will look best:
-
-> top-down three-quarter view of a circular ruined ancient Greek colosseum arena on a grassy hill, crumbling
-> tiered marble seating rings, broken columns and arches around the rim, cypress trees, golden sunset light,
-> stylized hand-painted game environment, plain pure white background, isolated diorama, no text
-
 ---
 
 ## Free (CC0) arena & nature packs worth using
@@ -93,9 +74,6 @@ straight into the engine as instanced meshes:
 - **Poly Haven** (photoreal CC0 rocks, ground textures, HDRIs): https://polyhaven.com
 - **ambientCG** (CC0 PBR textures: marble, ground, bark): https://ambientcg.com
 
-Recommended picks for the Sunset Ruins arena: Quaternius MegaKit trees + rocks for the outer forest,
-Poly Haven "rock_moss_set" / "boulder" models for cover, and an ambientCG marble set for columns.
-Download the GLB/GLTF zips and send them; the engine instancing is already in place.
 
 ## Meshy references
 - Image to 3D guide: https://docs.meshy.ai/en/webapp/image-to-3d

@@ -1,12 +1,15 @@
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import type { World } from './collision';
+
+/** Team colors (blue, red). */
+export const TEAM_COLORS = [new THREE.Color('#3fb4ff'), new THREE.Color('#ff3d5a')];
 
 /** What a footstep lands on. */
 export type Surface = 'wood' | 'paper' | 'metal' | 'leather' | 'stone' | 'grass';
 
 /** Where the arena's sounds come from (fireplace, windows, clocks…). */
 export interface Soundscape {
-  kind: 'study' | 'ruins' | 'hall';
+  kind: 'study' | 'hall';
   fire?: THREE.Vector3;
   windows?: THREE.Vector3[];
   chandelier?: THREE.Vector3;
