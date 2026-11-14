@@ -8,6 +8,51 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.7',
+    date: '2026-11-14',
+    title: 'Treasures of the Grand Museum',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'Four glass display cases now hold a golden pharaoh mask each. The glass catches the hall in its reflections, and the cases are solid cover.',
+          'Two antique brass orreries stand near the spawns, their planets slowly orbiting a golden sun.',
+          'A seated marble colossus on a carved throne watches over each corner of the hall.',
+          'The roped sarcophagi moved a little closer to the spawn doors.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.6',
+    date: '2026-11-14',
+    title: 'Clean Shave',
+    sections: [
+      {
+        heading: 'Vincent van Gogh',
+        items: [
+          "Van Gogh's beard and jaw no longer stretch into a point when he looks up or down. His whole beard, chin and bandage strap now move with his head, in the menus and in matches.",
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.5',
+    date: '2026-11-14',
+    title: 'Unibeam Overhaul',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'The Unibeam no longer rattles your screen: the camera stays steady for the whole beam, with just a small kick when it fires.',
+          'The arc reactor now visibly charges up: it swells into a star while two glowing emitter rings spin up and close in on his chest.',
+          'The beam itself is rebuilt in layers: a white-hot filament, a surging blue plasma core, a soft halo and twin helix bands spiralling down it, flaring out where it leaves his chest.',
+          'Pressure rings race down the beam, the air shimmers with heat at his chest and where it lands, and the impact point burns with a bright star and a spreading ring.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.4',
     date: '2026-11-14',
     title: 'Clean Finish',

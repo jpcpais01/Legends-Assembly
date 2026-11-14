@@ -515,7 +515,7 @@ export const VANGOGH: HeroDef = {
   color: '#ffc21a',
   accent: '#2b6bff',
   maxHp: 275,
-  modelUrl: '/models/heroes/vangogh.glb?v=2', // bump ?v= whenever the file changes: models are cached forever on players' devices
+  modelUrl: '/models/heroes/vangogh.glb?v=3', // bump ?v= whenever the file changes: models are cached forever on players' devices
   motion: 'artist',
   held: { prop: 'palette', hand: 'L', size: 0.46, pos: [0.02, -0.09, 0.1], rot: [0, 0, 0] },
   speed: 6.0,
