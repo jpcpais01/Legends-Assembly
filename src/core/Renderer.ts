@@ -114,7 +114,9 @@ export class Renderer {
 
   private volumetric: { pass: EffectPass; effect: { setSteps(n: number): void } } | null = null;
   /** An arena's volumetric light (the study's god rays): runs on the HDR scene, before bloom and grading. */
-  setVolumetric(effect: ConstructorParameters<typeof EffectPass>[1] & { setSteps(n: number): void }) {
+  setVolumetric(effect: (ConstructorParameters<typeof EffectPass>[1] & { setSteps(n: number): void }) | null) {
+    if (this.volumetric) { this.composer.removePass(this.volumetric.pass); this.volumetric.pass.dispose(); this.volumetric = null; }
+    if (!effect) return;
     const pass = new EffectPass(this.camera, effect);
     this.composer.addPass(pass, 1);
     this.volumetric = { pass, effect };
