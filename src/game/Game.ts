@@ -962,6 +962,8 @@ export class Game {
     if (!h) return;
     const inp = this.input;
     if (this.state !== 'ended') this.camRig.look(inp.mouseDX, inp.mouseDY);
+    // hold V: selfie view (camera only, so it needs nothing from the network)
+    this.camRig.selfie = this.state !== 'ended' && inp.locked && h.alive && inp.isDown('KeyV');
     const hi = h.input;
     const canAct = this.state === 'playing' && inp.locked;
     hi.forward = (inp.isDown('KeyW') ? 1 : 0) - (inp.isDown('KeyS') ? 1 : 0);

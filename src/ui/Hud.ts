@@ -438,6 +438,7 @@ export class Hud {
     this.lastPrimaryCd = h.primaryCd;
     this.xKick = Math.max(0, this.xKick - dt * 5);
     c.style('xk', E.crosshair, 'transform', `scale(${(1 + this.xKick * 0.35).toFixed(3)})`);
+    c.style('xs', E.crosshair, 'opacity', (1 - Math.min(1, this.g.camRig.selfieK * 1.6)).toFixed(2));
     c.style('ult', E.ultRing, 'strokeDashoffset', (RING * (1 - h.ult)).toFixed(1));
     c.text('ultp', E.ultPct.firstChild as unknown as HTMLElement, String(Math.floor(h.ult * 100)));
     const ready = h.ult >= 1;
