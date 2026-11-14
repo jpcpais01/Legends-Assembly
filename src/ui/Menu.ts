@@ -27,7 +27,8 @@ export interface MenuHooks {
   onQualityChange(): void;
   onResume(): void;
   /** Fires on the Lock In click itself, while the browser still counts it as a user gesture. */
-  onEngage(): void;
+  /** Go fullscreen (from a user gesture); `lockMouse` also captures the cursor. */
+  onEngage(lockMouse: boolean): void;
   onLeave(): void;
 }
 
@@ -798,7 +799,8 @@ export class Menu {
     this.locking = true;
     audio.play('lockIn');
     audio.announce('assemble', 0);
-    this.hooks.onEngage();
+    // fullscreen only: the arena picker still needs a visible cursor
+    this.hooks.onEngage(false);
     this.hooks.onLockIn(this.hero);
     store('la:lastHero', this.hero);
     store('la:lastMode', this.mode);
@@ -880,7 +882,9 @@ export class Menu {
     if (!el || el.classList.contains('going')) return;
     el.classList.add('going');
     audio.play('lockIn');
-    this.hooks.onEngage();
+    // the last menu click: capture the mouse now, while the browser still counts this as a
+    // user gesture, so the match starts locked (the loading screen has nothing to click)
+    this.hooks.onEngage(true);
     const arena = this.mapSel;
     if (this.party) { this.hooks.onPartyStart(arena); return; }
     const lineup = this.lineup ?? undefined;

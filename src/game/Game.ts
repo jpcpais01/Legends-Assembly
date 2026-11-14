@@ -401,7 +401,11 @@ export class Game {
     const h = new Hero(HEROES[id], 0, 'showcase', false, new THREE.Color(HEROES[id].color));
     h.respawnAt((stage?.heroPos ?? this.arena.showcasePos).clone(), 0);
     h.spawnT = 0;
-    if (stage) h.model.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+    if (stage) {
+      h.model.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+      // the stage lights its own rims; the in-game team fresnel would only paint the face's edges neon
+      h.model.fx.uRim.value = 0.12;
+    }
     (stage?.scene ?? this.scene).add(h.model.root);
     this.showcase = h;
   }
@@ -879,8 +883,6 @@ export class Game {
     if (this.state === 'menu') {
       if (this.showcase) {
         const s = this.showcase;
-        s.anim.attack = Math.max(0, s.anim.attack - rawDt * 2);
-        if (Math.random() < rawDt * 0.25) { s.anim.attack = 1; s.anim.attackSide = Math.random() < 0.5 ? 1 : -1; }
         s.spawnT += rawDt;
         s.model.fx.uDissolve.value = Math.max(0, 1 - s.spawnT * 1.2);
         s.updateAnim(rawDt, t);

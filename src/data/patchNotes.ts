@@ -8,6 +8,63 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.4',
+    date: '2026-11-14',
+    title: 'Clean Finish',
+    sections: [
+      {
+        heading: 'Results screen',
+        items: [
+          'The results screen now always fits your window: no more page scrollbar, and the Play Again and Main Menu buttons are always visible, even in a full 5v5 on a laptop screen.',
+          'On shorter screens the scoreboard switches to compact one-line rows so all ten players fit.',
+          'The faded "Final Elimination" banner no longer lingers behind the results.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.3',
+    date: '2026-11-14',
+    title: 'Clear Skies',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'Fixed the painted sky panels on the upper walls: a bright glassy wedge no longer cuts diagonally across the clouds.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.2',
+    date: '2026-11-14',
+    title: 'Best Light Forward',
+    sections: [
+      {
+        heading: 'Menus',
+        items: [
+          'Legends on the home stage and hero select are now portrait lit: a soft warm key at face height, a cool fill and tinted rims behind. No more blown-out white faces or faces lost in shadow under a hat brim.',
+          "The stage's colour tint stays on the edges instead of washing over skin, so nobody looks neon or ghostly anymore.",
+          'Showcased legends hold a calm idle instead of twitching into random attack gestures.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.1',
+    date: '2026-11-14',
+    title: 'Free Cursor',
+    sections: [
+      {
+        heading: 'Menus',
+        items: [
+          'Locking in your legend no longer hides the mouse: the game still goes fullscreen, but your cursor stays visible so you can click an arena on the Choose the Arena screen.',
+          'The mouse is captured when you confirm the arena, so the match still starts ready to aim with no extra click.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-11-14',
     title: 'Brass Knuckles',

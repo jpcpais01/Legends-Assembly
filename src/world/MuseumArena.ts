@@ -35,7 +35,7 @@ const MODEL_VER: Record<MuseumModel, number> = {
   museum_column_bay: 1, museum_wall_niche: 1, broken_dome_ring: 1, trex_skeleton: 1, winged_statue: 1, equestrian_statue: 1,
   grand_staircase: 1, painting_frame: 1, whale_skeleton: 1, sarcophagus: 1, rope_stanchion: 1, museum_bench: 1,
   museum_bay_drape: 1, museum_bay_relief: 1, museum_bay_fountain: 1, museum_bay_doorway: 1,
-  museum_upper_loggia: 1, museum_upper_oculus: 1, museum_upper_fresco: 1,
+  museum_upper_loggia: 1, museum_upper_oculus: 1, museum_upper_fresco: 2,
 };
 const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame', 'whale_skeleton', 'sarcophagus', 'rope_stanchion', 'museum_bench',
   'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway', 'museum_upper_loggia', 'museum_upper_oculus', 'museum_upper_fresco'] as const;
