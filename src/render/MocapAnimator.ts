@@ -197,9 +197,9 @@ const GESTURES: Record<AttackKind, Gesture> = {
  * Holding a guitar slung on its strap (Bob Marley): the fretting hand cradles the neck up by the left shoulder,
  * the picking hand rests over the strings at the right hip. [left, right], in the same shoulder space as GESTURES.
  */
-const GUITAR = [
-  key(0, [0.12, -0.2, 0.62], [-0.2, 0.55, 0.8], [-0.85, 0.4, -0.3], 0, 0, [0.8, -0.55, 0.1]),
-  key(0, [-0.01, -0.68, 0.6], [-0.3, -0.8, 0.5], [0.1, 0.3, -0.95], 0, 0, [0.7, -0.5, -0.5]),
+export const GUITAR = [
+  key(0, [-0.134, -0.276, 0.429], [0.3, 0.6, 0.75], [-0.2, 0.75, -0.6], 0, 0, [0.8, -0.55, 0.1]),
+  key(0, [-0.031, -0.6, 0.661], [-0.3, -0.8, 0.5], [0.1, 0.3, -0.95], 0, 0, [0.7, -0.5, -0.5]),
 ];
 /** How much of the aim pitch a body-held pose follows (the chest already carries some of it). */
 const FLAT_PITCH = 0.35;

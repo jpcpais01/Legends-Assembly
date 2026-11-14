@@ -47,6 +47,7 @@ export class GltfHeroModel implements HeroModel {
   private mocap: MocapAnimator | null = null;
   private heldMesh: THREE.Object3D | null = null;
   private heldGrip: THREE.Group | null = null;
+  private heldStrap: THREE.Object3D | null = null;
   private heldRest = new THREE.Euler();
   /** Swappable hand items (HeroDef.items), shown one at a time by AnimState.item. */
   private items = new Map<string, THREE.Object3D>();
@@ -125,7 +126,9 @@ export class GltfHeroModel implements HeroModel {
           grip.rotation.set(...held.rot);
           if (held.ring) m.position.y = -sc; // hangs from its handle
           grip.add(m);
-          (held.bone === 'chest' ? bones.chest : held.hand === 'L' ? bones.handL : bones.handR).add(grip);
+          const bone = held.bone === 'chest' ? bones.chest : held.hand === 'L' ? bones.handL : bones.handR;
+          bone.add(grip);
+          if (held.strap) { this.heldStrap = held.strap(); bone.add(this.heldStrap); }
           this.heldMesh = m;
           this.heldGrip = held.ring ? grip : null;
           this.heldRest.copy(grip.rotation);
@@ -189,6 +192,7 @@ export class GltfHeroModel implements HeroModel {
         stretchArm(this.handR!, this.handRest[1], s.stretchR ?? 0, s.fistR ?? 1);
       }
       if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
+      if (this.heldStrap) this.heldStrap.visible = this.fx.uDissolve.value < 0.25;
       if (this.items.size) for (const [id, o] of this.items) o.visible = id === s.item && this.fx.uDissolve.value < 0.25;
       if (this.heldGrip) {
         // a fresh attack rings the bell: a quick damped clapper swing about the grip

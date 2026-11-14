@@ -201,6 +201,8 @@ export class Hero {
     a.dead = !this.alive;
     a.time = time;
     a.vy = this.vel.y;
+    // a slung guitar keeps both hands on it while alive (menu stage included, where no kit runs)
+    if (this.def.held?.pose === 'guitar') a.guitar = (a.guitar ?? 1) + ((this.alive ? 1 : 0) - (a.guitar ?? 1)) * Math.min(1, dt * 8);
     this.bodyYaw = dampAngle(this.bodyYaw, this.yaw, 18, dt);
     a.yaw = this.bodyYaw;
     this.model.root.position.copy(this.pos);
