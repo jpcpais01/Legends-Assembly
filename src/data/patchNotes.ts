@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.25.3',
+    date: '2026-11-14',
+    title: 'True to Form',
+    sections: [
+      {
+        heading: 'Legends',
+        items: [
+          'Fixed a lighting bug that hit surfaces facing straight at the camera on many graphics cards: it tore black patches through Mickey\'s shorts and shoes and blew faces and armour out to flat white. Legends now look like their original models.',
+          "Faces no longer stretch when a legend looks up, looks down or runs: Mickey's cheeks, Luffy's and Einstein's jaws and Iron Man's helmet chin now move as one piece with the head.",
+          'Faces on the home stage and hero select get a bit more light.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.25.2',
     date: '2026-11-14',
     title: 'Full Voices',

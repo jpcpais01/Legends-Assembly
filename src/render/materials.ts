@@ -94,7 +94,7 @@ export function patchHeroMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUni
         }
         {
           vec3 vdir = normalize(vViewPosition);
-          float fres = pow(1.0 - abs(dot(normalize(vNormal), -vdir)), 3.0);
+          float fres = pow(clamp(1.0 - abs(dot(normalize(vNormal), -vdir)), 0.0, 1.0), 3.0);
           totalEmissiveRadiance += uRimColor * fres * uRim;
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * uFlash * (0.6 + fres * 2.0);
           totalEmissiveRadiance += vec3(0.9, 0.95, 1.1) * uWhite * (0.02 + fres * 1.2);
@@ -142,7 +142,7 @@ export function patchRigMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUnif
         }
         {
           vec3 vdir = normalize(vViewPosition);
-          float fres = pow(1.0 - abs(dot(normalize(vNormal), -vdir)), 3.0);
+          float fres = pow(clamp(1.0 - abs(dot(normalize(vNormal), -vdir)), 0.0, 1.0), 3.0);
           totalEmissiveRadiance += uRimColor * fres * uRim;
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * uFlash * (0.6 + fres * 2.0);
           totalEmissiveRadiance += vec3(0.9, 0.95, 1.1) * uWhite * (0.02 + fres * 1.2);

@@ -10,11 +10,15 @@ import { ImpactEffect, screenFx } from '../vfx/ScreenFx';
  * Cap what a lit surface can write into the half-float scene buffer. A near-mirror metal or gloss catching the sun
  * head-on (GGX peak x a strong sun) can pass 65504, the largest half float: the pixel stores infinity, the grade turns
  * it into NaN and it shows up as a hard black hole right where the brightest glint should be. 512 is far past what
- * bloom and ACES need, so nothing else changes.
+ * bloom and ACES need, so nothing else changes. Any NaN that reaches here (a shader term with a hair-negative
+ * pow() base on some GPUs) is written as 0 so it can never smear through bloom.
  */
 THREE.ShaderChunk.opaque_fragment = THREE.ShaderChunk.opaque_fragment.replace(
   'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
-  'gl_FragColor = vec4( min( outgoingLight, vec3( 512.0 ) ), diffuseColor.a );',
+  // NaN fails every comparison, so `x >= 0.0 ? x : 0.0` scrubs it first (min() alone may keep a NaN, or turn it into 512)
+  `vec3 laOut = outgoingLight;
+  laOut = vec3( laOut.r >= 0.0 ? laOut.r : 0.0, laOut.g >= 0.0 ? laOut.g : 0.0, laOut.b >= 0.0 ? laOut.b : 0.0 );
+  gl_FragColor = vec4( min( laOut, vec3( 512.0 ) ), diffuseColor.a );`,
 );
 
 /**
