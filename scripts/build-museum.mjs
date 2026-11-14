@@ -28,7 +28,7 @@ const arg = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 
 const ONLY = arg('only', null);
 const SRC = 'models-src/museum', OUT = 'public/models/museum';
 /** Models seen big or up close keep a 2K base color. */
-const BIG = new Set(['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway']);
+const BIG = new Set(['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway', 'colossal_statue']);
 /**
  * Stray Meshy triangles to cut, by index in the raw file. The loggia ("Marble Arcade") had a double-sided sheet running
  * diagonally through its gallery and a thin sliver across the left arch.
@@ -54,6 +54,31 @@ const dropTriangles = (tris) => (doc) => {
   }
 };
 
+/**
+ * Whole regions to cut, by a test on each triangle's raw-space bounds. The display case ("Gilded Relic Mask") keeps only
+ * its wooden base, the case floor, its corner posts and its lid: the opaque painted glass and the mask inside go, and
+ * the game builds real glass and puts the mask in (makeDisplayCases in MuseumArena).
+ */
+const STRIP = {
+  display_case: ({ c, mn, mx }) => {
+    const corner = Math.abs(c[0]) > 0.16 && Math.abs(c[2]) > 0.16;
+    const pane = mx[1] - mn[1] > 0.3 && !corner;
+    return pane || (c[1] > -0.215 && c[1] < 0.425 && !corner);
+  },
+};
+const stripTriangles = (test) => (doc) => {
+  for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+    const P = prim.getAttribute('POSITION').getArray(), idx = prim.getIndices(), I = idx.getArray(), keep = [];
+    for (let t = 0; t < I.length / 3; t++) {
+      const a = [0, 1, 2].map((k) => [P[I[t * 3 + k] * 3], P[I[t * 3 + k] * 3 + 1], P[I[t * 3 + k] * 3 + 2]]);
+      const c = [0, 1, 2].map((i) => (a[0][i] + a[1][i] + a[2][i]) / 3);
+      const mn = [0, 1, 2].map((i) => Math.min(a[0][i], a[1][i], a[2][i])), mx = [0, 1, 2].map((i) => Math.max(a[0][i], a[1][i], a[2][i]));
+      if (!test({ c, mn, mx })) keep.push(I[t * 3], I[t * 3 + 1], I[t * 3 + 2]);
+    }
+    idx.setArray(new I.constructor(keep));
+  }
+};
+
 await MeshoptEncoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
 const imageDecoder = async (buffer) => {
@@ -73,6 +98,7 @@ for (const f of files) {
   const base = BIG.has(name) ? 2048 : 1024;
   await doc.transform(
     ...(DROP[name] ? [dropTriangles(DROP[name])] : []),
+    ...(STRIP[name] ? [stripTriangles(STRIP[name])] : []),
     dedup(), weld(), prune(),
     // resize losslessly first (PNG) so Basis encodes from clean pixels
     textureCompress({ encoder: sharp, targetFormat: 'png', slots: /^baseColor/, resize: [base, base] }),
