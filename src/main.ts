@@ -29,7 +29,7 @@ import { Menu } from './ui/Menu';
 import { MenuStage } from './world/MenuStage';
 import { Subtitles } from './ui/Subtitles';
 import { renderPortraits } from './ui/portraits';
-import { warmupEinstein, warmupYeat, warmupVanGogh, warmupBlitzcrank, warmupLuffy, warmupIronMan, warmupMickey, warmupSteve, warmupMarley, HERO_LIST, HEROES } from './heroes';
+import { warmupEinstein, warmupYeat, warmupVanGogh, warmupBlitzcrank, warmupLuffy, warmupIronMan, warmupMickey, warmupSteve, warmupMarley, warmupTrex, HERO_LIST, HEROES } from './heroes';
 import { warmupHeroModels } from './render/GltfHeroModel';
 import type { HeroId } from './game/types';
 import type { Mode, Lineup } from './game/Game';
@@ -106,7 +106,7 @@ async function boot() {
   /** Compile every hero, ability and effect shader against an arena's lights, so the first fight doesn't hitch. */
   async function warmScene(sc: THREE.Scene, firstFrame = false) {
     const heroModels = await warmupHeroModels(HERO_LIST);
-    const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...warmupBlitzcrank(game), ...warmupLuffy(game), ...warmupIronMan(game), ...warmupMickey(game), ...warmupSteve(game), ...warmupMarley(game), ...heroModels.map((m) => m.root)];
+    const warm = [...warmupEinstein(game), ...warmupYeat(game), ...warmupVanGogh(game), ...warmupBlitzcrank(game), ...warmupLuffy(game), ...warmupIronMan(game), ...warmupMickey(game), ...warmupSteve(game), ...warmupMarley(game), ...warmupTrex(game), ...heroModels.map((m) => m.root)];
     const warmGroup = new THREE.Group();
     warm.forEach((m) => { m.position.set(0, -50, 0); warmGroup.add(m); });
     warmGroup.add(new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, blending: THREE.AdditiveBlending })));
@@ -511,7 +511,7 @@ async function boot() {
     const want = game.state !== 'menu' && h && h.alive ? 0.12 - Math.max(0, 0.35 - h.hp / h.maxHp) * 1.6 : game.state !== 'menu' && h && !h.alive ? -0.35 : 0.12;
     sat = damp(sat, want, 5, dt);
     renderer.setSaturation(sat);
-    arena.setDoom(game.doom);
+    arena.setDoom(game.doom, game.doomKind);
     audio.setDoom(game.doom);
     if (!onStage) arena.update(globalUniforms.uTime.value, camera);
     ambience.update(dt, globalUniforms.uTime.value);

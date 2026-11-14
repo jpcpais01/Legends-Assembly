@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { HeroDef, HeroKit, Projectile, Zone } from '../game/types';
-import { HERO_RADIUS, type Hero } from '../game/Hero';
+import type { Hero } from '../game/Hero';
 import type { Game } from '../game/Game';
 import { InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
@@ -247,7 +247,7 @@ function strike(h: Hero, g: Game, crit: boolean, side: 1 | -1) {
   for (const e of g.heroes) {
     if (!e.alive || e.team === h.team) continue;
     const dx = e.pos.x - h.pos.x, dz = e.pos.z - h.pos.z, d = Math.hypot(dx, dz);
-    if (d > SWORD.reach + HERO_RADIUS || Math.abs(e.pos.y - h.pos.y) > 2.2) continue;
+    if (d > SWORD.reach + e.hitR || Math.abs(e.pos.y - h.pos.y) > Math.max(2.2, e.hitH - 0.5)) continue;
     const ang = Math.acos(clamp((dx * f.x + dz * f.z) / Math.max(1e-3, d), -1, 1));
     if (d > 1.2 && ang > SWORD.cone) continue;
     if (!g.los(h.chest, e.chest)) continue;

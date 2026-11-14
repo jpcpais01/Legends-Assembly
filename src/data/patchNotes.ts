@@ -8,6 +8,30 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.25.0',
+    date: '2026-11-14',
+    title: 'The Tyrant King',
+    sections: [
+      {
+        heading: 'New legend: T-Rex, the Tyrant King',
+        items: [
+          'The T-Rex stomps into the arena: a 6 metre Vanguard with 550 health whose footsteps shake the camera of anyone nearby.',
+          'Tyrant Bite (LMB): two snapping bites that heal you for part of the damage, then a tail sweep that knocks everyone around you away and slows them.',
+          'Stampede (RMB): charge forward like a freight train. The first enemy you hit is caught in your jaws and flung at the end, anyone else in the way gets trampled, and anyone pinned against a wall is stunned.',
+          'Extinction Event (SHIFT): rear up and roar. Enemies in front are slowed and silenced, the sky burns red, and meteors rain down around you while you rage, tougher and faster.',
+          'He has a fully animated dinosaur body: real walking legs that plant on the ground, a swaying tail that drags through turns, and a jaw that opens on every bite and roar.',
+        ],
+      },
+      {
+        heading: 'Gameplay',
+        items: [
+          'Hitboxes now match each legend\'s body, so the T-Rex is a big target and abilities reach his whole frame.',
+          'The camera pulls back and up to frame bigger legends.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.24.0',
     date: '2026-11-14',
     title: 'One Love',

@@ -6,7 +6,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { World } from './collision';
 import { HeightGrid } from './HeightGrid';
 import { Sky } from './Sky';
-import { TEAM_COLORS } from './types';
+import { TEAM_COLORS, DOOM_SKY } from './types';
 import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { lerp } from '../core/math';
@@ -699,16 +699,16 @@ export class MuseumArena implements ArenaLike {
     }
   }
 
-  setDoom(k: number) {
+  setDoom(k: number, kind = 0) {
     const b = this.base;
-    const green = new THREE.Color(0.06, 0.24, 0.1);
-    this.fog.color.copy(b.fog).lerp(green, k);
+    const D = DOOM_SKY[kind] ?? DOOM_SKY[0];
+    this.fog.color.copy(b.fog).lerp(D.fog, k);
     this.fog.density = lerp(b.fogD, 0.009, k);
-    this.beam.color.copy(b.beam).lerp(new THREE.Color(0.45, 1.0, 0.5), k);
+    this.beam.color.copy(b.beam).lerp(D.sun, k);
     this.beam.intensity = lerp(b.beamI, 3, k);
     this.sun.intensity = lerp(b.sunI, 0.5, k);
-    this.hemi.color.copy(b.hemiSky).lerp(new THREE.Color(0.3, 0.8, 0.4), k);
-    this.hemi.groundColor.copy(b.hemiGround).lerp(new THREE.Color(0.02, 0.1, 0.03), k);
+    this.hemi.color.copy(b.hemiSky).lerp(D.sky, k);
+    this.hemi.groundColor.copy(b.hemiGround).lerp(D.ground, k);
     this.scene.environmentIntensity = lerp(this.envI, 0.3, k);
   }
 
