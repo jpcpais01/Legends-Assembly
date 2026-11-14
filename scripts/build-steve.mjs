@@ -32,7 +32,7 @@ const smooth = THREE.MathUtils.smoothstep;
 // ── palette (sRGB hex -> linear; COLOR_0 is read as linear) ──
 const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
 const PAL = {
-  H: lin('#3b2715'), h: lin('#2a1b0d'), // hair
+  H: lin('#5a3b1f'), h: lin('#452c15'), // hair
   S: lin('#d4a585'), s: lin('#c09070'), // skin
   W: lin('#f4f4f4'), I: lin('#4b3d8f'), // eye white, iris
   N: lin('#8c5a43'), M: lin('#4a2a17'), m: lin('#5a3520'), R: lin('#a8625a'), // nose, beard, mouth

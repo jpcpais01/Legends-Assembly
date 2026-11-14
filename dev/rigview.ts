@@ -131,6 +131,7 @@ const api = {
       const n = Math.round(s.dur / dt); let next = s.every ? 0 : Infinity;
       for (let i = 0; i < n; i++) {
         api.step(dt); t += dt;
+        (window as any).__after?.();
         if ((i + 1) * dt >= next + (s.every ?? 0) - 1e-6) {
           next += s.every!;
           for (const c of ([] as string[]).concat(s.cam ?? sc.cam ?? 'front')) shots.push(render(c, sc.w, sc.h));
