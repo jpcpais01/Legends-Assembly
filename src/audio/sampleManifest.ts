@@ -341,6 +341,16 @@ export const SAMPLE_FILES: Record<string, string[]> = {
     "gearShift-0.ogg?v=f054f9eb",
     "gearShift-1.ogg?v=b8dc2e97"
   ],
+  "hallAmb": [
+    "hallAmb-0.ogg?v=6bc67b8d"
+  ],
+  "stageSwap": [
+    "stageSwap-0.ogg?v=24b57e45",
+    "stageSwap-1.ogg?v=5a58e26b"
+  ],
+  "musicSelect": [
+    "musicSelect-0.ogg?v=6671f858"
+  ],
   "musicMenu": [
     "musicMenu-0.ogg?v=92671a48"
   ],

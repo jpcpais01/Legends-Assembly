@@ -18,7 +18,7 @@ import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
 import { GodRaysEffect } from './world/studyLight';
 import { StudyArena } from './world/StudyArena';
-import type { ArenaLike } from './world/types';
+import type { ArenaLike, Soundscape } from './world/types';
 import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
@@ -113,7 +113,7 @@ async function boot() {
   const menu = new Menu(uiRoot, {
     onStart: (mode, hero, lineup) => startMatch(mode, hero, lineup),
     onPreviewHero: (hero) => showcase(hero),
-    onLockIn: () => stage.burst(),
+    onLockIn: () => { stage.burst(); music.surge(true); },
     onQualityChange: () => { renderer.applyQuality(); arena.applyQuality(); },
     onResume: () => engage(),
     onEngage: () => engage(),
@@ -121,8 +121,10 @@ async function boot() {
   });
   menu.bindGame(game);
   menu.show(false);
+  let shownHero: HeroId | null = null;
   /** The menu legend stands on the Assembly Hall stage, tinted to match. */
   function showcase(hero: HeroId) {
+    if (hero !== shownHero) { shownHero = hero; audio.play('stageSwap'); }
     game.setShowcase(hero, stage);
     stage.setHero(HEROES[hero].color, HEROES[hero].accent);
   }
@@ -138,7 +140,7 @@ async function boot() {
     subs.clear();
     audio.setWorldPaused(false);
     game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty, lineup });
-    audio.setAmbience(1);
+    enterWorld('arena');
     hud.setup();
     hud.show(true);
     camera.fov = settings.fov;
@@ -156,9 +158,8 @@ async function boot() {
     input.unlock();
     subs.clear();
     audio.setWorldPaused(false);
-    audio.setAmbience(0.55);
     game.clearMatch();
-    music.play('menu', 3);
+    enterWorld('hall');
     game.paused = false;
     hud.show(false);
     menu.show(true);
@@ -166,6 +167,30 @@ async function boot() {
     renderer.setSaturation(0.12);
     flash();
   }
+
+  /**
+   * Which world you hear: the Assembly Hall behind the menus (its own drone, a vast airy room,
+   * menu or hero select music by page), or the arena in a match (its placed soundscape and room).
+   */
+  const HALL: Soundscape = { kind: 'hall' };
+  let menuPage = 'home';
+  function enterWorld(w: 'hall' | 'arena') {
+    if (w === 'hall') {
+      ambience.start(HALL);
+      audio.setRoom('hall');
+      audio.setAmbience(0.8, 2);
+      music.play(menuPage === 'select' ? 'select' : 'menu', 2.5);
+    } else {
+      if (arena.soundscape) ambience.start(arena.soundscape);
+      audio.setRoom(study ? 'study' : 'ruins');
+      audio.setAmbience(1, 1.5);
+    }
+  }
+  // the menu reports each page change: hero select gets its own building cue
+  window.addEventListener('la:menu', (e) => {
+    menuPage = (e as CustomEvent<{ page: string }>).detail.page;
+    if (game.state === 'menu' && audio.ctx) music.play(menuPage === 'select' ? 'select' : 'menu', 2);
+  });
 
   function flash() {
     const f = document.createElement('div');
@@ -219,11 +244,7 @@ async function boot() {
     audio.unlock();
     audio.setVolume(settings.volume);
     audio.setVoice(settings.voice);
-    audio.setRoom(study ? 'study' : 'ruins');
-    // the room is alive behind the menus too, softer
-    if (arena.soundscape) ambience.start(arena.soundscape);
-    audio.setAmbience(0.55, 3);
-    music.play('menu', 2);
+    enterWorld('hall');
     music.preload();
     bootEl.classList.add('fade');
     setTimeout(() => bootEl.remove(), 900);

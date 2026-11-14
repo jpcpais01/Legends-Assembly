@@ -122,8 +122,12 @@ export const SFX = [
   { name: 'slowmo', dur: 2.5, takes: 4, keep: 1, inf: 0.55, text: 'Cinematic time slowing down: a deep reversed whoosh pitching down into a heavy low boom with a long dark tail, slow motion' },
   { name: 'matchPointSting', dur: 2.5, takes: 3, keep: 1, inf: 0.55, text: 'Tense orchestral stinger: low strings tremolo swelling with a timpani roll and a sharp brass stab, suspense, short, no voice' },
 
+  // ── the Assembly Hall (menu stage) ──
+  { name: 'hallAmb', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Vast dark cosmic hall ambience: deep soft warm drone, slow airy shimmer like distant stars, faint low wind high above, calm and majestic, no melody, no drums, seamless loop' },
+  { name: 'stageSwap', dur: 1.6, takes: 4, keep: 2, inf: 0.55, text: 'A hero appears on a glowing stage: soft rising magical whoosh into a warm shimmering chime with a gentle low boom, elegant, short' },
   // ── music (generated as seamless loops; the Music API takes replace these when available) ──
   { name: 'musicMenu', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game main menu music loop: warm cinematic orchestral hybrid theme, mellow felt piano melody over soft strings and a gentle pulsing synth, adventurous and inviting, mid tempo, seamless loop' },
+  { name: 'musicSelect', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Video game hero select screen music loop: building anticipation, pulsing cinematic hybrid orchestral, steady driving low strings ostinato, deep synth pulse, light percussion, confident and exciting, mid tempo, seamless loop' },
   { name: 'musicCalm', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter match music loop, low intensity: tense atmospheric hybrid orchestral underscore, ticking pizzicato strings, soft pulsing synth bass and light percussion, anticipation, seamless loop' },
   { name: 'musicCombat', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter battle music loop, high intensity: driving epic hybrid orchestral action with heavy trap drums, booming 808 bass, fast staccato strings and bold brass hits, energetic, seamless loop' },
   { name: 'musicClutch', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Final moments of a match music loop: urgent epic orchestral climax, racing strings, pounding taiko and trap drums, rising brass, ticking clock pulse, maximum tension, seamless loop' },
@@ -175,9 +179,10 @@ export const PICKS = {
   hitHeavy: [4, 2], killDrop: [3], assist: [4], heartbeat: [2], lowHealth: [1], ultAlly: [4], ultEnemy: [1],
   finalTick: [3], slowmo: [2], matchPointSting: [3],
   backfire: [5, 4, 1], gearShift: [1, 4],
+  hallAmb: [3], stageSwap: [4, 1], musicSelect: [3],
   musicMenu: [1], musicCalm: [2], musicCombat: [1], musicClutch: [2],
 };
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
 export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy', 'ambRuins',
-  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicCalm', 'musicCombat', 'musicClutch']);
+  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch']);

@@ -796,6 +796,10 @@ export const RECIPES = {
   ambStudy: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
   ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
 
+  // ── the Assembly Hall (menu stage) ──
+  hallAmb: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
+  stageSwap: { dur: 1.5, level: 0.32, reverb: 0.3, sampleOnly: true, bus: 'ui', dedupe: 0.25 },
+
   // ── the room (v0.14 "Surround Sound"): placed emitters around the giant study ──
   fireLoop: { dur: 22, level: 0.42, loop: true, reverb: 0.2, sampleOnly: true, bus: 'amb', ref: 45, rolloff: 0.03, occlude: false },
   windowLoop: { dur: 22, level: 0.3, loop: true, reverb: 0.15, sampleOnly: true, bus: 'amb', ref: 50, rolloff: 0.025, occlude: false },

@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.15.1',
+    date: '2026-11-14',
+    title: 'Hall of Sound',
+    sections: [
+      {
+        heading: 'The Assembly Hall, heard',
+        items: [
+          'The Assembly Hall now sounds like a vast stone hall: a deep, airy drone and a long echo of its own, instead of the study’s fireplace and ticking clocks.',
+          'Hero select has its own music: a pulse that builds while you choose, crossfading back to the menu theme when you leave.',
+          'Locking in makes the music swell, and a shimmer rings out each time a new legend steps onto the stage.',
+          'When a match starts the hall fades out and the arena’s own sounds take over, and they hand back to the hall when you return to the menus.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-11-14',
     title: 'Assembly Hall',
