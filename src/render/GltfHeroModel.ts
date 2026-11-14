@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { ProceduralHeroModel, RigAnimator, STYLE_ATTACK, RIG_BONE_NAMES, stretchArm, type AnimState, type HeroModel, type RigBones } from './HeroRig';
+import { ProceduralHeroModel, RigAnimator, STYLE_ATTACK, RIG_BONE_NAMES, stretchArm, reachArm, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import { PROPS } from './props';
 import { bakeMocap, snapshotRest } from './mocap';
@@ -51,6 +51,9 @@ export class GltfHeroModel implements HeroModel {
   private ringT = 1;
   private lastAttack = 0;
   private disposed = false;
+  /** Right shoulder / elbow / hand of an auto-rigged GLB (telescoping arm). */
+  private armBones: [THREE.Object3D, THREE.Object3D, THREE.Object3D] | null = null;
+  private reaching = false;
   /** Rest offsets of the hands from the elbows (rubber arms push them out from here). */
   private handRest: [THREE.Vector3, THREE.Vector3] | null = null;
   /** Resolves once the GLB is shown (or failed and the procedural rig stays). */
@@ -102,6 +105,7 @@ export class GltfHeroModel implements HeroModel {
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
         if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'], bounce: def.motion === 'cartoon' ? 1 : 0 });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
+        this.armBones = [bones.shoulderR, bones.elbowR, bones.handR];
         this.handRest = [bones.handL.position.clone(), bones.handR.position.clone()];
         if (def.rubber) obj.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) rubberHands(o as THREE.SkinnedMesh, [bones.handL, bones.handR]); });
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
@@ -149,6 +153,11 @@ export class GltfHeroModel implements HeroModel {
     if (!this.obj) { this.fallback.update(dt, s); return; }
     if (this.animator) {
       (this.mocap ?? this.animator).update(dt, s);
+      if (this.armBones && (s.armTarget || this.reaching)) {
+        this.root.updateWorldMatrix(true, false);
+        reachArm(this.armBones[0], this.armBones[1], this.armBones[2], s.armTarget, s.armTargetW ?? 1);
+        this.reaching = !!s.armTarget;
+      }
       if (this.handRest && (s.stretchL !== undefined || s.stretchR !== undefined)) {
         stretchArm(this.handL!, this.handRest[0], s.stretchL ?? 0, s.fistL ?? 1);
         stretchArm(this.handR!, this.handRest[1], s.stretchR ?? 0, s.fistR ?? 1);
