@@ -311,7 +311,7 @@ async function boot() {
     onLockIn: () => { stage.burst(); music.surge(true); },
     onQualityChange: () => { renderer.applyQuality(); arena.applyQuality(); },
     onResume: () => engage(),
-    onEngage: () => engage(),
+    onEngage: (lockMouse) => engage(lockMouse),
     onLeave: () => { menu.pause(false); const online = !!game.net; toMenu(); if (online) menu.leaveParty(); },
   });
   menu.bindGame(game);
@@ -403,10 +403,10 @@ async function boot() {
   const inMatch = () => game.state !== 'menu' && game.state !== 'ended';
 
   /** Lock the mouse (and go fullscreen if wanted). Only works inside a user gesture. */
-  function engage() {
+  function engage(lockMouse = true) {
     // Pointer lock first: in some browsers requestFullscreen consumes the click's
     // user activation, which would make the lock request that follows fail.
-    input.lock();
+    if (lockMouse) input.lock();
     if (settings.fullscreen && !isFullscreen() && !isStandalone()) void enterFullscreen();
   }
 
