@@ -83,6 +83,7 @@ async function boot() {
         menu.pause(false);
         input.unlock();
         document.body.classList.remove('in-match');
+        hud.show(false); // the "Final Elimination" outro banner must not linger behind the results
         if (onlineParty) {
           const p = onlineParty;
           menu.results(game, () => { toMenu(); if (p.isHost) p.setPhase('select'); }, () => { toMenu(); menu.leaveParty(); }, true);
