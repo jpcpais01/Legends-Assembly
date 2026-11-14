@@ -33,6 +33,21 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
+    version: '0.16.3',
+    date: '2026-11-14',
+    title: 'Click Fix',
+    sections: [
+      {
+        heading: 'Fixes',
+        items: [
+          'Lock In on hero select takes mouse clicks again. Before, only Enter would start the match.',
+          'The pause menu shows Leave match again, and Resume, Settings and How to play now do what they say instead of trying to leave the match.',
+          'Clicking the arena to jump back in after a pause works reliably: an invisible HUD layer was swallowing those clicks.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.2',
     date: '2026-11-14',
     title: 'Museum Treasures',

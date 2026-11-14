@@ -33,7 +33,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 canvas { display: block; position: fixed; inset: 0; }
 button { font: inherit; color: inherit; }
 #ui { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
-#ui > * { pointer-events: auto; }
+#ui > :not(.hud):not(.subs) { pointer-events: auto; }
 .hidden { display: none !important; }
 svg.ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 kbd { font-family: var(--body); font-weight: 700; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 6px; border-radius: 6px; color: #fff; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .22); border-bottom-width: 2px; line-height: 1; }
@@ -331,7 +331,7 @@ button:focus-visible { box-shadow: var(--focus); }
 .rc.locked .rc-in::after { display: none; }
 .rc.locked .rc-name { color: rgba(255, 255, 255, .3); font-size: 12px; letter-spacing: .14em; font-style: normal; }
 .rc.locked:hover { transform: none; }
-.btn-lock { all: unset; cursor: pointer; position: absolute; right: 10px; bottom: 0; width: clamp(230px, 20vw, 320px); height: 84px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-content: center; column-gap: 12px; padding: 0 26px; transform: skewX(-10deg); border-radius: 12px; overflow: hidden; box-sizing: border-box;
+.btn-lock { all: unset; pointer-events: auto; cursor: pointer; position: absolute; right: 10px; bottom: 0; width: clamp(230px, 20vw, 320px); height: 84px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-content: center; column-gap: 12px; padding: 0 26px; transform: skewX(-10deg); border-radius: 12px; overflow: hidden; box-sizing: border-box;
   background: linear-gradient(100deg, color-mix(in srgb, var(--hc) 85%, #fff) 0%, var(--hc) 55%, color-mix(in srgb, var(--hc) 70%, #000) 100%); color: #05060c;
   box-shadow: 0 18px 50px color-mix(in srgb, var(--hc) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .5); transition: transform .3s var(--out), box-shadow .3s, filter .2s; animation: rise .6s var(--out) .2s both; }
 .btn-lock > * { transform: skewX(10deg); }
@@ -1001,14 +1001,14 @@ body.in-match canvas { cursor: none; }
 .hud.outro .feed { top: calc(11vh + 12px); }
 
 /* enemy special nearby: portrait + name, a red edge throb */
-.danger { position: absolute; left: 50%; top: 31%; transform: translateX(-50%) scale(var(--hs)); display: flex; align-items: center; gap: 12px; padding: 6px 18px 6px 6px; border-radius: 10px; background: linear-gradient(90deg, rgba(120, 10, 25, .85), rgba(30, 4, 10, .8)); box-shadow: 0 0 0 1px rgba(255, 80, 100, .7), 0 0 40px rgba(255, 40, 70, .45); opacity: 0; }
-.danger::before { content: ''; position: fixed; inset: -50vh -50vw; box-shadow: inset 0 0 180px 30px rgba(255, 30, 60, .55); opacity: 0; }
-.danger.on { animation: dangerIn 2.2s var(--out) forwards; }
-.danger.on::before { animation: dangerEdge .55s ease-in-out 3; }
+.hud-warn { position: absolute; left: 50%; top: 31%; transform: translateX(-50%) scale(var(--hs)); display: flex; align-items: center; gap: 12px; padding: 6px 18px 6px 6px; border-radius: 10px; background: linear-gradient(90deg, rgba(120, 10, 25, .85), rgba(30, 4, 10, .8)); box-shadow: 0 0 0 1px rgba(255, 80, 100, .7), 0 0 40px rgba(255, 40, 70, .45); opacity: 0; }
+.hud-warn::before { content: ''; position: fixed; inset: -50vh -50vw; box-shadow: inset 0 0 180px 30px rgba(255, 30, 60, .55); opacity: 0; }
+.hud-warn.on { animation: dangerIn 2.2s var(--out) forwards; }
+.hud-warn.on::before { animation: dangerEdge .55s ease-in-out 3; }
 .dg-av { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--hc) 45%, #000); }
 .dg-av img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; transform: scale(1.4); transform-origin: 50% 0; }
-.danger small { display: block; font-family: var(--body); font-size: 11px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #ffb3bd; }
-.danger b { font-size: 26px; font-weight: 800; font-style: italic; text-transform: uppercase; color: #fff; line-height: 1; }
+.hud-warn small { display: block; font-family: var(--body); font-size: 11px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #ffb3bd; }
+.hud-warn b { font-size: 26px; font-weight: 800; font-style: italic; text-transform: uppercase; color: #fff; line-height: 1; }
 @keyframes dangerIn { 0% { opacity: 0; transform: translateX(-50%) scale(calc(var(--hs) * 1.5)); } 10%, 80% { opacity: 1; transform: translateX(-50%) scale(var(--hs)); } 100% { opacity: 0; transform: translateX(-50%) scale(var(--hs)); } }
 @keyframes dangerEdge { 50% { opacity: 1; } }
 
@@ -1028,7 +1028,7 @@ body.in-match canvas { cursor: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .vs.show .vs-c, .vs.show .vs-x { animation: none; opacity: 1; }
-  .danger.on::before { animation: none; }
+  .hud-warn.on::before { animation: none; }
 }
 
 /* ════════════════════════ PARTY (play with friends) ════════════════════════ */
