@@ -16,6 +16,7 @@ import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
 import { GodRaysEffect } from './world/studyLight';
 import { StudyArena } from './world/StudyArena';
+import { MuseumArena } from './world/MuseumArena';
 import type { ArenaLike } from './world/types';
 import { loadProps } from './render/props';
 import { Game } from './game/Game';
@@ -47,13 +48,14 @@ async function boot() {
   const renderer = new Renderer(container, scene, camera);
   initGlobals();
 
-  const study = settings.arena !== 'ruins';
-  await progress(20, study ? 'Opening the study' : 'Raising the ruins');
-  const arena: ArenaLike = study ? new StudyArena(scene, renderer.gl) : new Arena(scene, renderer.gl);
-  await progress(45, study ? 'Dusting the desk' : 'Growing the meadow');
+  const kind = settings.arena;
+  await progress(20, kind === 'museum' ? 'Unlocking the museum' : kind === 'ruins' ? 'Raising the ruins' : 'Opening the study');
+  const arena: ArenaLike = kind === 'museum' ? new MuseumArena(scene, renderer.gl) : kind === 'ruins' ? new Arena(scene, renderer.gl) : new StudyArena(scene, renderer.gl);
+  await progress(45, kind === 'museum' ? 'Polishing the marble' : kind === 'ruins' ? 'Growing the meadow' : 'Dusting the desk');
   await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
   if (arena instanceof StudyArena && arena.hasRoomModel) renderer.setVolumetric(new GodRaysEffect(camera, 16));
+  if (arena instanceof MuseumArena) renderer.setVolumetric(arena.raysEffect(camera, 16));
   await progress(58, 'Placing the relics');
 
   const uiRoot = document.getElementById('ui')!;
@@ -125,7 +127,7 @@ async function boot() {
     subs.clear();
     audio.setWorldPaused(false);
     game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty });
-    audio.startAmbience(study ? 'study' : 'ruins');
+    audio.startAmbience(kind === 'ruins' ? 'ruins' : 'study'); // the museum shares the study's indoor room tone
     hud.setup();
     hud.show(true);
     camera.fov = settings.fov;

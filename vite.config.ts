@@ -43,7 +43,13 @@ export default defineConfig({
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/models/'),
             handler: 'CacheFirst',
-            options: { cacheName: 'models', expiration: { maxEntries: 60 } },
+            options: { cacheName: 'models', expiration: { maxEntries: 120 } },
+          },
+          {
+            // KTX2 texture transcoder (the museum's GPU-compressed textures)
+            urlPattern: ({ url }) => url.pathname.startsWith('/basis/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'basis', expiration: { maxEntries: 4 } },
           },
           {
             // recorded hero voices and extra announcer lines: content-hashed, so cache them for good

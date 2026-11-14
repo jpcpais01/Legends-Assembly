@@ -17,7 +17,7 @@ const TILE = new THREE.Vector2(64, 16);
 /** Board width in meters. */
 const BOARD = 10;
 
-const NOISE_GLSL = /* glsl */ `
+export const NOISE_GLSL = /* glsl */ `
 float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p, vec2 per) {
   vec2 i = floor(p), f = fract(p);
@@ -118,7 +118,7 @@ void main() {
 }
 `;
 
-function bake(renderer: THREE.WebGLRenderer, w: number, h: number, frag: string, uniforms: Record<string, THREE.IUniform>, srgb: boolean) {
+export function bake(renderer: THREE.WebGLRenderer, w: number, h: number, frag: string, uniforms: Record<string, THREE.IUniform>, srgb: boolean) {
   const rt = new THREE.WebGLRenderTarget(w, h, {
     type: THREE.UnsignedByteType,
     colorSpace: srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace,

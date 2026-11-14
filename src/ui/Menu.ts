@@ -31,7 +31,7 @@ const CAMS: Record<'home' | 'select' | 'page', MenuCam> = {
   page: { dist: 8.2, side: 2.75, look: 1.9, height: 2.3 },
 };
 
-const ARENAS = [['study', "Giant's Study"], ['ruins', 'Sunset Ruins']] as const;
+const ARENAS = [['study', "Giant's Study"], ['museum', 'Grand Museum'], ['ruins', 'Sunset Ruins']] as const;
 
 type Page = 'home' | 'legends' | 'learn' | 'news' | 'settings' | 'select';
 const TABS: { id: Page; label: string }[] = [

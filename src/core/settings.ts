@@ -32,7 +32,7 @@ export interface Settings {
   invertY: boolean;
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
-  arena: 'study' | 'ruins';
+  arena: 'study' | 'museum' | 'ruins';
   /** HUD size multiplier (0.8 to 1.25). */
   hudScale: number;
   damageNumbers: boolean;
