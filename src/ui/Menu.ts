@@ -73,6 +73,16 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Tonka turns wide. Line up the ram before you transform.',
     'The Bell tracks for a moment. Cast it on enemies already busy fighting.',
   ],
+  ironman: [
+    'Hold jump in the air to hover on your jet boots. Shooting from above is hard to punish.',
+    'Missile Swarm locks onto the enemy nearest your crosshair, so point first, then fire.',
+    'Unibeam sweeps slowly. Fire it down a corridor or at a crowd, then drag it across them.',
+  ],
+  luffy: [
+    'Gum-Gum Pistol reaches whatever you aim at, up to 21 m. It is fast, so track heads.',
+    'Gum-Gum Rocket grabs walls as well as enemies. Use it to dive in or to escape.',
+    'Gear Fifth refreshes your Rocket. Awaken next to a group: the blast shoves them away.',
+  ],
   vangogh: [
     'Drop Sunflower Field where your team is fighting, not where they will be.',
     'Impasto Shot splashes. Aim at feet and walls to hit groups.',
@@ -82,6 +92,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Spud Shot lobs onto the crosshair. Aim at heads for a bonk, or at the floor in front of a group for the bounce.',
     'Portable Hole is an escape and an opener: pop out right under an enemy to bonk them into the air.',
     'Steamboat Willie runs straight down your crosshair. Line it up along a corridor full of enemies.',
+  ],
+  blitzcrank: [
+    'A caught enemy primes your uppercut: grab, then punch once to launch them.',
+    'Grab the enemy who is out of position, not the one in front of their team.',
+    'Static Field silences. Pop it before their specials go off, not after.',
   ],
 };
 

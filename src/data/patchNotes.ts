@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.18.0',
+    version: '0.21.0',
     date: '2026-11-14',
     title: 'Steamboat Willie',
     sections: [
@@ -29,6 +29,70 @@ export const PATCH_NOTES: PatchNote[] = [
       {
         heading: 'Coming soon',
         items: ["Mickey's final model and his potato and steamboat models are on the way. His voice lines show as subtitles until they're recorded."],
+      },
+    ],
+  },
+  {
+    version: '0.20.0',
+    date: '2026-11-14',
+    title: 'Iron Man Joins the Assembly',
+    sections: [
+      {
+        heading: 'New legend: Iron Man (Duelist)',
+        items: [
+          'Repulsor Blast (LMB): alternating palm blasts that fly fast and straight. His arm locks out toward the crosshair and the palm flares on every shot. Headshots deal 50% bonus damage.',
+          'Missile Swarm (RMB): the shoulder pods flip open and fire six homing missiles at the enemy closest to your crosshair. They corkscrew in on smoke trails and splash on impact.',
+          'Unibeam (Shift): he lifts off, the arc reactor charges, and a huge beam pours out of his chest. Sweep it across the arena: it burns through every enemy in its path and scorches the floor where it lands. He takes 30% less damage while it runs.',
+          'Jet Boots (passive): hold jump in the air to hover on your boot thrusters. A fuel bar under the crosshair shows how much flight is left, and it refills on the ground.',
+          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat, Van Gogh, Blitzcrank and Luffy (shown as subtitles until his voice is recorded).',
+          'Bots play him too: they hop onto their jet boots mid-fight, fire missiles at whoever they can see, and save the Unibeam for crowds or tough targets.',
+        ],
+      },
+      {
+        heading: 'Coming soon',
+        items: ['Iron Man is wearing a stand-in suit for now. His full detailed armor arrives in a later update.'],
+      },
+    ],
+  },
+  {
+    version: '0.19.0',
+    date: '2026-11-14',
+    title: 'Gum-Gum',
+    sections: [
+      {
+        heading: 'New legend: Monkey D. Luffy, the Rubber Pirate (Duelist)',
+        items: [
+          'Gum-Gum Pistol (LMB): his fists stretch out to whatever you aim at, up to 21 m, and snap back like a rubber band. Alternate hands, 40 damage, headshots deal 50% more.',
+          'Gum-Gum Rocket (RMB): both arms shoot out, grab a wall or an enemy, and slingshot him in. Anyone in the way gets body-slammed for 75 and launched. Works as an escape too.',
+          'Gear Fifth (SHIFT): the Drums of Liberation. He floats up as the drums quicken, then bursts out white in a ring of clouds that throws nearby enemies back. For 10 seconds his fists turn giant and splash, he runs faster, bounces higher, takes less damage, and his Rocket recharges twice as fast.',
+          'His arms really stretch: it is his own body, stretched by the rig, not a special effect.',
+          'He plays with a stand-in body until his full model arrives. His lines show as subtitles until they are recorded.',
+          'Bots can play Luffy and use his whole kit.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.18.0',
+    date: '2026-11-14',
+    title: 'Full Steam Ahead',
+    sections: [
+      {
+        heading: 'New legend: Blitzcrank, the Great Steam Golem',
+        items: [
+          'A brass Vanguard who decides who is in the fight. 425 health, long arms, a short temper and very good manners.',
+          'Power Fist (LMB): alternating piston jabs with a lunge behind each one. Every third blow is an uppercut that launches the target into the air.',
+          'Rocket Grab (RMB): his fist rockets out on a chain, clamps the first enemy it meets and reels them back to him, stunned. A caught enemy primes your next punch into the uppercut.',
+          'Static Field (SHIFT): the boilers overload, both fists hammer the floor and a lightning shockwave shocks, slows and silences everyone around him. For 6 seconds after, stray bolts jump to anyone who stays close.',
+          'He has his own robot voice, footsteps, steam vents and a full set of new punch, grab and slam animations. Bots play him too.',
+        ],
+      },
+      {
+        heading: 'Combat',
+        items: [
+          'New status: Silenced. Silenced legends cannot use RMB or SHIFT abilities, and static crackles over their body while it lasts.',
+          'New status: Stunned. Stunned legends cannot move or act for a moment, and little sparks circle their head.',
+        ],
       },
     ],
   },

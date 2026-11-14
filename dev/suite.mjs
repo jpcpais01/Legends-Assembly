@@ -20,7 +20,7 @@ const SC = {
   hit: { cols: 8, scale: 0.5, steps: [{ dur: 0.3 }, { dur: 0.6, set: { hit: 1 }, every: 0.075, cam: 'q' }] },
   cast: { cols: 6, scale: 0.5, steps: [{ dur: 0.6, set: { cast: 1, levitate: 1 } }, { dur: 0.6, every: 0.2, cam: ['front', 'side'] }] },
 };
-for (const k of ['flick', 'ring', 'stroke', 'throw', 'toss']) {
+for (const k of ['flick', 'ring', 'stroke', 'throw', 'toss', 'blast']) {
   SC[`atk_${k}`] = { cols: 8, scale: 0.5, steps: [{ dur: 0.3 }, { dur: 0.8, set: { attack: 1, attackKind: k, attackSide: 1 }, every: 0.05, cam: 'q' }, { dur: 0.05, set: { fwd: 6 } }, { dur: 0.6 }, { dur: 0.8, set: { attack: 1, attackKind: k, attackSide: 1 }, every: 0.05, cam: 'game' }] };
 }
 const { browser, page } = await open();

@@ -31,11 +31,13 @@ const L = '__legends';
 const snap = async (name, wait = 900) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${name}-${W}x${H}.png` }); console.log('shot', name); };
 for (const p of pages) {
   if (['home', 'select', 'legends', 'settings', 'learn', 'news'].includes(p)) {
+    if (process.env.HERO) await page.evaluate(([L, h]) => { window.__hero = h; window[L].menu.setHero?.(h); }, [L, process.env.HERO]);
     await page.evaluate(([L, p]) => window[L].menu.go(p, true), [L, p]);
     await snap(p, 1600);
   } else if (p === 'hud') {
+    if (process.env.HERO) await page.evaluate((h) => { window.__hero = h; }, process.env.HERO);
     // the arena is far too slow under SwiftShader: hide the 3D view and check the HUD over a neutral backdrop
-    await page.evaluate((L) => { window[L].startMatch('3v3', 'einstein'); const c = document.querySelector('canvas'); c.style.visibility = 'hidden'; document.body.style.background = 'radial-gradient(80% 80% at 50% 40%, #5b6a7c, #20262f)'; window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 50); window[L].renderer.render = () => {}; }, L);
+    await page.evaluate((L) => { window[L].startMatch('3v3', window.__hero ?? 'einstein'); const c = document.querySelector('canvas'); c.style.visibility = 'hidden'; document.body.style.background = 'radial-gradient(80% 80% at 50% 40%, #5b6a7c, #20262f)'; window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 50); window[L].renderer.render = () => {}; }, L);
     await page.waitForTimeout(800);
     await page.evaluate((L) => { const l = window[L]; l.menu.pause(false); l.game.paused = false; }, L);
     await snap('hud-intro', 1200);

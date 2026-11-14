@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, mickey: 48 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, mickey: 28 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58, luffy: 150, ironman: 120, mickey: 48 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4, luffy: 20, ironman: 36, mickey: 28 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -190,6 +190,13 @@ export class Bot {
     const tDist = t ? t.pos.distanceTo(h.pos) : Infinity;
     inp.primary = !!t && vis && this.seen > this.p.react && yawErr < this.p.fireCone + 0.4 / Math.max(2, tDist) && tDist < EFFECTIVE[h.def.id];
 
+    // Iron Man hops onto his jet boots mid-fight: jump, then keep holding to hover and strafe in the air
+    if (h.def.id === 'ironman') {
+      const ks = h.kitState;
+      if (ks.botHoverT > 0) { ks.botHoverT -= dt; inp.jump = true; }
+      else if (t && vis && h.grounded && tDist > 7 && Math.random() < dt * 0.35) ks.botHoverT = rand(0.9, 1.7);
+    }
+
     // ── abilities
     this.abilityT -= dt;
     if (this.abilityT > 0 || !t) return;
@@ -205,6 +212,19 @@ export class Bot {
         if (h.secondaryCd <= 0 && vis && tDist > 7 && tDist < 24 && yawErr < 0.35 && !lowHp) inp.secondary = true;
         // The Bell: drop it on a visible target, ideally one that's busy fighting
         if (h.ult >= 1 && vis && tDist < 40 && (t.hp > 120 || g.enemiesNear(h.team, t.pos, 6).length >= 2)) inp.ult = true;
+        break;
+      case 'luffy': {
+        const g5 = !!h.kitState.luffy?.gear;
+        // Gum-Gum Rocket: dive onto a target in reach, or bail out of a losing fight toward cover
+        if (h.secondaryCd <= 0 && vis && tDist > 6 && tDist < 24 && yawErr < 0.25 && (!lowHp || g5) && Math.random() < 0.55) inp.secondary = true;
+        // Gear Fifth: when brawling at close range with a healthy target or several enemies around
+        if (h.ult >= 1 && !g5 && (enemiesClose(8) >= 2 || (enemiesClose(7) >= 1 && t.hp > 120) || (lowHp && enemiesClose(6) >= 1))) inp.ult = true;
+        break;
+      }
+      case 'ironman':
+        // missiles home, so any visible target in range will do; the Unibeam wants a lined-up or tough target
+        if (h.secondaryCd <= 0 && vis && tDist < 36 && Math.random() < 0.7) inp.secondary = true;
+        if (h.ult >= 1 && vis && tDist < 32 && (t.hp > 110 || g.enemiesNear(h.team, t.pos, 6).length >= 2)) inp.ult = true;
         break;
       case 'vangogh': {
         if (h.secondaryCd <= 0) {
@@ -240,6 +260,13 @@ export class Bot {
           }
           if (lane >= 2 || (lane >= 1 && t.hp > 110)) inp.ult = true;
         }
+        break;
+      }
+      case 'blitzcrank': {
+        // Rocket Grab: only on a clean line, at a range where walking in would take too long
+        if (h.secondaryCd <= 0 && vis && tDist > 5 && tDist < 22 && yawErr < 0.08 + 0.6 / tDist && Math.random() < 0.65) inp.secondary = true;
+        // Static Field: dive into a crowd, or drop it on whoever he just pulled in
+        if (h.ult >= 1 && (enemiesClose(8) >= 2 || (enemiesClose(4.5) >= 1 && (t.hp > 110 || hpFrac < 0.45)))) inp.ult = true;
         break;
       }
     }

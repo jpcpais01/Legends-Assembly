@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
+import { ProceduralHeroModel, RigAnimator, STYLE_ATTACK, RIG_BONE_NAMES, stretchArm, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import { PROPS } from './props';
 import { bakeMocap, snapshotRest } from './mocap';
@@ -51,6 +51,8 @@ export class GltfHeroModel implements HeroModel {
   private ringT = 1;
   private lastAttack = 0;
   private disposed = false;
+  /** Rest offsets of the hands from the elbows (rubber arms push them out from here). */
+  private handRest: [THREE.Vector3, THREE.Vector3] | null = null;
   /** Resolves once the GLB is shown (or failed and the procedural rig stays). */
   ready: Promise<void>;
 
@@ -98,8 +100,10 @@ export class GltfHeroModel implements HeroModel {
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         // the procedural animator only stands in when the motion library could not be loaded
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
-        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: def.motion === 'swagger' ? 'ring' : def.motion === 'artist' ? 'stroke' : def.motion === 'cartoon' ? 'throw' : 'flick', bounce: def.motion === 'cartoon' ? 1 : 0 });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'], bounce: def.motion === 'cartoon' ? 1 : 0 });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
+        this.handRest = [bones.handL.position.clone(), bones.handR.position.clone()];
+        if (def.rubber) obj.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) rubberHands(o as THREE.SkinnedMesh, [bones.handL, bones.handR]); });
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {
           const m = new THREE.Mesh(t.geometry, t.material);
@@ -145,6 +149,10 @@ export class GltfHeroModel implements HeroModel {
     if (!this.obj) { this.fallback.update(dt, s); return; }
     if (this.animator) {
       (this.mocap ?? this.animator).update(dt, s);
+      if (this.handRest && (s.stretchL !== undefined || s.stretchR !== undefined)) {
+        stretchArm(this.handL!, this.handRest[0], s.stretchL ?? 0, s.fistL ?? 1);
+        stretchArm(this.handR!, this.handRest[1], s.stretchR ?? 0, s.fistR ?? 1);
+      }
       if (this.heldMesh) this.heldMesh.visible = this.fx.uDissolve.value < 0.25;
       if (this.heldGrip) {
         // a fresh attack rings the bell: a quick damped clapper swing about the grip
@@ -174,6 +182,12 @@ export class GltfHeroModel implements HeroModel {
     if (!this.mixer) this.inner.position.y += Math.abs(Math.sin(s.time * 9)) * 0.04 * Math.min(1, s.speed / 6);
   }
 
+  setHandScale(side: 'L' | 'R', s: number) {
+    this.fallback.setHandScale(side, s);
+    const h = side === 'L' ? this.handL : this.handR;
+    if (h && this.obj && this.animator) h.scale.setScalar(Math.max(1e-3, s));
+  }
+
   handWorld(side: 'L' | 'R', out: THREE.Vector3) {
     const h = side === 'L' ? this.handL : this.handR;
     if (h && this.obj) return h.getWorldPosition(out);
@@ -190,6 +204,36 @@ export class GltfHeroModel implements HeroModel {
     this.fallback.dispose();
     this.obj?.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) (m.material as THREE.Material).dispose(); });
   }
+}
+
+/**
+ * Auto-rig weights fade smoothly across the wrist, so a hand pushed metres out along the forearm would smear the
+ * fist over the whole gap. Sharpen the hand bones' weights (once per shared geometry): the fist moves as one piece
+ * and only the wrist band stretches into the rubber arm.
+ */
+function rubberHands(mesh: THREE.SkinnedMesh, hands: THREE.Object3D[]) {
+  const g = mesh.geometry;
+  if (g.userData.rubber) return;
+  g.userData.rubber = true;
+  const ids = hands.map((h) => mesh.skeleton.bones.indexOf(h as THREE.Bone)).filter((i) => i >= 0);
+  const si = g.getAttribute('skinIndex') as THREE.BufferAttribute, sw = g.getAttribute('skinWeight') as THREE.BufferAttribute;
+  if (!si || !sw || !ids.length) return;
+  const w = [0, 0, 0, 0];
+  for (let v = 0; v < sw.count; v++) {
+    let hw = 0, other = 0, hi = -1;
+    for (let k = 0; k < 4; k++) {
+      w[k] = sw.getComponent(v, k);
+      if (ids.includes(si.getComponent(v, k)) && w[k] > 0) { hw += w[k]; hi = k; } else other += w[k];
+    }
+    if (hi < 0 || hw >= 0.999) continue;
+    const t = THREE.MathUtils.clamp((hw - 0.3) / 0.4, 0, 1), nh = t * t * (3 - 2 * t);
+    for (let k = 0; k < 4; k++) {
+      const isHand = ids.includes(si.getComponent(v, k));
+      const nw = isHand ? (hw > 0 ? (w[k] / hw) * nh : 0) : (other > 0 ? (w[k] / other) * (1 - nh) : 0);
+      sw.setComponent(v, k, nw);
+    }
+  }
+  sw.needsUpdate = true;
 }
 
 /** Loads every hero GLB once (fills the cache) and returns posed instances so the main scene can pre-compile their shaders. */

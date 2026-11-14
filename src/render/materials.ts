@@ -51,6 +51,8 @@ export interface HeroFxUniforms {
   uRim: { value: number };
   uTint: { value: THREE.Color };
   uTintAmt: { value: number };
+  /** 0..1 bleach toward glowing white (Luffy's Gear Fifth). */
+  uWhite: { value: number };
 }
 
 export function makeHeroFxUniforms(rim: THREE.Color): HeroFxUniforms {
@@ -61,6 +63,7 @@ export function makeHeroFxUniforms(rim: THREE.Color): HeroFxUniforms {
     uRim: { value: 0.35 },
     uTint: { value: new THREE.Color(1, 1, 1) },
     uTintAmt: { value: 0 },
+    uWhite: { value: 0 },
   };
 }
 
@@ -73,7 +76,7 @@ export function patchHeroMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUni
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uFlash; uniform float uDissolve; uniform vec3 uRimColor; uniform float uRim;
-        uniform vec3 uTint; uniform float uTintAmt; uniform sampler2D uNoise; varying vec3 vFxPos;`)
+        uniform vec3 uTint; uniform float uTintAmt; uniform float uWhite; uniform sampler2D uNoise; varying vec3 vFxPos;`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         float dn = 0.0;
         if (uDissolve > 0.0) {
@@ -82,11 +85,19 @@ export function patchHeroMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUni
         }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTint, uTintAmt);
+        if (uWhite > 0.0) {
+          // Gear Fifth: hair and clothes bleach to white, warm skin (and straw) keeps its colour
+          vec3 wc = diffuseColor.rgb;
+          float wl = dot(wc, vec3(0.299, 0.587, 0.114));
+          float warm = smoothstep(0.2, 0.06, abs(wc.g / max(wc.r, 1e-3) - 0.5)) * step(wc.b, wc.g) * smoothstep(0.06, 0.18, wc.r);
+          diffuseColor.rgb = mix(wc, vec3(0.94, 0.95, 0.98) * (0.72 + 0.4 * wl), uWhite * (1.0 - 0.8 * warm));
+        }
         {
           vec3 vdir = normalize(vViewPosition);
           float fres = pow(1.0 - abs(dot(normalize(vNormal), -vdir)), 3.0);
           totalEmissiveRadiance += uRimColor * fres * uRim;
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * uFlash * (0.6 + fres * 2.0);
+          totalEmissiveRadiance += vec3(0.9, 0.95, 1.1) * uWhite * (0.02 + fres * 1.2);
           if (uDissolve > 0.0) {
             float edge = 1.0 - smoothstep(0.0, 0.06, dn - uDissolve);
             totalEmissiveRadiance += uRimColor * edge * 6.0;
@@ -109,7 +120,7 @@ export function patchRigMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUnif
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uFlash; uniform float uDissolve; uniform vec3 uRimColor; uniform float uRim;
-        uniform vec3 uTint; uniform float uTintAmt; uniform sampler2D uNoise;
+        uniform vec3 uTint; uniform float uTintAmt; uniform float uWhite; uniform sampler2D uNoise;
         varying vec2 vPbr; varying vec3 vEmis; varying vec3 vFxPos;`)
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vPbr.x;')
       .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vPbr.y;')
@@ -122,11 +133,19 @@ export function patchRigMaterial(mat: THREE.MeshStandardMaterial, fx: HeroFxUnif
       .replace('#include <emissivemap_fragment>', `
         totalEmissiveRadiance = vEmis;
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTint, uTintAmt);
+        if (uWhite > 0.0) {
+          // Gear Fifth: hair and clothes bleach to white, warm skin (and straw) keeps its colour
+          vec3 wc = diffuseColor.rgb;
+          float wl = dot(wc, vec3(0.299, 0.587, 0.114));
+          float warm = smoothstep(0.2, 0.06, abs(wc.g / max(wc.r, 1e-3) - 0.5)) * step(wc.b, wc.g) * smoothstep(0.06, 0.18, wc.r);
+          diffuseColor.rgb = mix(wc, vec3(0.94, 0.95, 0.98) * (0.72 + 0.4 * wl), uWhite * (1.0 - 0.8 * warm));
+        }
         {
           vec3 vdir = normalize(vViewPosition);
           float fres = pow(1.0 - abs(dot(normalize(vNormal), -vdir)), 3.0);
           totalEmissiveRadiance += uRimColor * fres * uRim;
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * uFlash * (0.6 + fres * 2.0);
+          totalEmissiveRadiance += vec3(0.9, 0.95, 1.1) * uWhite * (0.02 + fres * 1.2);
           if (uDissolve > 0.0) {
             float edge = 1.0 - smoothstep(0.0, 0.06, dn - uDissolve);
             totalEmissiveRadiance += uRimColor * edge * 6.0;
