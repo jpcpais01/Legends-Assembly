@@ -355,8 +355,8 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Marley',
     // warm and close, a little tape saturation and a short room, like a vocal booth in Kingston
     chain: { hp: 110, lp: 9000, drive: 0.1, slap: 0.02, slapMix: 0.1, reverb: 0.12, rate: 1, gain: 1.05 },
-    // premade voice to be picked by the audio thread when recording (never a clone)
-    tts: { voice: 'TX3LPaxmHKxFdv7VOQHJ', direction: '[warm, laid-back Jamaican accent, calm, soulful reggae musician, smiling]', stability: 0.45, style: 0.6 },
+    // premade Chris (casual, laid-back; never a clone)
+    tts: { voice: 'iP95p4xoKVk53GoZ742B', direction: '[warm, laid-back Jamaican accent, calm, soulful reggae musician, smiling]', stability: 0.45, style: 0.6 },
     lines: {
       matchStart: L('matchStart', '[warm] Easy now, bredren. Let the music lead.', '[laughs] Ya mon, time fi play some riddim.', '[calm] Feel the bass. We ready.', 'Tune up, everybody. Here we go.'),
       primary: L('primary', 'Skank it!', '[laughs] Feel dat?', 'On the offbeat.'),
