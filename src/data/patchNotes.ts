@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.17.1',
+    date: '2026-11-14',
+    title: 'Gallery Walls',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'The walls are no longer one column bay repeated: velvet-draped arches, a marble chariot relief, a lion head fountain and bronze doors with a pediment behind each spawn now alternate with the painted arches.',
+          'The upper storey mixes the laurel niches with an arched gallery loggia over the staircases, golden rose windows and painted sky panels.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-11-14',
     title: 'Assemble Together',
