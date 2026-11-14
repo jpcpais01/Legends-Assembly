@@ -172,7 +172,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     // an old optical soundtrack: band-limited, a little crackly drive and a bright, sped-up lilt
     chain: { hp: 260, lp: 6200, drive: 0.22, slap: 0, slapMix: 0, reverb: 0.1, rate: 1.06, gain: 1.05 },
     // a designed/premade cheerful high-pitched cartoon voice (never a clone): pick one on the account when recording
-    tts: { voice: 'TBD', direction: '[cheerful, high-pitched 1920s cartoon mouse, bouncy and polite]', stability: 0.35, style: 0.75 },
+    tts: { voice: 'jBpfuIE2acCO8z3wKNLl', direction: '[cheerful, high-pitched 1920s cartoon mouse, bouncy and polite]', stability: 0.35, style: 0.75 },
     lines: {
       matchStart: L('matchStart', '[cheerful] Hot dog! Let\'s have some fun, pals!', '[excited] All aboard! Next stop, victory!', '[whistles] Ha-ha! Ready when you are, fellas!'),
       primary: L('primary', 'Catch!', '[laughs] Heads up!', 'Spud\'s up!'),
