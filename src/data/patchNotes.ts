@@ -8,6 +8,114 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.24.0',
+    date: '2026-11-14',
+    title: 'The Tyrant King',
+    sections: [
+      {
+        heading: 'New legend: T-Rex, the Tyrant King',
+        items: [
+          'The T-Rex stomps into the arena: a 6 metre Vanguard with 550 health whose footsteps shake the camera of anyone nearby.',
+          'Tyrant Bite (LMB): two snapping bites that heal you for part of the damage, then a tail sweep that knocks everyone around you away and slows them.',
+          'Stampede (RMB): charge forward like a freight train. The first enemy you hit is caught in your jaws and flung at the end, anyone else in the way gets trampled, and anyone pinned against a wall is stunned.',
+          'Extinction Event (SHIFT): rear up and roar. Enemies in front are slowed and silenced, the sky burns red, and meteors rain down around you while you rage, tougher and faster.',
+          'He has a fully animated dinosaur body: real walking legs that plant on the ground, a swaying tail that drags through turns, and a jaw that opens on every bite and roar.',
+        ],
+      },
+      {
+        heading: 'Gameplay',
+        items: [
+          'Hitboxes now match each legend\'s body, so the T-Rex is a big target and abilities reach his whole frame.',
+          'The camera pulls back and up to frame bigger legends.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.23.0',
+    date: '2026-11-14',
+    title: 'Steve Joins the Fight',
+    sections: [
+      {
+        heading: 'New legend: Steve, the Blocky Miner',
+        items: [
+          'Steve is here, built block by block, with two weapons on his hotbar. Scroll the mouse wheel (or press 1 / 2) to swap between them.',
+          'Diamond Sword: a wide sweeping slash that hits everyone in front of you. Jump and strike on the way down for a critical hit.',
+          'Bow: hold to draw and release to shoot. A full draw flies fast and flat with a crit trail; headshots crit too. Missed arrows stick where they land.',
+          'Build Up (RMB): a hill of grass, dirt and stone bursts out of the ground where you aim. It is a sheer wall toward the enemy and a staircase on your side, so you can jump up for the high ground. Blocks crumble after 8 seconds.',
+          'Ender Dragon (SHIFT): the dragon bursts out of an End portal, circles the fight and dives on enemies, breathing purple fire and leaving burning clouds of breath on the ground.',
+        ],
+      },
+      {
+        heading: 'HUD',
+        items: [
+          'Steve gets a two-slot hotbar above his attack tile and a draw meter under the crosshair that glows purple at full draw.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.8',
+    date: '2026-11-14',
+    title: 'Say Cheese',
+    sections: [
+      {
+        heading: 'Selfie cam',
+        items: [
+          'Hold V in a match to swing the camera round to your hero\'s front for a selfie view. Release to swing back.',
+          'Moving the mouse turns your hero with the camera, like a selfie stick, and your aim stays exactly where the crosshair was.',
+          'The selfie camera keeps clear of walls and floors, just like the normal camera.',
+          'Added to the Controls list on the Learn page.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.7',
+    date: '2026-11-14',
+    title: 'Treasures of the Grand Museum',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'Four glass display cases now hold a golden pharaoh mask each. The glass catches the hall in its reflections, and the cases are solid cover.',
+          'Two antique brass orreries stand near the spawns, their planets slowly orbiting a golden sun.',
+          'A seated marble colossus on a carved throne watches over each corner of the hall.',
+          'The roped sarcophagi moved a little closer to the spawn doors.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.6',
+    date: '2026-11-14',
+    title: 'Clean Shave',
+    sections: [
+      {
+        heading: 'Vincent van Gogh',
+        items: [
+          "Van Gogh's beard and jaw no longer stretch into a point when he looks up or down. His whole beard, chin and bandage strap now move with his head, in the menus and in matches.",
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.5',
+    date: '2026-11-14',
+    title: 'Unibeam Overhaul',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'The Unibeam no longer rattles your screen: the camera stays steady for the whole beam, with just a small kick when it fires.',
+          'The arc reactor now visibly charges up: it swells into a star while two glowing emitter rings spin up and close in on his chest.',
+          'The beam itself is rebuilt in layers: a white-hot filament, a surging blue plasma core, a soft halo and twin helix bands spiralling down it, flaring out where it leaves his chest.',
+          'Pressure rings race down the beam, the air shimmers with heat at his chest and where it lands, and the impact point burns with a bright star and a spreading ring.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.4',
     date: '2026-11-14',
     title: 'Clean Finish',

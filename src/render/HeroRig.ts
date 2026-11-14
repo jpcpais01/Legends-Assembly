@@ -48,6 +48,12 @@ export interface AnimState {
   fistR?: number;
   /** Non-humanoid legends (the T-Rex): what the beast's body is doing, set by its kit. */
   beast?: BeastPose;
+  /** Which held item is out (HeroDef.items ids); the others are hidden. */
+  item?: string;
+  /** 0..1 archer's stance: the bow arm straight down the crosshair, the string hand back toward the cheek. */
+  bow?: number;
+  /** 0..1 how far the string is drawn (moves the string hand from the bow to the cheek). */
+  bowDraw?: number;
 }
 
 export interface HeroModel {
@@ -60,6 +66,8 @@ export interface HeroModel {
   setHandScale?(side: 'L' | 'R', s: number): void;
   /** Resolves once a loaded model is showing. */
   ready?: Promise<void>;
+  /** The object shown for a held item (HeroDef.items), once the model is up. */
+  itemObject?(id: string): THREE.Object3D | null;
   dispose(): void;
 }
 

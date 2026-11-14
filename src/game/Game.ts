@@ -32,7 +32,7 @@ const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
 const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 /** Each legend's own shoes on bare wood, and what each surface adds underneath them. */
-const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', trex: 'rexStep' };
+const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz', luffy: 'stepVangogh', ironman: 'stepIronman', mickey: 'stepMickey', steve: 'stepSteve', trex: 'rexStep' };
 const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal: 'stepMetal', leather: 'stepLeather', stone: 'stepStone', grass: 'stepGrass' };
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
@@ -156,7 +156,7 @@ export interface Callout {
 
 const MULTI_WINDOW = 4.5;
 /** View kick per primary shot (radians). */
-const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, trex: 0.012 };
+const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014, luffy: 0.009, ironman: 0.006, mickey: 0.006, steve: 0.004, trex: 0.012 };
 const MULTI = [
   null, null,
   { title: 'Double Elimination', vox: 'double' },
@@ -964,6 +964,8 @@ export class Game {
     if (!h) return;
     const inp = this.input;
     if (this.state !== 'ended') this.camRig.look(inp.mouseDX, inp.mouseDY);
+    // hold V: selfie view (camera only, so it needs nothing from the network)
+    this.camRig.selfie = this.state !== 'ended' && inp.locked && h.alive && inp.isDown('KeyV');
     const hi = h.input;
     const canAct = this.state === 'playing' && inp.locked;
     hi.forward = (inp.isDown('KeyW') ? 1 : 0) - (inp.isDown('KeyS') ? 1 : 0);
@@ -972,6 +974,11 @@ export class Game {
     hi.primary = canAct && inp.lmb;
     hi.secondary = canAct && (inp.rmbPressed || inp.rmb);
     hi.ult = canAct && (inp.shiftPressed || inp.shift);
+    // weapon swap (Steve): mouse wheel steps through the loadout, number keys pick a slot
+    if (canAct && h.alive && h.kit.swap) {
+      if (inp.wheel) h.kit.swap(h, this, Math.sign(inp.wheel));
+      else for (let k = 0; k < 4; k++) if (inp.wasPressed(`Digit${k + 1}`)) { h.kit.swap(h, this, 0, k); break; }
+    }
     hi.yaw = this.camRig.yaw;
     hi.pitch = this.camRig.pitch;
     // aim: camera ray against enemies + world

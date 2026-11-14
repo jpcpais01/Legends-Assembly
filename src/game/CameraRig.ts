@@ -44,6 +44,17 @@ export class CameraRig {
   private head = new THREE.Vector3();
   private right = new THREE.Vector3();
   private up = new THREE.Vector3();
+  /** Held by the player (V): swing the boom round to the hero's front for a selfie view. */
+  selfie = false;
+  /** 0..1 eased selfie swing (the HUD fades the crosshair with it). */
+  selfieK = 0;
+  private selfieT = 0;
+  /** Smoothed collision-clamped length of the selfie boom. */
+  private selfieLen = 2.4;
+  /** Where the over-the-shoulder camera would be this frame; aim rays start from here, not the selfie lens. */
+  private playPos = new THREE.Vector3();
+  private face = new THREE.Vector3();
+  private qPlay = new THREE.Quaternion();
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -58,6 +69,10 @@ export class CameraRig {
 
   shake(amount: number) { if (settings.cameraShake) this.trauma = Math.min(1, this.trauma + amount); }
   kick(amount: number) { this.fovKick = Math.max(this.fovKick, amount); }
+  /** Narrow the view by this many degrees this frame (drawing a bow). Re-apply every frame to hold it. */
+  zoom(deg: number) { this.zoomWant = Math.max(this.zoomWant, deg); }
+  private zoomWant = 0;
+  private zoomCur = 0;
   recoil(pitch: number, yaw = 0) { this.recoilV += pitch * 60; this.recoilYaw += yaw; }
   ultBeat() { this.beatT = 0; this.beat = 1; }
 
@@ -75,9 +90,12 @@ export class CameraRig {
     this.modeT += dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
     this.fovKick = damp(this.fovKick, 0, 6, dt);
-    const targetFov = settings.fov + this.fovKick;
+    this.zoomCur = damp(this.zoomCur, this.zoomWant, 9, dt);
+    this.zoomWant = 0;
+    const targetFov = settings.fov + this.fovKick - this.zoomCur;
     if (Math.abs(cam.fov - targetFov) > 0.01) { cam.fov = damp(cam.fov, targetFov, 12, dt); cam.updateProjectionMatrix(); }
 
+    if (this.mode !== 'play') { this.selfieT = 0; this.selfieK = 0; }
     if (this.mode === 'outro') {
       // final blow: a slow-motion orbit around whoever landed it, opening from in front of them
       const f = this.focus ?? hero;
@@ -163,16 +181,21 @@ export class CameraRig {
     const minY = world.heightAt(desired.x, desired.z, desired.y) + CAM_R;
     if (desired.y < minY) desired.y = minY;
     cam.position.copy(desired);
+    this.playPos.copy(desired);
     const lookAt = this.tmp.copy(cam.position).add(fwd);
     cam.lookAt(lookAt);
+    this.selfieT = snap ? (this.selfie ? 1 : 0) : damp(this.selfieT, this.selfie ? 1 : 0, 7, dt);
+    if (this.selfieT < 0.002) this.selfieT = 0;
+    const sk = this.selfieK = this.selfieT * this.selfieT * (3 - 2 * this.selfieT);
+    if (sk > 0) this.placeSelfie(sk, hero, world, vk, snap, dt);
     // view kick: a stiff spring so shots feel punchy and settle in a few frames
     this.recoilV += (-this.recoilP * 900 - this.recoilV * 42) * dt;
     this.recoilP += this.recoilV * dt;
     this.recoilYaw *= Math.exp(-14 * dt);
-    if (Math.abs(this.recoilP) > 1e-5 || Math.abs(this.recoilYaw) > 1e-5) { cam.rotateX(this.recoilP); cam.rotateY(this.recoilYaw); }
+    if (sk < 0.5 && (Math.abs(this.recoilP) > 1e-5 || Math.abs(this.recoilYaw) > 1e-5)) { cam.rotateX(this.recoilP * (1 - sk)); cam.rotateY(this.recoilYaw * (1 - sk)); }
 
     // 4) when the lens is right behind the head, hide the hero instead of filling the screen with their hair
-    if (hero.alive) hero.model.root.visible = cam.position.distanceToSquared(head) > 0.55 * 0.55;
+    if (hero.alive) hero.model.root.visible = sk > 0.3 || cam.position.distanceToSquared(head) > 0.55 * 0.55;
 
     // trauma shake (squared for punch)
     const sh = this.trauma * this.trauma;
@@ -185,11 +208,64 @@ export class CameraRig {
     }
   }
 
+  /** Fraction (0..1) of a boom from `from` toward `end` that stays clear, swept as a fan of rays (a cheap sphere cast). */
+  private sweep(world: World, from: THREE.Vector3, end: THREE.Vector3, right: THREE.Vector3, up: THREE.Vector3) {
+    let t = 1;
+    const e = this.tmp2;
+    for (let i = 0; i < FAN.length; i++) {
+      const [ox, oy] = FAN[i];
+      e.copy(end).addScaledVector(right, ox * CAM_R).addScaledVector(up, oy * CAM_R);
+      const hit = world.raycast(from, e, i === 0 ? CAM_R * 0.5 : 0);
+      if (hit >= 0 && hit < t) t = hit;
+    }
+    return t;
+  }
+
+  /**
+   * Selfie view: the boom swings round the hero on an arc (never through their head) and settles in
+   * front of their face, looking back at them. Mouse yaw still turns the hero, so it works like a
+   * selfie stick; aim keeps using the normal over-the-shoulder ray.
+   */
+  private placeSelfie(k: number, hero: Hero, world: World, vk: number, snap: boolean, dt: number) {
+    const cam = this.camera;
+    const face = this.face.set(hero.pos.x, this.smoothY + 1.5 + vk * 0.9, hero.pos.z);
+    // start: where the shoulder camera is, in cylindrical coords around the face
+    const ox = this.playPos.x - face.x, oz = this.playPos.z - face.z;
+    const a0 = Math.atan2(ox, oz), r0 = Math.hypot(ox, oz), h0 = this.playPos.y - face.y;
+    // end: in front of the hero, slightly above eye level, a little off-center for a candid angle
+    const a1 = Math.atan2(-Math.sin(hero.bodyYaw), -Math.cos(hero.bodyYaw)) + 0.22;
+    const r1 = 2.3 + vk * 2.6, h1 = 0.18 + vk * 0.6;
+    let da = a1 - a0;
+    da = Math.atan2(Math.sin(da), Math.cos(da));
+    const a = a0 + da * k;
+    const r = r0 + (r1 - r0) * k + Math.sin(Math.PI * k) * 0.5; // bow out mid-swing
+    const h = h0 + (h1 - h0) * k;
+    const dir = this.tmp.set(Math.sin(a) * r, h, Math.cos(a) * r);
+    const len = dir.length() || 1;
+    dir.multiplyScalar(1 / len);
+    // collision: same sweep as the boom, from the face (always clear, inside the hero's capsule)
+    const right = this.right.set(dir.z, 0, -dir.x).normalize();
+    const up = this.up.crossVectors(dir, right).normalize();
+    const end = cam.position.copy(face).addScaledVector(dir, len);
+    const t = this.sweep(world, face, end, right, up);
+    const target = clamp(len * t - CAM_R * 0.6, MIN_DIST, len);
+    this.selfieLen = snap || target < this.selfieLen ? target : damp(this.selfieLen, target, 5, dt);
+    const L = Math.min(this.selfieLen, len);
+    // orientation: blend from the shoulder view toward looking back at the hero
+    this.qPlay.copy(cam.quaternion);
+    cam.position.copy(face).addScaledVector(dir, L);
+    const minY = world.heightAt(cam.position.x, cam.position.z, cam.position.y) + CAM_R;
+    if (cam.position.y < minY) cam.position.y = minY;
+    cam.lookAt(face.x, face.y - 0.22 - vk * 0.4, face.z);
+    const q = Math.min(1, k * 1.25);
+    if (q < 1) cam.quaternion.copy(this.qPlay.slerp(cam.quaternion, q));
+  }
+
   /** World-space origin for aim rays: on the camera ray, level with the hero (skips geometry behind them). */
   aimOrigin(out: THREE.Vector3) {
     const fwd = this.forward();
     // use the live boom length: with the camera pulled in against a wall, a fixed offset would start
     // shots past the hero (through whatever is in front of them)
-    return out.copy(this.camera.position).addScaledVector(fwd, Math.max(0, this.curDist - 0.25));
+    return out.copy(this.playPos).addScaledVector(fwd, Math.max(0, this.curDist - 0.25));
   }
 }

@@ -35,10 +35,11 @@ const MODEL_VER: Record<MuseumModel, number> = {
   museum_column_bay: 1, museum_wall_niche: 1, broken_dome_ring: 1, trex_skeleton: 1, winged_statue: 1, equestrian_statue: 1,
   grand_staircase: 1, painting_frame: 1, whale_skeleton: 1, sarcophagus: 1, rope_stanchion: 1, museum_bench: 1,
   museum_bay_drape: 1, museum_bay_relief: 1, museum_bay_fountain: 1, museum_bay_doorway: 1,
-  museum_upper_loggia: 1, museum_upper_oculus: 1, museum_upper_fresco: 2,
+  museum_upper_loggia: 1, museum_upper_oculus: 1, museum_upper_fresco: 2, display_case: 1, orrery_base: 1, colossal_statue: 1, golden_mask: 1,
 };
 const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame', 'whale_skeleton', 'sarcophagus', 'rope_stanchion', 'museum_bench',
-  'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway', 'museum_upper_loggia', 'museum_upper_oculus', 'museum_upper_fresco'] as const;
+  'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway', 'museum_upper_loggia', 'museum_upper_oculus', 'museum_upper_fresco',
+  'display_case', 'orrery_base', 'colossal_statue', 'golden_mask'] as const;
 type MuseumModel = (typeof MODELS)[number];
 
 // ── the wall system: lower tier of column bays, cornice, upper tier of niches, crown cornice, ceiling
@@ -88,7 +89,19 @@ const STAIRS: [number, number, number][] = [[LONG_SLOTS[3], -(HZ - BAY_D - 0.849
 const SCREEN_X = 33.5, SCREEN_H = 10, SCREEN_DZ = 0.45;
 /** Exhibits on the floor: sarcophagi (with a rope in front) by the spawn corners, velvet benches facing the art. */
 const SARC_H = 4, ROPE_H = 1.2, BENCH_H = 1;
-const SARCOPHAGI: [number, number][] = [[40, 22], [40, -22], [-40, 22], [-40, -22]];
+const SARCOPHAGI: [number, number][] = [[40, 16], [40, -16], [-40, 16], [-40, -16]];
+/** Glass display cases (a golden mask inside each), orreries with orbiting planets, and a seated colossus in each corner. */
+const CASE_H = 2.6, ORRERY_H = 3.4, COLOSSUS_H = 10;
+const CASES: [number, number][] = [[30, 14], [-30, -14], [12, 17], [-12, -17]];
+const ORRERIES: [number, number][] = [[30, -14], [-30, 14]];
+const COLOSSI: [number, number][] = [[41.5, 27.5], [-41.5, -27.5], [41.5, -27.5], [-41.5, 27.5]];
+/** Display case interior in template space: glass panes at ±R (half width W) from the case floor Y0 to the lid Y1. */
+const CASE = { R: 0.1893, W: 0.1735, Y0: 0.244, Y1: 0.978, MASK_Y: 0.52, MASK_H: 0.3 };
+/** The orrery's planets: arm radius, arm height (both template space), size, colour, angular speed (rad/s). */
+const ORRERY = { SUN_Y: 0.9, ARMS: [
+  [0.17, 0.70, 0.022, 0xb8a78a, 1.6], [0.23, 0.73, 0.03, 0xe8c27a, 1.15], [0.3, 0.76, 0.034, 0x3f7fd0, 0.9],
+  [0.37, 0.79, 0.027, 0xc0502e, 0.7], [0.46, 0.82, 0.06, 0xd8a868, 0.38], [0.55, 0.85, 0.05, 0xe0c890, 0.27],
+] as [number, number, number, number, number][] };
 /** [x, z, yaw]: the benches look at the screens' inner paintings and at the long walls' arches. */
 const BENCHES: [number, number, number][] = [
   [26.5, 0, Math.PI / 2], [-26.5, 0, -Math.PI / 2],
@@ -127,6 +140,9 @@ export class MuseumArena implements ArenaLike {
   private fog: THREE.FogExp2;
   private lamps: THREE.PointLight[] = [];
   private whale: THREE.Group | null = null;
+  private orreries: THREE.Vector3[] = [];
+  private planetRods: THREE.InstancedMesh | null = null;
+  private planets: THREE.InstancedMesh | null = null;
   private dust: ReturnType<typeof makeMuseumDust> | null = null;
   private dustOn = false;
   private beacons: THREE.Mesh[] = [];
@@ -290,6 +306,9 @@ export class MuseumArena implements ArenaLike {
       for (const sd of [-1, 1]) put('rope_stanchion', mat4(x + r.x * sd * 1.7 + f.x * 0.9, 0, z + r.z * sd * 1.7 + f.z * 0.9, yaw + Math.PI / 2, ROPE_H), true);
     }
     for (const [x, z, yaw] of BENCHES) put('museum_bench', mat4(x, 0, z, yaw, BENCH_H), true);
+    const caseMats = CASES.map(([x, z]) => put('display_case', mat4(x, 0, z, facing(x, z, 0, 0), CASE_H), false));
+    for (const [x, z] of ORRERIES) { put('orrery_base', mat4(x, 0, z, 0, ORRERY_H), true); this.orreries.push(new THREE.Vector3(x, 0, z)); }
+    for (const [x, z] of COLOSSI) put('colossal_statue', mat4(x, 0, z, facing(x, z, 0, 0), COLOSSUS_H), true);
 
     // ── instance everything: one draw per model
     const noShadow = new Set<MuseumModel>([...(Object.keys(KIT) as MuseumModel[]), 'painting_frame']);
@@ -320,6 +339,8 @@ export class MuseumArena implements ArenaLike {
     }
 
     this.hangWhale();
+    this.fillDisplayCases(grid, caseMats);
+    this.buildOrreryPlanets();
     this.buildArchitecture(grid);
     this.hangPaintings(frames);
     for (const [x, z, yaw] of STAIRS) this.stairCollision(grid, mat4(x, 0, z, yaw, STAIR_H));
@@ -565,9 +586,91 @@ export class MuseumArena implements ArenaLike {
     this.whale = g;
   }
 
+  /**
+   * The display cases keep only their Meshy frame and base (the build strips the painted glass and the mask): real glass
+   * goes in here as additive panes, so all they add is the hall's reflection, brightest at grazing angles, for no
+   * extra pass. Each case holds the Meshy golden mask on a rod (a code stand-in if it fails to load). The glass is solid.
+   */
+  private fillDisplayCases(grid: HeightGrid, mats: THREE.Matrix4[]) {
+    if (!mats.length) return;
+    const panes: THREE.BufferGeometry[] = [];
+    for (const m of mats) {
+      const h = CASE.Y1 - CASE.Y0, y = (CASE.Y0 + CASE.Y1) / 2;
+      for (const s of [-1, 1]) {
+        panes.push(new THREE.PlaneGeometry(2 * CASE.W, h).translate(0, y, s * CASE.R).applyMatrix4(m));
+        panes.push(new THREE.PlaneGeometry(2 * CASE.W, h).rotateY(Math.PI / 2).translate(s * CASE.R, y, 0).applyMatrix4(m));
+      }
+      grid.addGeometry(new THREE.BoxGeometry(0.48, 1, 0.48).translate(0, 0.5, 0), m);
+    }
+    const glass = new THREE.Mesh(mergeGeometries(panes), new THREE.MeshStandardMaterial({
+      color: 0x000000, roughness: 0.03, metalness: 0, envMapIntensity: 2.4,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    }));
+    glass.renderOrder = 5;
+    // the mask and the rod it stands on
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x2a2420, metalness: 0.8, roughness: 0.45 });
+    const rod = new THREE.CylinderGeometry(0.006, 0.006, CASE.MASK_Y - CASE.Y0, 8).translate(0, (CASE.MASK_Y + CASE.Y0) / 2, -0.03);
+    const parts: [THREE.BufferGeometry, THREE.Material, THREE.Matrix4][] = [[rod, rodMat, new THREE.Matrix4()]];
+    const mask = this.T.golden_mask;
+    if (mask) {
+      // the template stands on y = 0 with unit height: centre it on the rod top
+      parts.push([mask.geometry, mask.material as THREE.Material,
+        new THREE.Matrix4().compose(new THREE.Vector3(0, CASE.MASK_Y - CASE.MASK_H / 2, 0), new THREE.Quaternion(), new THREE.Vector3().setScalar(CASE.MASK_H))]);
+    } else {
+      const face = makeMaskGeometry();
+      const local = new THREE.Matrix4().compose(new THREE.Vector3(0, CASE.MASK_Y, 0.01), new THREE.Quaternion(), new THREE.Vector3().setScalar(CASE.MASK_H));
+      parts.push([face.mask, new THREE.MeshStandardMaterial({ color: 0xffc35a, metalness: 1, roughness: 0.24 }), local],
+        [face.eyes, new THREE.MeshStandardMaterial({ color: 0x1b3f9e, metalness: 0.1, roughness: 0.25 }), local]);
+    }
+    for (const [g, mat, l] of parts) {
+      const im = new THREE.InstancedMesh(g, mat, mats.length);
+      mats.forEach((m, i) => im.setMatrixAt(i, m.clone().multiply(l)));
+      im.castShadow = true; im.receiveShadow = true;
+      im.computeBoundingSphere();
+      this.scene.add(im);
+    }
+    this.scene.add(glass);
+  }
+
+  /** Planet arms for the orrery bases: brass rods and painted planets, re-posed every frame (two draws for all of them). */
+  private buildOrreryPlanets() {
+    if (!this.orreries.length) return;
+    const n = this.orreries.length * ORRERY.ARMS.length;
+    const brass = new THREE.MeshStandardMaterial({ color: 0xc9a050, metalness: 1, roughness: 0.3 });
+    this.planetRods = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 6), brass, n * 2);
+    this.planets = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.1 }), n);
+    const c = new THREE.Color();
+    for (let i = 0; i < n; i++) this.planets.setColorAt(i, c.setHex(ORRERY.ARMS[i % ORRERY.ARMS.length][3]));
+    for (const im of [this.planetRods, this.planets]) { im.castShadow = true; im.frustumCulled = false; this.scene.add(im); }
+    this.spinOrreries(0);
+  }
+
+  private spinOrreries(time: number) {
+    if (!this.planets || !this.planetRods) return;
+    const S = ORRERY_H, m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
+    const flat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);
+    let k = 0, r = 0;
+    this.orreries.forEach((o, oi) => ORRERY.ARMS.forEach(([rad, armY, size, , speed], ai) => {
+      const a = time * speed * 0.35 + ai * 1.7 + oi * 0.9;
+      const dx = Math.cos(a), dz = Math.sin(a);
+      // horizontal arm from the axis, then a short upright to the planet at the sun's height
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a).multiply(flat);
+      m.compose(p.set(o.x + dx * rad * S / 2, armY * S, o.z + dz * rad * S / 2), q, sc.set(0.012 * S, rad * S, 0.012 * S));
+      this.planetRods!.setMatrixAt(r++, m);
+      const up = (ORRERY.SUN_Y - armY) * S;
+      m.compose(p.set(o.x + dx * rad * S, armY * S + up / 2, o.z + dz * rad * S), q.identity(), sc.set(0.01 * S, up, 0.01 * S));
+      this.planetRods!.setMatrixAt(r++, m);
+      m.compose(p.set(o.x + dx * rad * S, ORRERY.SUN_Y * S, o.z + dz * rad * S), q.identity(), sc.setScalar(size * S));
+      this.planets!.setMatrixAt(k++, m);
+    }));
+    this.planetRods.instanceMatrix.needsUpdate = true;
+    this.planets.instanceMatrix.needsUpdate = true;
+  }
+
   private captureEnvironment() {
     const r = this.renderer;
-    const hide = (['trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'sarcophagus', 'rope_stanchion', 'museum_bench'] as const)
+    const hide = (['trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'sarcophagus', 'rope_stanchion', 'museum_bench',
+      'display_case', 'orrery_base', 'colossal_statue'] as const)
       .map((n): THREE.Object3D | undefined => this.instanced[n]).concat(this.whale ?? undefined).filter(Boolean) as THREE.Object3D[];
     hide.forEach((o) => (o.visible = false));
     const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
@@ -615,6 +718,7 @@ export class MuseumArena implements ArenaLike {
       if (!this.dustOn && this.dust.sync()) { this.scene.add(this.dust.points); this.dustOn = true; }
       if (this.dustOn) { this.dust.sync(); (this.dust.points.material as THREE.ShaderMaterial).uniforms.uTime.value = time; }
     }
+    this.spinOrreries(time);
     if (this.whale) {
       this.whale.rotation.x = Math.sin(time * 0.21) * 0.012;
       this.whale.rotation.z = Math.sin(time * 0.17 + 1.3) * 0.016;
@@ -623,4 +727,32 @@ export class MuseumArena implements ArenaLike {
     for (let i = 0; i < this.lamps.length; i++) this.lamps[i].intensity = 60 * (0.96 + Math.sin(time * 9.1 + i * 2.3) * 0.02 + Math.sin(time * 23.7 + i) * 0.015);
     for (let i = 0; i < this.beacons.length; i++) { const bc = this.beacons[i]; bc.rotation.y = time * 0.8; bc.position.y = 6.5 + Math.sin(time * 1.4 + i) * 0.35; }
   }
+}
+
+/**
+ * A stand-in golden funerary mask: the front half of an ellipsoid pushed out into a brow, nose, cheeks, lips and chin,
+ * with lapis almond eyes. Unit height, centred on the origin, facing +z.
+ */
+function makeMaskGeometry() {
+  const feat = (X: number, Y: number) => {
+    const ax = Math.abs(X), e = (v: number) => Math.exp(-v);
+    return 0.2 * e((X / 0.1) ** 2 + ((Y + 0.03) / 0.2) ** 2)            // nose
+      + 0.07 * e(((Y - 0.24) / 0.07) ** 2) * (ax < 0.62 ? 1 : 0.3)        // brow
+      - 0.11 * e(((ax - 0.3) / 0.13) ** 2 + ((Y - 0.12) / 0.07) ** 2)     // eye sockets
+      + 0.05 * e(((ax - 0.38) / 0.15) ** 2 + ((Y + 0.12) / 0.15) ** 2)    // cheeks
+      + 0.06 * e((X / 0.22) ** 2 + ((Y + 0.42) / 0.05) ** 2)              // lips
+      - 0.03 * e((X / 0.18) ** 2 + ((Y + 0.43) / 0.012) ** 2)             // their parting
+      + 0.05 * e((X / 0.2) ** 2 + ((Y + 0.66) / 0.1) ** 2);               // chin
+  };
+  const zAt = (X: number, Y: number) => Math.sqrt(Math.max(0, 1 - X * X - Y * Y)) * 0.55 + feat(X, Y);
+  const g = new THREE.SphereGeometry(1, 56, 44, 0, Math.PI, 0.06 * Math.PI, 0.88 * Math.PI);
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const X = pos.getX(i), Y = pos.getY(i), Z = pos.getZ(i);
+    pos.setXYZ(i, X * 0.36, Y * 0.5, (Z * 0.55 + feat(X, Y) * Math.min(1, Z * 3)) * 0.5);
+  }
+  g.computeVertexNormals();
+  const eye = (sx: number) => new THREE.CircleGeometry(0.05, 20).scale(1, 0.42, 1).rotateZ(sx * 0.12)
+    .translate(sx * 0.3 * 0.36, 0.12 * 0.5, zAt(sx * 0.3, 0.12) * 0.5 + 0.004);
+  return { mask: g, eyes: mergeGeometries([eye(-1), eye(1)]) };
 }

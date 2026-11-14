@@ -5,7 +5,7 @@ import type { Game } from './Game';
 import type { RigLook, HeroModel } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey' | 'trex';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'luffy' | 'ironman' | 'mickey' | 'steve' | 'trex';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
@@ -27,6 +27,24 @@ export interface HeroKit {
   onDeath?(h: Hero, g: Game): void;
   /** Online: a kit moment from the machine that drives this legend (see Game.net.kitEvent). */
   onNet?(h: Hero, g: Game, ev: string): void;
+  /**
+   * Weapon swap (Steve): the mouse wheel steps through the loadout (dir +1 / -1), number keys pick a slot (slot 0, 1...).
+   * Kits without a loadout leave it out and the wheel does nothing.
+   */
+  swap?(h: Hero, g: Game, dir: number, slot?: number): void;
+}
+
+/** A prop carried in one hand and shown only while it's the legend's active item (see AnimState.item). */
+export interface HeldItem {
+  id: string;
+  hand: 'L' | 'R';
+  /** Optional Meshy prop to use once it's loaded (sized and placed by size / pos / rot); `build` is used otherwise. */
+  prop?: PropName;
+  /** Code-built item, in metres, in the hand bone's frame with the grip at the origin. */
+  build(): THREE.Object3D;
+  size?: number;
+  pos?: [number, number, number];
+  rot?: [number, number, number];
 }
 
 export interface HeroDef {
@@ -54,6 +72,8 @@ export interface HeroDef {
     /** Hang the prop from its top (pos is the grip) and swing it like a bell when attacking. */
     ring?: boolean;
   };
+  /** Items held in the hands and swapped between (Steve's sword and bow). */
+  items?: HeldItem[];
   look: RigLook;
   /** Big bodies (the T-Rex): hit capsule, world collision radius, where the chest is, how the camera frames them. */
   body?: HeroBody;

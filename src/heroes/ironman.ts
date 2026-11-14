@@ -8,7 +8,7 @@ import { Shape } from '../vfx/Particles';
 import { globalUniforms } from '../render/materials';
 import { rand, segmentVsCapsule, TAU, _m1, _q1, _v1 } from '../core/math';
 import type { RigBuilder } from '../render/HeroRig';
-import { screenFx } from '../vfx/ScreenFx';
+import { screenFx, type Lens } from '../vfx/ScreenFx';
 import { TrailStyle } from '../vfx/Trails';
 import type { LoopHandle } from '../core/Audio';
 import { PROPS } from '../render/props';
@@ -88,63 +88,149 @@ function missilePool() {
 }
 
 // ───────────────── Unibeam visuals ─────────────────
-let beamCoreMat: THREE.ShaderMaterial | null = null;
-let beamGlowMat: THREE.ShaderMaterial | null = null;
-function beamMaterials() {
-  if (beamCoreMat) return { beamCoreMat, beamGlowMat: beamGlowMat! };
-  const vert = /* glsl */ `
-    varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vLen;
-    void main(){
-      vUv = uv;
-      vec4 wp = modelMatrix * vec4(position, 1.0);
-      vN = normalize(mat3(modelMatrix) * normal);
-      vV = normalize(cameraPosition - wp.xyz);
-      vLen = length(modelMatrix[1].xyz);
-      gl_Position = projectionMatrix * viewMatrix * wp;
-    }`;
-  beamCoreMat = new THREE.ShaderMaterial({
+// Four nested tubes (white-hot filament, plasma core, soft halo, twin helix sheath) sharing one vertex
+// shader that flares the beam where it leaves the chest and ripples it along its length, plus camera-
+// facing flares for the reactor and the impact, and spinning emitter rings. All additive, no lights.
+const TUBE_VERT = /* glsl */ `
+  uniform float uTime; uniform float uFlare; uniform float uWob;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vD; varying float vLen;
+  void main(){
+    vUv = uv;
+    vLen = length(modelMatrix[1].xyz);
+    float d = position.y * vLen;
+    vD = d;
+    float r = 1.0 + uFlare * exp(-d * 1.4) + uWob * sin(d * 0.9 - uTime * 34.0) * smoothstep(0.0, 2.0, d);
+    vec4 wp = modelMatrix * vec4(position.x * r, position.y, position.z * r, 1.0);
+    vN = normalize(mat3(modelMatrix) * normal);
+    vV = normalize(cameraPosition - wp.xyz);
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }`;
+const TUBE_HEAD = /* glsl */ `
+  uniform float uTime; uniform sampler2D uNoise; uniform float uK;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vD; varying float vLen;
+  float facing(){ return abs(dot(normalize(vN), normalize(vV))); }
+  // soft start at the chest, frayed far end
+  float ends(){ return smoothstep(0.0, 0.35, vD) * (smoothstep(1.0, 0.86, vUv.y) * 0.85 + 0.15); }
+`;
+function tubeMat(frag: string, flare: number, wob: number) {
+  return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: globalUniforms.uTime, uNoise: globalUniforms.uNoise, uK: { value: 1 } },
-    vertexShader: vert,
-    fragmentShader: /* glsl */ `
-      uniform float uTime; uniform sampler2D uNoise; uniform float uK;
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vLen;
-      void main(){
-        float facing = abs(dot(normalize(vN), normalize(vV)));
-        float d = vUv.y * vLen;
-        // surging bands of plasma racing down the beam
-        float n = texture2D(uNoise, vec2(vUv.x * 2.0 + d * 0.02, d * 0.045 - uTime * 2.6)).g;
-        float surge = 0.75 + 0.5 * n + 0.25 * sin(d * 1.3 - uTime * 48.0);
-        float core = pow(facing, 2.4);
-        vec3 c = mix(vec3(0.5, 1.6, 3.4), vec3(4.4, 4.6, 5.0), core) * (0.35 + core * 1.4) * surge;
-        // the beam frays as it reaches its far end
-        c *= smoothstep(1.0, 0.86, vUv.y) * 0.85 + 0.15;
-        gl_FragColor = vec4(c * uK, 1.0);
-      }`,
+    uniforms: { uTime: globalUniforms.uTime, uNoise: globalUniforms.uNoise, uK: { value: 1 }, uFlare: { value: flare }, uWob: { value: wob } },
+    vertexShader: TUBE_VERT,
+    fragmentShader: TUBE_HEAD + frag,
   });
-  beamGlowMat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: globalUniforms.uTime, uNoise: globalUniforms.uNoise, uK: { value: 1 } },
-    vertexShader: vert,
-    fragmentShader: /* glsl */ `
-      uniform float uTime; uniform sampler2D uNoise; uniform float uK;
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vLen;
-      void main(){
-        float facing = abs(dot(normalize(vN), normalize(vV)));
-        float d = vUv.y * vLen;
-        float n = texture2D(uNoise, vec2(vUv.x * 3.0 - uTime * 0.7, d * 0.03 - uTime * 1.4)).r;
-        float halo = pow(facing, 1.6) * (0.55 + 0.6 * n);
-        vec3 c = vec3(0.18, 0.62, 1.7) * halo * (smoothstep(1.0, 0.8, vUv.y) * 0.8 + 0.2);
-        gl_FragColor = vec4(c * uK, 1.0);
-      }`,
-  });
-  return { beamCoreMat, beamGlowMat };
 }
-/** unit-length open tube along +y from 0 to 1 */
+const FLARE_FRAG = /* glsl */ `
+  uniform vec3 uCol; uniform float uK; uniform float uTime; uniform float uRays;
+  varying vec2 vUv;
+  void main(){
+    vec2 p = vUv * 2.0 - 1.0;
+    float r = length(p), a = atan(p.y, p.x);
+    float core = exp(-r * r * 22.0);
+    float halo = exp(-r * 4.2) * 0.55;
+    float rays = (pow(max(0.0, cos(a * 3.0 + uTime * 2.5)), 24.0) + 0.7 * pow(max(0.0, cos(a * 5.0 - uTime * 1.7)), 30.0)) * exp(-r * 2.6) * uRays;
+    vec3 c = uCol * (halo + rays) + vec3(3.0, 3.3, 3.6) * core;
+    gl_FragColor = vec4(c * smoothstep(1.0, 0.6, r) * uK, 1.0);
+  }`;
+const RING_FRAG = /* glsl */ `
+  uniform vec3 uCol; uniform float uK; uniform float uTime; uniform float uSpin; uniform float uSeg;
+  varying vec2 vUv;
+  void main(){
+    vec2 p = vUv * 2.0 - 1.0;
+    float r = length(p), a = atan(p.y, p.x) / 6.2831853 + 0.5;
+    float band = smoothstep(0.66, 0.72, r) * smoothstep(0.98, 0.9, r);
+    float dash = smoothstep(0.35, 0.45, fract(a * uSeg + uTime * uSpin)) * smoothstep(0.95, 0.85, fract(a * uSeg + uTime * uSpin));
+    float thin = exp(-pow((r - 0.6) * 40.0, 2.0)) + exp(-pow((r - 1.0) * 60.0, 2.0)) * 0.5;
+    float glow = exp(-pow((r - 0.8) * 7.0, 2.0)) * 0.25;
+    gl_FragColor = vec4(uCol * (band * dash * 0.9 + thin * 1.3 + glow) * uK, 1.0);
+  }`;
+const BB_VERT = /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+
+let beamMats: { hot: THREE.ShaderMaterial; core: THREE.ShaderMaterial; glow: THREE.ShaderMaterial; helix: THREE.ShaderMaterial; flare: THREE.ShaderMaterial; ring: THREE.ShaderMaterial } | null = null;
+function beamMaterials() {
+  if (beamMats) return beamMats;
+  const hot = tubeMat(/* glsl */ `
+    void main(){
+      float f = pow(facing(), 3.0);
+      float flick = 0.85 + 0.15 * sin(uTime * 90.0 + vD * 0.7);
+      gl_FragColor = vec4(vec3(2.4, 2.8, 3.2) * f * flick * ends() * uK, 1.0);
+    }`, 0.9, 0.05);
+  const core = tubeMat(/* glsl */ `
+    void main(){
+      float f = facing();
+      float n = texture2D(uNoise, vec2(vUv.x * 2.0 + vD * 0.02, vD * 0.045 - uTime * 2.6)).g;
+      float surge = 0.7 + 0.55 * n + 0.3 * sin(vD * 1.3 - uTime * 48.0);
+      float c0 = pow(f, 1.8);
+      vec3 c = mix(vec3(0.12, 0.6, 2.4), vec3(0.9, 2.2, 3.6), c0) * (0.2 + c0 * 0.9) * surge;
+      gl_FragColor = vec4(c * ends() * uK, 1.0);
+    }`, 1.2, 0.08);
+  const glow = tubeMat(/* glsl */ `
+    void main(){
+      float f = facing();
+      float n = texture2D(uNoise, vec2(vUv.x * 3.0 - uTime * 0.7, vD * 0.03 - uTime * 1.4)).r;
+      float halo = pow(f, 2.2) * (0.5 + 0.7 * n);
+      vec3 c = vec3(0.08, 0.32, 1.1) * halo;
+      gl_FragColor = vec4(c * ends() * uK, 1.0);
+    }`, 1.6, 0.12);
+  const helix = tubeMat(/* glsl */ `
+    void main(){
+      float f = facing();
+      float s1 = fract(vUv.x * 2.0 + vD * 0.2 - uTime * 3.4);
+      float s2 = fract(-vUv.x * 3.0 + vD * 0.13 - uTime * 2.2);
+      float b = smoothstep(0.0, 0.06, s1) * smoothstep(0.2, 0.06, s1) + 0.6 * smoothstep(0.0, 0.05, s2) * smoothstep(0.14, 0.05, s2);
+      float reach = smoothstep(26.0, 6.0, vD) * 0.8 + 0.2;
+      vec3 c = vec3(0.9, 2.2, 4.4) * b * pow(f, 0.7) * reach;
+      gl_FragColor = vec4(c * ends() * uK, 1.0);
+    }`, 1.0, 0.0);
+  const bb = (frag: string, extra: Record<string, THREE.IUniform>) => new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { uTime: globalUniforms.uTime, uK: { value: 1 }, uCol: { value: new THREE.Color(0.5, 1.4, 3.2) }, ...extra },
+    vertexShader: BB_VERT, fragmentShader: frag,
+  });
+  const flare = bb(FLARE_FRAG, { uRays: { value: 1 } });
+  const ring = bb(RING_FRAG, { uSpin: { value: 1 }, uSeg: { value: 6 } });
+  return (beamMats = { hot, core, glow, helix, flare, ring });
+}
+/** unit-length open tube along +y from 0 to 1, with length segments for the flare and ripple */
 let beamGeo: THREE.CylinderGeometry | null = null;
-const tubeGeo = () => (beamGeo ??= (new THREE.CylinderGeometry(1, 1, 1, 20, 1, true).translate(0, 0.5, 0) as THREE.CylinderGeometry));
+const tubeGeo = () => (beamGeo ??= (new THREE.CylinderGeometry(1, 1, 1, 18, 40, true).translate(0, 0.5, 0) as THREE.CylinderGeometry));
+let quadGeo: THREE.PlaneGeometry | null = null;
+const quad = () => (quadGeo ??= new THREE.PlaneGeometry(2, 2));
+
+/** The beam's meshes, cloned per cast so several Iron Men can fire at once. */
+function buildBeamParts(g: Game) {
+  const m = beamMaterials();
+  const mk = (geo: THREE.BufferGeometry, mat: THREE.ShaderMaterial, order: number) => {
+    const o = new THREE.Mesh(geo, mat.clone());
+    o.frustumCulled = false; o.renderOrder = order; o.visible = false;
+    g.scene.add(o);
+    return o;
+  };
+  const parts = {
+    glow: mk(tubeGeo(), m.glow, 5), helix: mk(tubeGeo(), m.helix, 6), core: mk(tubeGeo(), m.core, 7), hot: mk(tubeGeo(), m.hot, 8),
+    muzzle: mk(quad(), m.flare, 9), impact: mk(quad(), m.flare, 9),
+    ringA: mk(quad(), m.ring, 9), ringB: mk(quad(), m.ring, 9), wave1: mk(quad(), m.ring, 9), wave2: mk(quad(), m.ring, 9), splash: mk(quad(), m.ring, 9),
+  };
+  const u = (o: THREE.Mesh) => (o.material as THREE.ShaderMaterial).uniforms;
+  u(parts.impact).uCol.value.setRGB(1.2, 1.6, 3.0);
+  u(parts.ringB).uSpin.value = -1.4; u(parts.ringB).uSeg.value = 9;
+  u(parts.wave1).uSeg.value = 3; u(parts.wave2).uSeg.value = 3;
+  u(parts.splash).uSpin.value = 2; u(parts.splash).uSeg.value = 5; u(parts.splash).uCol.value.setRGB(1.6, 1.4, 2.6);
+  return parts;
+}
+type BeamParts = ReturnType<typeof buildBeamParts>;
+const uni = (o: THREE.Mesh) => (o.material as THREE.ShaderMaterial).uniforms;
 
 // ───────────────── helpers ─────────────────
+
+const _v2 = new THREE.Vector3();
+function billboard(g: Game, m: THREE.Mesh, pos: THREE.Vector3, size: number) {
+  m.position.copy(pos); m.quaternion.copy(g.camRig.camera.quaternion); m.scale.setScalar(Math.max(0.001, size));
+}
+/** a flat ring centred on pos, facing along dir */
+function ringAt(m: THREE.Mesh, pos: THREE.Vector3, dir: THREE.Vector3, size: number) {
+  m.position.copy(pos); m.quaternion.setFromUnitVectors(Z, dir); m.scale.setScalar(Math.max(0.001, size));
+}
 
 /** world positions of the two boot thrusters and the two shoulder missile pods */
 function boot(h: Hero, s: 1 | -1, out: THREE.Vector3) {
@@ -244,7 +330,8 @@ function missileBoom(g: Game, owner: Hero, at: THREE.Vector3, hit: Hero | null, 
 interface BeamState {
   t: number;
   dir: THREE.Vector3;
-  core: THREE.Mesh; glow: THREE.Mesh;
+  parts: BeamParts;
+  heatMuzzle: Lens; heatEnd: Lens;
   tickT: number; fxT: number; scorchT: number;
   hum: LoopHandle | null;
 }
@@ -310,14 +397,12 @@ class IronManKit implements HeroKit {
   ult(h: Hero, g: Game) {
     const st = h.kitState;
     if (st.beam) return false;
-    const { beamCoreMat, beamGlowMat } = beamMaterials();
-    const core = new THREE.Mesh(tubeGeo(), beamCoreMat.clone());
-    const glow = new THREE.Mesh(tubeGeo(), beamGlowMat.clone());
-    core.visible = glow.visible = false;
-    core.frustumCulled = glow.frustumCulled = false;
-    core.renderOrder = glow.renderOrder = 5;
-    g.scene.add(core, glow);
-    st.beam = { t: 0, dir: h.aimDir(reactor(h)), core, glow, tickT: 0, fxT: 0, scorchT: 0, hum: null } satisfies BeamState;
+    const o = reactor(h);
+    st.beam = {
+      t: 0, dir: h.aimDir(o), parts: buildBeamParts(g),
+      heatMuzzle: screenFx.heat(o, 1.1, 0), heatEnd: screenFx.heat(o, 2.6, 0),
+      tickT: 0, fxT: 0, scorchT: 0, hum: null,
+    } satisfies BeamState;
     h.channel = BEAM_CHARGE + BEAM_TIME;
     g.play('unibeamCharge', h.chest, 1);
     const feet = h.pos.clone(); feet.y = g.world.heightAt(feet.x, feet.z);
@@ -383,21 +468,33 @@ class IronManKit implements HeroKit {
         const a = rand(0, TAU), r = rand(1.5, 3.5), yy = rand(-1, 1.5), life = 0.28;
         g.vfx.p({ x: o.x + Math.cos(a) * r, y: o.y + yy, z: o.z + Math.sin(a) * r, vx: -Math.cos(a) * r / life, vy: -yy / life, vz: -Math.sin(a) * r / life, r: 1.2, g: 2.6, b: 4, r2: 4, g2: 4, b2: 4.4, size: 0.06, life, shape: Shape.Spark, stretch: 0.04 });
       }
-      if (Math.random() < dt * 40) g.vfx.flare(o, WHITE_HOT, 0.6 + k * 2.4, 0.06, rand(-0.5, 0.5));
-      if (h.isLocal) screenFx.zoomHold = k * 0.16;
+      if (Math.random() < dt * 25) g.vfx.flare(o, WHITE_HOT, 0.4 + k * 1.4, 0.06, rand(-0.5, 0.5));
+      if (h.isLocal) screenFx.zoomHold = k * 0.08;
       b.dir.copy(h.aimDir(o));
+      // the reactor swells into a star while two emitter rings spin up and close in on it
+      const P = b.parts, e = k * k;
+      P.muzzle.visible = P.ringA.visible = P.ringB.visible = true;
+      billboard(g, P.muzzle, o, 0.12 + e * 0.6 * (1 + Math.sin(g.time * 60) * 0.08));
+      uni(P.muzzle).uRays.value = e; uni(P.muzzle).uK.value = 0.5 + e * 0.8;
+      ringAt(P.ringA, _v1.copy(o).addScaledVector(b.dir, 0.3), b.dir, 1.5 - e * 1.0);
+      ringAt(P.ringB, _v1.copy(o).addScaledVector(b.dir, 0.45), b.dir, 1.1 - e * 0.75);
+      uni(P.ringA).uK.value = uni(P.ringB).uK.value = Math.min(1, k * 2);
+      uni(P.ringA).uSpin.value = 0.8 + e * 5; uni(P.ringB).uSpin.value = -(1 + e * 6);
+      b.heatMuzzle.pos.copy(o); b.heatMuzzle.strength = e * 0.6;
       return;
     }
-    if (!b.core.visible) {
+    const P = b.parts;
+    if (!P.core.visible) {
       // ignition
-      b.core.visible = b.glow.visible = true;
+      P.core.visible = P.glow.visible = P.hot.visible = P.helix.visible = P.impact.visible = P.splash.visible = P.wave1.visible = P.wave2.visible = true;
       g.play('unibeamFire', o, 1);
       b.hum = g.loop('unibeamLoop', o, 0.9);
-      g.vfx.flare(o, WHITE_HOT, 6, 0.3);
+      g.vfx.flare(o, WHITE_HOT, 3.5, 0.25);
       g.vfx.shockwave(o, REPULSOR, 4, 0.35, 0.12, false);
-      g.vfx.flash(o, new THREE.Color(0.6, 0.9, 1.4), 60, 0.4, 18);
-      g.shake(o, 0.4, 25);
-      if (h.isLocal) { screenFx.punch(0.4); screenFx.flashScreen(new THREE.Color(0.8, 1.1, 1.6), 0.25); g.camRig.kick(6); }
+      g.vfx.flash(o, new THREE.Color(0.6, 0.9, 1.4), 30, 0.35, 16);
+      g.shake(o, 0.12, 20);
+      screenFx.ripple(_v1.copy(o).addScaledVector(b.dir, 1), 3, 0.5, 0.4);
+      if (h.isLocal) { screenFx.punch(0.15); screenFx.flashScreen(new THREE.Color(0.8, 1.1, 1.6), 0.12); g.camRig.kick(3); }
     }
     const k = b.t - BEAM_CHARGE;
     const fade = Math.min(1, k / 0.12) * Math.min(1, (BEAM_TIME - k) / 0.25);
@@ -412,12 +509,34 @@ class IronManKit implements HeroKit {
     // orient the tubes
     _q1.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.dir);
     const pulse = 1 + Math.sin(g.time * 40) * 0.06;
-    b.core.position.copy(o); b.core.quaternion.copy(_q1); b.core.scale.set(BEAM_R * 0.5 * pulse * fade, len, BEAM_R * 0.5 * pulse * fade);
-    b.glow.position.copy(o); b.glow.quaternion.copy(_q1); b.glow.scale.set(BEAM_R * 1.5 * fade, len, BEAM_R * 1.5 * fade);
-    (b.core.material as THREE.ShaderMaterial).uniforms.uK.value = fade;
-    (b.glow.material as THREE.ShaderMaterial).uniforms.uK.value = fade;
+    for (const [m, r] of [[P.hot, 0.16 * pulse], [P.core, 0.42 * pulse], [P.helix, 0.85], [P.glow, 1.6]] as const) {
+      m.position.copy(o); m.quaternion.copy(_q1);
+      const w = BEAM_R * r * (0.3 + 0.7 * fade);
+      m.scale.set(w, len, w);
+      uni(m).uK.value = fade;
+    }
+    // reactor star, emitter rings, pressure waves racing out along the beam
+    billboard(g, P.muzzle, o, (0.6 + Math.sin(g.time * 47) * 0.05) * (0.5 + 0.5 * fade));
+    uni(P.muzzle).uRays.value = 0.8; uni(P.muzzle).uK.value = 0.3 + 0.55 * fade;
+    ringAt(P.ringA, _v1.copy(o).addScaledVector(b.dir, 0.45), b.dir, 0.7);
+    ringAt(P.ringB, _v1.copy(o).addScaledVector(b.dir, 1.0), b.dir, 0.5 + Math.sin(g.time * 30) * 0.04);
+    uni(P.ringA).uK.value = uni(P.ringB).uK.value = fade;
+    const reach = Math.min(len - 0.5, 14);
+    for (const [w, ph] of [[P.wave1, 0], [P.wave2, 0.5]] as const) {
+      const f = (k * 1.7 + ph) % 1;
+      ringAt(w, _v1.copy(o).addScaledVector(b.dir, 0.8 + f * reach), b.dir, 0.45 + f * 0.7);
+      uni(w).uK.value = fade * (1 - f) * Math.min(1, f * 8) * 0.9;
+    }
+    // the impact: a white-hot star where it hits and a splash ring spreading over the surface
+    billboard(g, P.impact, _v2.copy(end).addScaledVector(b.dir, -0.15), (1.2 + Math.random() * 0.3) * fade);
+    uni(P.impact).uRays.value = 0.7;
+    ringAt(P.splash, _v2.copy(end).addScaledVector(b.dir, -0.05), b.dir, (1.3 + Math.sin(g.time * 22) * 0.15) * fade);
+    uni(P.splash).uK.value = wt >= 0 ? fade : 0;
+    P.impact.visible = true;
+    b.heatMuzzle.pos.copy(o); b.heatMuzzle.strength = 0.7 * fade;
+    b.heatEnd.pos.copy(end); b.heatEnd.strength = (wt >= 0 ? 1 : 0.4) * fade;
     b.hum?.set(o, 1, 0.9 * fade);
-    if (h.isLocal) { screenFx.zoomHold = 0.1 * fade; g.camRig.shake(0.03); }
+    if (h.isLocal) screenFx.zoomHold = 0.05 * fade;
 
     // damage: everyone in the beam's path, through each other
     b.tickT += dt;
@@ -467,13 +586,13 @@ class IronManKit implements HeroKit {
     if (!b) return;
     h.kitState.beam = null;
     b.hum?.stop();
-    g.scene.remove(b.core, b.glow);
-    (b.core.material as THREE.Material).dispose();
-    (b.glow.material as THREE.Material).dispose();
+    const fired = b.parts.core.visible;
+    for (const m of Object.values(b.parts)) { g.scene.remove(m); (m.material as THREE.Material).dispose(); }
+    b.heatMuzzle.alive = b.heatEnd.alive = false;
     if (h.isLocal) screenFx.zoomHold = 0;
     h.overrideVel = null;
     h.anim.cast = 0;
-    if (end && b.core.visible) {
+    if (end && fired) {
       g.vfx.flare(end, WHITE_HOT, 3, 0.25);
       g.vfx.shockwave(end, REPULSOR, 3, 0.4, 0.1, false);
       g.play('repulsorHit', end, 1);
@@ -532,6 +651,6 @@ export const IRONMAN: HeroDef = {
 export function warmupIronMan(g: Game): THREE.Object3D[] {
   g.pool('repulsorBolt', boltPool);
   g.pool('ironMissile', missilePool);
-  const { beamCoreMat, beamGlowMat } = beamMaterials();
-  return [new THREE.Mesh(tubeGeo(), beamCoreMat), new THREE.Mesh(tubeGeo(), beamGlowMat)];
+  const m = beamMaterials();
+  return [m.hot, m.core, m.glow, m.helix].map((mat): THREE.Object3D => new THREE.Mesh(tubeGeo(), mat)).concat([m.flare, m.ring].map((mat) => new THREE.Mesh(quad(), mat)));
 }
