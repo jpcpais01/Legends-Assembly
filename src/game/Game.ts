@@ -1060,6 +1060,7 @@ export class Game {
     }
     this.footsteps(h, dt, wasGrounded);
     h.updateAnim(dt, this.time);
+    h.kit.afterAnim?.(h, this);
   }
 
   /** Online guests: the host brought a legend back at this spot. */

@@ -24,6 +24,8 @@ export interface HeroKit {
   /** Called on ult press with full charge. Return true if it fired. */
   ult(h: Hero, g: Game): boolean;
   update(h: Hero, g: Game, dt: number): void;
+  /** Runs after the body is posed this frame: for held items that must line up with the aim, not the hand. */
+  afterAnim?(h: Hero, g: Game): void;
   onDeath?(h: Hero, g: Game): void;
   /** Online: a kit moment from the machine that drives this legend (see Game.net.kitEvent). */
   onNet?(h: Hero, g: Game, ev: string): void;

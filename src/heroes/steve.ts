@@ -155,11 +155,19 @@ class SteveKit implements HeroKit {
       const release = h.ctrl === 'bot' ? st.draw >= (st.botDraw ??= rand(0.65, 1)) : !h.input.primary;
       if (g.owns(h) && release && h.channel <= 0) loose(h, g, false);
     } else {
-      h.anim.bow = Math.max(0, (h.anim.bow ?? 0) - dt * 5);
+      // bow in hand: held up and ready in the archer's stance, an arrow nocked whenever one is ready to fly
+      const ready = st.weapon === 'bow' && h.anim.item === 'bow' && h.alive;
+      h.anim.bow = ready ? Math.min(1, (h.anim.bow ?? 0) + dt * 6) : Math.max(0, (h.anim.bow ?? 0) - dt * 5);
       h.anim.bowDraw = 0;
+      const nocked = ready && h.primaryCd <= 0.05;
+      if (nocked !== st.nocked) { st.nocked = nocked; setBowStage(h, 0, false, nocked); }
     }
     if (st.wall) updateWall(h, g, dt, st.wall);
     if (st.dragon) updateDragon(h, g, dt, st.dragon);
+  }
+
+  afterAnim(h: Hero) {
+    if (h.anim.item === 'bow' && (h.anim.bow ?? 0) > 0.5) poseBow(h);
   }
 
   onNet(h: Hero, g: Game, ev: string) {
@@ -198,15 +206,57 @@ function equip(h: Hero, g: Game, w: Weapon) {
   for (let i = 0; i < 5; i++) g.vfx.p({ x: at.x, y: at.y, z: at.z, vx: rand(-1, 1), vy: rand(0.5, 2), vz: rand(-1, 1), r: w === 'bow' ? 1.6 : DIAMOND.r, g: w === 'bow' ? 1.1 : DIAMOND.g, b: w === 'bow' ? 0.5 : DIAMOND.b, size: 0.05, life: 0.3, shape: Shape.Pixel, aux: rand(0, 9), gravity: 6 });
 }
 
+const NOCK_X = 0.22;
+const _pq = new THREE.Quaternion(), _wq = new THREE.Quaternion(), _bm = new THREE.Matrix4();
+const _f = new THREE.Vector3(), _u = new THREE.Vector3(), _sd = new THREE.Vector3(), _g = new THREE.Vector3();
+const BOW_TURN = 0.55; // the bow is turned a little about its limbs so its curve reads from the shoulder camera
+
+/**
+ * In the archer's stance the bow and arrow line up with the shot, not with the hand: the limbs stand upright,
+ * the belly faces the crosshair and the arrow lies along the aim from the string to just past the grip.
+ */
+export function poseBow(h: Hero) {
+  const o = h.model.itemObject?.('bow');
+  const bow = o?.getObjectByName('bow');
+  const parent = bow?.parent;
+  if (!o || !bow || !parent) return;
+  parent.getWorldQuaternion(_pq).invert();
+  bow.getWorldPosition(_g);
+  // the shot: from the bow toward where the crosshair lands
+  _f.subVectors(h.input.aim, _g);
+  if (_f.lengthSq() < 1) _f.copy(h.forward);
+  _f.normalize();
+  // upright limbs, canted a touch outward like a real archer
+  _sd.crossVectors(_f, _up).normalize(); // to Steve's right
+  _u.copy(_up).addScaledVector(_f, -_f.y).normalize().addScaledVector(_sd, -0.18).normalize();
+  // sprite x (belly) -> forward, sprite y (limb) -> up, sprite z -> across, then turned about the limbs
+  _bm.makeBasis(_f, _u, _sd.crossVectors(_f, _u));
+  _wq.setFromRotationMatrix(_bm).multiply(_bq2.setFromAxisAngle(_yAxis, BOW_TURN));
+  bow.quaternion.copy(_pq).multiply(_wq);
+  const nock = o.getObjectByName('nock');
+  if (nock?.visible) {
+    // centre of the arrow sits behind the grip and slides back with the string
+    const stage = (bow as THREE.Mesh).userData.stage ?? 0;
+    _a.copy(_g).addScaledVector(_f, -(NOCK_X + stage * 0.045));
+    nock.position.copy(o.worldToLocal(_a));
+    // o's own rotation sits between the parent and the arrow
+    o.getWorldQuaternion(_wq).invert();
+    nock.quaternion.setFromUnitVectors(_z, _b.copy(_f).applyQuaternion(_wq));
+  }
+}
+const _bq2 = new THREE.Quaternion(), _yAxis = new THREE.Vector3(0, 1, 0);
+
 /** Bow string pulled back in three stages (Minecraft-style), and the nocked arrow shown while drawing. */
-function setBowStage(h: Hero, k: number, drawing: boolean) {
+function setBowStage(h: Hero, k: number, drawing: boolean, nocked = false) {
   const o = h.model.itemObject?.('bow');
   if (!o) return;
   const stage = drawing ? (k < 0.34 ? 1 : k < 0.99 ? 2 : 3) : 0;
   const bow = o.getObjectByName('bow') as THREE.Mesh | undefined;
   if (bow && bow.userData.stage !== stage) { bow.geometry = bowGeometry(stage); bow.userData.stage = stage; }
   const nock = o.getObjectByName('nock');
-  if (nock) { nock.visible = drawing; nock.position.x = 0.04; nock.position.y = -0.2 + stage * 0.035; }
+  // the arrow rests on the grip pointing at the target and slides back with the string
+  if (nock) { nock.visible = drawing || nocked; nock.position.x = NOCK_X + stage * 0.045; }
+  h.kitState.nocked = !drawing && nocked;
 }
 
 // ───────────────────────── Diamond Sword ─────────────────────────
@@ -290,8 +340,14 @@ function loose(h: Hero, g: Game, cancel: boolean) {
   if (h.isLocal) { g.camRig.recoil(0.006 + 0.01 * k, rand(-1, 1) * 0.002); g.camRig.kick(1.5 * k); }
 }
 
+/** Where the arrow leaves: the bow in Steve's left hand (a body-frame point if the model isn't posed yet). */
 function arrowMuzzle(h: Hero, out: THREE.Vector3) {
-  return out.copy(h.pos).addScaledVector(h.forward, 0.6).addScaledVector(h.right, -0.12).setY(h.pos.y + 1.42);
+  const bow = h.model.itemObject?.('bow')?.getObjectByName('bow');
+  if (bow && h.anim.item === 'bow') {
+    bow.getWorldPosition(out).addScaledVector(h.forward, 0.25);
+    if (out.distanceToSquared(h.chest) < 2.25) return out;
+  }
+  return out.copy(h.pos).addScaledVector(h.forward, 0.7).addScaledVector(h.right, -0.3).setY(h.pos.y + 1.45);
 }
 
 function fireArrow(h: Hero, g: Game, k: number, dir: THREE.Vector3) {
@@ -739,7 +795,7 @@ export const STEVE: HeroDef = {
   color: '#2fc9c0',
   accent: '#b05cff',
   maxHp: 275,
-  modelUrl: '/models/heroes/steve.glb?v=1',
+  modelUrl: '/models/heroes/steve.glb?v=2',
   speed: 6.2,
   secondaryCd: 11,
   ultCost: 1600,

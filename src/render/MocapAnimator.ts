@@ -204,9 +204,9 @@ export const GUITAR = [
 /** How much of the aim pitch a body-held pose follows (the chest already carries some of it). */
 const FLAT_PITCH = 0.35;
 /** Archer's stance (Steve): the bow arm locked down the crosshair, the string hand from the bow (R0) to the cheek (R1). */
-const BOW_L = key(0, [-0.08, 0.12, 1.02], [-0.95, 0, 0.3], [0, 0, 1], 0.32, 0.02, [0.6, -0.7, -0.3]);
+const BOW_L = key(0, [0.6, 0.12, 1.0], [-0.95, 0, 0.3], [0, 0, 1], 0.32, 0.02, [0.6, -0.7, -0.3]);
 const BOW_R0 = key(0, [-0.62, 0.16, 0.9], [-0.4, 0, 0.92], [0, -1, 0], -0.05, 0.02, [0.8, -0.5, -0.3]);
-const BOW_R1 = key(0, [-0.3, 0.32, 0.08], [-0.3, 0.1, 0.95], [0, -1, 0], -0.12, 0, [1, 0.25, -0.55]);
+const BOW_R1 = key(0, [-0.5, 0.3, 0.1], [-0.3, 0.1, 0.95], [0, -1, 0], -0.12, 0, [1, 0.25, -0.55]);
 /** Sustained channels (ultimates). On the ground the striking arm sweeps up to the sky; floating, both arms open wide with the palms forward. */
 const CAST_UP = key(0, [0.3, 0.8, 0.5], [0.05, 0.92, 0.38], [0, -0.38, 0.92], 0.16, -0.1, [0.9, -0.3, -0.3]);
 const CAST_OPEN = key(0, [0.66, -0.22, 0.3], [0.78, -0.5, 0.36], [0, 0.58, 0.81], 0, -0.06, [0.3, -0.5, -0.8]);
