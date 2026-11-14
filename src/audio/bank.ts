@@ -1,4 +1,5 @@
 import { Synth, semi, mulberry } from './synth';
+import { IRONMAN_RECIPES, IRONMAN_ULT_SFX, IRONMAN_BAKE } from './bankIronman';
 
 /**
  * The sound bank. Each recipe is a small sound-design patch rendered offline once
@@ -269,7 +270,7 @@ export const RECIPES = {
   },
   comm: {
     // stinger under a subtitle when a voice line has no recording yet (variant = hero)
-    dur: 0.5, variants: 3, level: 0.16, bus: 'ui',
+    dur: 0.5, variants: 4, level: 0.16, bus: 'ui',
     render(s, v) {
       const mix = wetBus(s, 1, 0.3);
       if (v === 0) { // Einstein: soft theremin glide
@@ -278,6 +279,8 @@ export const RECIPES = {
       } else if (v === 1) { // Yeat: tiny bell + sub
         s.partials(1244.5, [[1, 0.45, 0.35], [2.76, 0.15, 0.15]], T, mix);
         s.thump(T, 110, 55, 0.05, 0.15, 0.45, mix);
+      } else if (v === 3) { // Iron Man: a HUD double-chirp
+        for (const [i, f] of [[0, 1760], [1, 2349]] as const) s.osc('square', f, T + i * 0.06, 0.05, s.filter('bandpass', f, 3, s.vca(T + i * 0.06, 0.002, 0.25, 0.045, mix)));
       } else { // Van Gogh: two plucked notes
         s.pluck(1046.5, T, 0.4, mix, 0.5, 0.6);
         s.pluck(1568, T + 0.06, 0.4, mix, 0.4, 0.6);
@@ -840,10 +843,11 @@ export const RECIPES = {
   // Tonka: exhaust pops on the lift and the shifter between gears
   backfire: { dur: 0.9, level: 0.55, reverb: 0.3, sampleOnly: true, ref: 6, rolloff: 0.06, maxVoices: 3, dedupe: 0.12, jitter: 0.8 },
   gearShift: { dur: 0.45, level: 0.32, reverb: 0.15, sampleOnly: true, ref: 4, rolloff: 0.08, maxVoices: 2, dedupe: 0.1, jitter: 0.5 },
+  ...IRONMAN_RECIPES,
 } satisfies Record<string, Recipe>;
 
 // Specials carry across the whole arena and are never ducked by the moment they create.
-for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall'] as const) {
+for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', ...IRONMAN_ULT_SFX] as const) {
   Object.assign(RECIPES[k], { bus: 'ult', ref: 18, rolloff: 0.035 });
 }
 
@@ -855,6 +859,7 @@ export const BAKE_ORDER: Sfx[] = [
   'photon', 'photonHit', 'bell', 'bellHit', 'paint', 'splat', 'gravityThrow', 'seedToss', 'gravity', 'tonka', 'engineLoop', 'crash', 'ram',
   'bloom', 'heal', 'pickup', 'respawn', 'death', 'ultReady', 'emcCharge', 'emcBlast', 'bellSummon', 'bellWhistle', 'bigBell', 'bellDrop',
   'starry', 'starFall', 'victory', 'defeat',
+  ...IRONMAN_BAKE,
 ];
 
 function hashName(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; }

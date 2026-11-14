@@ -4,7 +4,7 @@ import type { Hero } from '../game/Hero';
 import { portraits } from './portraits';
 import { settings } from '../core/settings';
 import { MODE_INFO } from '../game/Game';
-import { esc, icon, ROLE_ICONS, UI, DomCache, mmss } from './uikit';
+import { esc, icon, ROLE_ICONS, UI, DomCache, mmss, splitName } from './uikit';
 
 const RING = 2 * Math.PI * 44; // ult ring circumference (r = 44 in a 100 viewBox)
 const DEATH_RING = 2 * Math.PI * 26;
@@ -166,7 +166,13 @@ export class Hud {
     const ch = this.els.crosshair;
     ch.innerHTML = '<i class="dot"></i>';
     if (d.id === 'yeat') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
-    else {
+    else if (d.id === 'ironman') {
+      // repulsor reticle: a tight targeting ring with four ticks, and the jet-boot fuel arc underneath
+      ch.insertAdjacentHTML('beforeend', '<i class="ring" style="left:-13px;top:-13px;width:26px;height:26px"></i><i class="imfuel"><s></s></i>');
+      for (const [x, y, w, hh] of [[-21, -1, 6, 2], [15, -1, 6, 2], [-1, -21, 2, 6], [-1, 15, 2, 6]] as const) {
+        ch.insertAdjacentHTML('beforeend', `<i class="arm" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`);
+      }
+    } else {
       const gap = d.id === 'einstein' ? 7 : 9;
       for (const [x, y, w, hh] of [[-gap - 8, -1, 8, 2], [gap, -1, 8, 2], [-1, gap, 2, 8]] as const) {
         ch.insertAdjacentHTML('beforeend', `<i class="arm" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px"></i>`);
@@ -195,7 +201,7 @@ export class Hud {
       if (hero.isLocal) continue;
       const el = document.createElement('div');
       el.className = 'plate ' + (hero.team === h.team ? 'ally' : 'enemy');
-      el.innerHTML = `<div class="n">${esc(hero.name)}<small>${hero.def.name.split(' ').pop()}</small></div><div class="b"><i></i><s></s></div>`;
+      el.innerHTML = `<div class="n">${esc(hero.name)}<small>${splitName(hero.def.name)[1]}</small></div><div class="b"><i></i><s></s></div>`;
       el.style.display = 'none';
       this.els.plates.appendChild(el);
       this.plates.push({ el, bar: el.querySelector('i') as HTMLElement, hero, shown: false, frac: -1 });
@@ -411,6 +417,13 @@ export class Hud {
     const lowV = h.alive ? Math.max(0, (0.4 - hpFrac) / 0.4) * 0.8 : 0;
     this.vig = Math.max(lowV, hurtPulse, this.vig - dt * 2);
     c.style('vig', E.vignette, 'opacity', this.vig.toFixed(2));
+
+    // Iron Man's jet-boot fuel: only shows while it is being spent or refilling
+    if (h.def.id === 'ironman') {
+      const fuel = Math.max(0, Math.min(1, (h.kitState.fuel ?? 1.6) / 1.6));
+      const fs = this.els.crosshair.querySelector('.imfuel') as HTMLElement | null;
+      if (fs) { c.style('imf', fs, '--f', fuel.toFixed(2)); c.cls('imfo', fs, 'on', fuel < 0.995 && h.alive); }
+    }
 
     // abilities
     const rmbCd = h.secondaryCd > 0;

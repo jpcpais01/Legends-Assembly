@@ -79,6 +79,14 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.16, [0.14, 0.26, 0.78], [0, 0.78, 0.62], [0, -0.62, 0.78], 0.12, 0),
     key(0.26, [0.1, -0.2, 0.55], [0, 0.4, 0.92], [0, -0.92, 0.4], 0.04, 0),
   ] },
+  // repulsor: the arm locks straight down the crosshair, fingers bent up so the palm faces the target, a kick of
+  // recoil, and the aim held a beat before relaxing (Iron Man)
+  blast: { out: 0.2, keys: [
+    key(0.05, [0.08, 0.1, 1.05], [0, 0.93, -0.36], [0, 0.36, 0.93], 0.3, 0.05),
+    key(0.1, [0.12, 0.2, 0.9], [0, 0.98, -0.18], [0, 0.18, 0.98], 0.2, -0.02),
+    key(0.2, [0.08, 0.13, 1.03], [0, 0.95, -0.3], [0, 0.3, 0.95], 0.26, 0.03),
+    key(0.34, [0.1, -0.2, 0.62], [0, 0.45, 0.89], [0, -0.89, 0.45], 0.06, 0),
+  ] },
   // overhand throw: cock the hand by the ear, whip it through, follow across the body (Einstein's gravity orb)
   throw: { out: 0.22, keys: [
     key(0.085, [0.3, 0.78, -0.28], [0.1, 0.95, -0.3], [0, 0.3, 0.95], -0.4, -0.08, [0.9, -0.2, -0.5]),

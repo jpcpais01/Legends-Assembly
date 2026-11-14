@@ -53,10 +53,12 @@ export function logoMark(cls = 'mark') {
     <path d="M32 6.5l1.4 3.6 3.6 1.4-3.6 1.4L32 16.5l-1.4-3.6-3.6-1.4 3.6-1.4z" fill="#fff7dc"/></svg>`;
 }
 
+/** Names that are one title, not a first and last name: they are never split ("Iron Man" stays "Iron Man"). */
+const WHOLE_NAMES = new Set(['Iron Man']);
 /** "Albert Einstein" → ["Albert", "Einstein"]; "Vincent van Gogh" → ["Vincent", "van Gogh"]; "Yeat" → ["", "Yeat"]. */
 export function splitName(name: string): [string, string] {
   const parts = name.split(' ');
-  if (parts.length === 1) return ['', name];
+  if (parts.length === 1 || WHOLE_NAMES.has(name)) return ['', name];
   return [parts[0], parts.slice(1).join(' ')];
 }
 
