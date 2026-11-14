@@ -44,6 +44,10 @@ export interface VoiceChain {
   reverb: number;
   /** playback rate (pitch) */ rate: number;
   gain: number;
+  /** Machine voice: ring-modulator frequency in Hz (0 / unset = human), mixed with a short metallic comb. */
+  robot?: number;
+  /** 0..1 how much of the ring-modulated voice replaces the dry one. */
+  robotMix?: number;
 }
 
 interface Voice { src: AudioBufferSourceNode; gain: GainNode; nodes: AudioNode[]; name: Sfx }
@@ -518,6 +522,20 @@ export class AudioEngine {
     input.connect(hp).connect(lp);
     const dry = ctx.createGain(); dry.gain.value = 1 - c.drive * 0.6;
     lp.connect(dry).connect(sum);
+    if (c.robot) {
+      // ring modulation (the voice times a sine carrier) plus a tight resonant comb: a speaking machine
+      const mixK = c.robotMix ?? 0.6;
+      dry.gain.value *= 1 - mixK * 0.7;
+      const ring = ctx.createGain(); ring.gain.value = 0;
+      const car = ctx.createOscillator(); car.frequency.value = c.robot;
+      car.connect(ring.gain); car.start();
+      const rw = ctx.createGain(); rw.gain.value = mixK;
+      lp.connect(ring).connect(rw).connect(sum);
+      const comb = ctx.createDelay(0.05); comb.delayTime.value = 0.0072;
+      const fb = ctx.createGain(); fb.gain.value = 0.55;
+      const cw = ctx.createGain(); cw.gain.value = mixK * 0.5;
+      lp.connect(comb); comb.connect(fb).connect(comb); comb.connect(cw).connect(sum);
+    }
     if (c.drive > 0) {
       const sh = ctx.createWaveShaper();
       const curve = new Float32Array(1024);

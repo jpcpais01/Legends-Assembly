@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.18.0',
+    version: '0.19.0',
     date: '2026-11-14',
     title: 'Gum-Gum',
     sections: [
@@ -21,6 +21,30 @@ export const PATCH_NOTES: PatchNote[] = [
           'His arms really stretch: it is his own body, stretched by the rig, not a special effect.',
           'He plays with a stand-in body until his full model arrives. His lines show as subtitles until they are recorded.',
           'Bots can play Luffy and use his whole kit.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.18.0',
+    date: '2026-11-14',
+    title: 'Full Steam Ahead',
+    sections: [
+      {
+        heading: 'New legend: Blitzcrank, the Great Steam Golem',
+        items: [
+          'A brass Vanguard who decides who is in the fight. 425 health, long arms, a short temper and very good manners.',
+          'Power Fist (LMB): alternating piston jabs with a lunge behind each one. Every third blow is an uppercut that launches the target into the air.',
+          'Rocket Grab (RMB): his fist rockets out on a chain, clamps the first enemy it meets and reels them back to him, stunned. A caught enemy primes your next punch into the uppercut.',
+          'Static Field (SHIFT): the boilers overload, both fists hammer the floor and a lightning shockwave shocks, slows and silences everyone around him. For 6 seconds after, stray bolts jump to anyone who stays close.',
+          'He has his own robot voice, footsteps, steam vents and a full set of new punch, grab and slam animations. Bots play him too.',
+        ],
+      },
+      {
+        heading: 'Combat',
+        items: [
+          'New status: Silenced. Silenced legends cannot use RMB or SHIFT abilities, and static crackles over their body while it lasts.',
+          'New status: Stunned. Stunned legends cannot move or act for a moment, and little sparks circle their head.',
         ],
       },
     ],

@@ -164,6 +164,51 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_vangogh', vs: 'vangogh', text: 'Another Vincent? Which of us is the forgery?', reply: 'Let the canvas decide.' },
     ],
   },
+  blitzcrank: {
+    short: 'Blitzcrank',
+    // a boiler-room machine talking: ring-modulated, a metal comb, a little grit and a cavernous slap
+    chain: { hp: 140, lp: 9000, drive: 0.25, slap: 0.06, slapMix: 0.22, reverb: 0.16, rate: 0.94, gain: 1.1, robot: 46, robotMix: 0.55 },
+    tts: { voice: 'onwK4e9ZLuTAKqWW03F9', direction: '[deep booming steam-powered robot, polite, mechanical, deadpan]', stability: 0.55, style: 0.4 },
+    lines: {
+      matchStart: L('matchStart', 'Boilers lit. Pressure nominal.', '[cheerful] Good day. I am here to help. Mostly with punching.', 'All pistons report for duty.', '[deadpan] Scanning for opponents. Many found.'),
+      primary: L('primary', 'Piston engaged.', 'Pow.', '[deadpan] Applying force.'),
+      secondary: L('secondary', '[booming] Get over here, please!', 'Hand delivery!', 'Extending my reach.', '[cheerful] Come closer.'),
+      secondaryHit: L('secondaryHit', '[satisfied] Package received.', 'Caught one.', '[cheerful] Hello there.'),
+      ult: L('ult', '[booming] Discharging!', '[booming] Overload in three, two, one!', 'Static field, maximum output!'),
+      ultEnemy: L('ultEnemy', '[booming] Prepare for discharge.', '[menacing] Your devices will now power down.'),
+      kill: L('kill', 'Target recycled.', '[deadpan] Problem solved.', 'Scrap collected.', 'You have been unplugged.', '[cheerful] Thank you for your cooperation.', 'Task complete.'),
+      multiKill: L('multiKill', '[booming] Efficiency rising!', 'Multiple units decommissioned.', '[cheerful] A productive day!'),
+      death: L('death', '[glitching] Pressure... dropping...', 'Rebooting.', '[deadpan] Error. Too many holes.'),
+      respawn: L('respawn', 'Systems restored.', '[cheerful] Back online.', 'Steam pressure rebuilt.'),
+      ultReady: L('ultReady', 'Capacitors fully charged.', '[booming] Static field primed.', 'I am humming. That is a good sign.'),
+      lowHp: L('lowHp', '[alarmed] Hull breach! Hull breach!', 'Leaking steam, assistance required.', '[glitching] Warning. Warning.'),
+      victory: L('victory', '[cheerful] Victory computed.', 'The machine prevails.', '[booming] Pressure released. We win.'),
+      defeat: L('defeat', '[deadpan] Outcome suboptimal.', 'Recalibrating for next time.'),
+      assist: L('assist', 'Teamwork, logged.', 'Assist registered.', '[cheerful] Happy to help.'),
+      revenge: L('revenge', '[menacing] I remember your face. I remember everything.', 'Grudge file closed.', 'Settling the account.'),
+      streak: L('streak', '[booming] Engines at full steam!', 'I am on a roll. I do not have wheels, but still.', '[cheerful] Output exceeding projections!'),
+      heal: L('heal', 'Repairs complete.', 'Fresh rivets.'),
+      takeLead: L('takeLead', 'We lead. Maintain pressure.', '[cheerful] Numbers looking good.'),
+      behind: L('behind', 'Deficit detected. Increase effort.', '[determined] More steam!'),
+      matchPoint: L('matchPoint', 'One more. Finish the job.', '[booming] Final objective in sight.'),
+      overtime: L('overtime', 'Overtime. I do not get tired.', '[deadpan] Extended shift accepted.'),
+      enemyUlt: L('enemyUlt', '[alarmed] Danger! Large energy reading!', '[booming] Take cover!'),
+      allyDown: L('allyDown', 'Ally offline.', '[alarmed] We lost one!'),
+      shutdown: L('shutdown', 'Streak terminated.', '[deadpan] Your run has been switched off.'),
+    },
+    rival: {
+      einstein: R('einstein', 'Your mass has been converted. To scrap.', '[deadpan] Relatively easy.', 'Physics, meet force.'),
+      yeat: R('yeat', '[deadpan] Your bell rang. I answered.', 'Volume reduced to zero.', 'Too loud. Muted.'),
+      vangogh: R('vangogh', 'You are now a still life.', '[deadpan] I do not understand art. I understand punching.'),
+      blitzcrank: R('blitzcrank', 'Inferior model.', '[deadpan] Only one of us can be the original.'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Doctor Einstein. Can you calculate how far I can throw you?', reply: 'Roughly. I would rather not test it.' },
+      { id: 'vs_yeat', vs: 'yeat', text: 'Your music is very loud. My ears are speakers. They hurt.', reply: 'That\'s the point, bro.' },
+      { id: 'vs_vangogh', vs: 'vangogh', text: 'Mister van Gogh, please paint me. Use a lot of brass.', reply: 'You would be a magnificent golden study.' },
+      { id: 'vs_blitzcrank', vs: 'blitzcrank', text: 'Another steam golem? Running diagnostics on you.', reply: 'Diagnostics complete. You are going down.' },
+    ],
+  },
   luffy: {
     short: 'Luffy',
     // bright and bouncy: a little room, no grit
@@ -211,7 +256,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
   },
 };
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, luffy: 3 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).
