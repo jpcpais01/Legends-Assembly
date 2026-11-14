@@ -55,7 +55,7 @@ export default defineConfig({
             // generated SFX + announcer: served from cache instantly, refreshed in the background
             urlPattern: ({ url }) => url.pathname.startsWith('/audio/'),
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'audio', expiration: { maxEntries: 160 } },
+            options: { cacheName: 'audio', expiration: { maxEntries: 400 } },
           },
         ],
       },

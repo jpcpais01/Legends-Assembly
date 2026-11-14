@@ -5,15 +5,18 @@
 // at -54 dB with a short fade → loudness-match (active RMS → -17 dBFS, peak capped at -1 dBFS)
 // → Opus (mono 64 kbps, stereo 96 kbps). Loops are left untrimmed so they stay seamless.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readdirSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { SFX, PICKS, STEREO, ANNOUNCER } from './manifest.mjs';
 
 const SR = 48000;
 const OUT = 'public/audio/sfx';
 const VOX = 'public/audio/announcer';
-rmSync(OUT, { recursive: true, force: true }); mkdirSync(OUT, { recursive: true });
-rmSync(VOX, { recursive: true, force: true }); mkdirSync(VOX, { recursive: true });
+// Incremental: a sound whose raw takes are not in sfx-src/ (a fresh clone) keeps the file it already has,
+// byte for byte, so only new or re-picked sounds get re-encoded.
+mkdirSync(OUT, { recursive: true });
+mkdirSync(VOX, { recursive: true });
+const prevManifest = existsSync('src/audio/sampleManifest.ts') ? readFileSync('src/audio/sampleManifest.ts', 'utf8') : '';
 
 function decode(file, ch) {
   const raw = execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-ac', String(ch), '-ar', String(SR), '-f', 'f32le', '-'], { maxBuffer: 1 << 28 });
@@ -75,6 +78,13 @@ for (const [key, takes] of Object.entries(PICKS)) {
   if (!def) throw new Error('no manifest entry for ' + key);
   const st = STEREO.has(name);
   const list = files[name] ??= [];
+  if (!takes.every((t) => existsSync(`sfx-src/${key}/take-${t}.mp3`))) {
+    const kept = takes.map((_, i) => `${name}-${variant ?? i}.ogg`);
+    if (!kept.every((f) => existsSync(`${OUT}/${f}`))) throw new Error(`no raw takes and no built file for ${key}`);
+    for (const out of kept) { if (variant !== undefined) list[Number(variant)] = out; else list.push(out); }
+    console.log(`${key.padEnd(22)} kept`);
+    continue;
+  }
   takes.forEach((t, i) => {
     const src = `sfx-src/${key}/take-${t}.mp3`;
     const { chans, len } = process(decode(src, st ? 2 : 1), { loop: !!def.loop });
@@ -90,6 +100,11 @@ for (const [key, takes] of Object.entries(PICKS)) {
 const vox = {};
 for (const l of ANNOUNCER) {
   const dir = `sfx-src/announcer/${l.name}`;
+  if (!existsSync(dir)) {
+    if (!existsSync(`${VOX}/${l.name}.ogg`)) throw new Error('no announcer take for ' + l.name);
+    vox[l.name] = `${l.name}.ogg`;
+    continue;
+  }
   const takes = readdirSync(dir).filter((f) => f.endsWith('.mp3')).sort().map((f) => {
     const p = process(decode(`${dir}/${f}`, 1), { speech: true });
     return { f, ...p };
@@ -117,5 +132,5 @@ export const SAMPLE_FILES: Record<string, string[]> = ${JSON.stringify(files, nu
 export const ANNOUNCER_FILES: Record<string, string> = ${JSON.stringify(vox, null, 2)};
 
 /** Seconds from the start of the gravity collapse sample to its implosion peak. */
-export const GRAVITY_COLLAPSE_PEAK = ${meta.gravityCollapsePeak ?? 0.8};
+export const GRAVITY_COLLAPSE_PEAK = ${meta.gravityCollapsePeak ?? Number(prevManifest.match(/GRAVITY_COLLAPSE_PEAK = ([0-9.]+)/)?.[1] ?? 0.8)};
 `);

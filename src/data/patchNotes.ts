@@ -8,6 +8,78 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.14.0',
+    date: '2026-11-14',
+    title: 'Surround Sound',
+    sections: [
+      {
+        heading: 'Music that follows the fight',
+        items: [
+          'New recorded score: a warm theme behind the menus, and three match cues that move with the action.',
+          'A tense, ticking underscore while nobody is fighting, driving battle music once the shooting starts, and an all-out finale in the last minute, at match point and in overtime.',
+          'When a special goes off, the music drops out under it and swells back bigger.',
+        ],
+      },
+      {
+        heading: 'A room you can hear',
+        items: [
+          "The Giant's Study is now full of sound, placed where it comes from: the fire crackling on its wall, wind and rain at the windows, birds and a far-off city drifting in, old beams creaking overhead and the chandelier chain groaning as it sways.",
+          "The pocket watch ticks in time with its second hand, the metronome clicks on every swing and the Newton's cradle clacks each time its balls meet. Walk close and you hear them.",
+          'Everything echoes like a huge wooden library now; the ruins sound like open air between broken stone walls.',
+          'The room keeps living softly behind the menus.',
+        ],
+      },
+      {
+        heading: 'Hear where things are',
+        items: [
+          'Every legend has their own footsteps: Einstein in old leather shoes, Yeat in heavy sneakers with a jingling chain, Van Gogh in wooden clogs.',
+          'What you walk on matters: paper crunches, coins clink, book covers thud and marble clicks.',
+          'Enemy footsteps are louder and carry further than your own team\'s, so you can hear someone coming round the clutter.',
+          'Sounds behind you are duller than sounds in front, and anything behind a book stack or a mug comes through muffled.',
+          'When you get hit, the hit comes from the direction of whoever shot you.',
+        ],
+      },
+      {
+        heading: 'Every hit lands',
+        items: [
+          'Big hits get a heavy punch on top of the hit tick, and eliminations end with a deep bass drop.',
+          'A soft chime confirms assists.',
+          'Low on health, a heartbeat creeps in and the world goes muffled around you, while your team\'s voices stay clear.',
+        ],
+      },
+      {
+        heading: 'Specials are moments',
+        items: [
+          'Every special is heard by everyone, anywhere on the map: a heroic stinger when your side casts one, a menacing one from the enemy\'s direction, and the caster\'s voice line.',
+          'The rest of the fight ducks out of the way while it plays out.',
+        ],
+      },
+      {
+        heading: 'The match has a story',
+        items: [
+          'The study\'s big clock counts down the last ten seconds, each tick a little tighter.',
+          'Match point gets a tense orchestral sting.',
+          'The final elimination drops into slow motion with a deep time-stop whoosh before the victory or defeat fanfare.',
+        ],
+      },
+      {
+        heading: 'The Tonka, rebuilt',
+        items: [
+          'The Tonka now has a live V8 that follows the truck exactly: it revs up from idle as Yeat transforms, climbs through three gears with a clunk and a drop in revs at each shift, and digs in harder when you floor it.',
+          'A supercharger whine rides on top at full throttle, and the exhaust pops and crackles when you lift off at the end.',
+        ],
+      },
+      {
+        heading: 'A living desk',
+        items: [
+          'Dust hangs in the air over the desk and glitters where the sunbeams cross it. Blasts blow it away.',
+          'Embers drift up from the fireplace.',
+          'Big hits jolt the desk: nearby objects shake and rattle in their own voices (china, coins, glass, pencils, paper), the whole desk booms under a special, and the chandelier swings.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.1',
     date: '2026-11-14',
     title: 'Perpetual Motion',
