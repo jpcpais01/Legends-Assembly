@@ -8,6 +8,143 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.15.1',
+    date: '2026-11-14',
+    title: 'Hall of Sound',
+    sections: [
+      {
+        heading: 'The Assembly Hall, heard',
+        items: [
+          'The Assembly Hall now sounds like a vast stone hall: a deep, airy drone and a long echo of its own, instead of the study’s fireplace and ticking clocks.',
+          'Hero select has its own music: a pulse that builds while you choose, crossfading back to the menu theme when you leave.',
+          'Locking in makes the music swell, and a shimmer rings out each time a new legend steps onto the stage.',
+          'When a match starts the hall fades out and the arena’s own sounds take over, and they hand back to the hall when you return to the menus.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.15.0',
+    date: '2026-11-14',
+    title: 'Assembly Hall',
+    sections: [
+      {
+        heading: 'A stage of their own',
+        items: [
+          'The menus no longer stand your legend in the middle of the battle map. They now pose in the Assembly Hall: a floating obsidian dais under a beam of light, a turning gilded armillary halo, a ring of dark obelisks with glowing seams and a painted nebula sky.',
+          'The whole hall takes on your legend’s colours, easing between them when you switch: icy blue for Einstein, hot pink for Yeat, sunflower gold for Van Gogh.',
+          'Locking in makes the hall flare: the halo flashes, a light wave runs across the floor and the beam spikes.',
+        ],
+      },
+      {
+        heading: 'New hero select',
+        items: [
+          'Hero select is rebuilt like a real hero shooter: your team down the left, your legend big and centre stage, their kit on the right, the roster grouped by role along the bottom and Lock In bottom right.',
+          'Your bot teammates pick one after another while you choose, and the match uses exactly the team you saw. If a teammate held the legend you switch to, they swap.',
+          'Hover or click an ability to preview what it does, with its key, stats and description.',
+          'Locking in stamps the button, wipes a band of your legend’s colour across the screen and ticks every teammate as locked.',
+        ],
+      },
+      {
+        heading: 'Home screen',
+        items: [
+          'Reorganised around the stage: game modes as cards on the left (the selected one shows what it is about), the latest patch top right, your legend’s nameplate under the dais with a Change legend shortcut (L), and bot skill, arena and a bigger Play button bottom right.',
+          'Arrow keys up and down now switch game modes.',
+        ],
+      },
+      {
+        heading: 'HUD, rebuilt with care',
+        items: [
+          'Health: a bigger number, a segmented bar with a gloss, a warm chunk that drains after you take damage and a green ghost that leads the bar when you are healed.',
+          'Abilities: cleaner tiles with a cooldown sweep and edge line, a big countdown, and a flash plus an expanding ring the moment one is ready again.',
+          'Special: a segmented ring that fills in your legend’s colour with the charge in the middle. When it is full the ring turns, the icon lights up and a “Special ready” call pops above it.',
+          'Hit markers are four crisp ticks: white for hits, gold for headshots, red with a ring burst for eliminations.',
+          'Eliminations under the crosshair are now a red badge with the name, assists in blue. Kill feed rows got team colour edges and skewed portraits, and your own kills are outlined.',
+          'Score: sharper team panels, a bump when the score changes, and fallen teammates’ portraits are struck through until they respawn.',
+          'Fixed: the special ring’s charge arc did not show, and kill feed rows for specials could break onto several lines.',
+        ],
+      },
+      {
+        heading: 'Menus',
+        items: [
+          'Settings and the other pages use solid panels instead of blurred glass, which is sharper and cheaper to draw.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.14.0',
+    date: '2026-11-14',
+    title: 'Surround Sound',
+    sections: [
+      {
+        heading: 'Music that follows the fight',
+        items: [
+          'New recorded score: a warm theme behind the menus, and three match cues that move with the action.',
+          'A tense, ticking underscore while nobody is fighting, driving battle music once the shooting starts, and an all-out finale in the last minute, at match point and in overtime.',
+          'When a special goes off, the music drops out under it and swells back bigger.',
+        ],
+      },
+      {
+        heading: 'A room you can hear',
+        items: [
+          "The Giant's Study is now full of sound, placed where it comes from: the fire crackling on its wall, wind and rain at the windows, birds and a far-off city drifting in, old beams creaking overhead and the chandelier chain groaning as it sways.",
+          "The pocket watch ticks in time with its second hand, the metronome clicks on every swing and the Newton's cradle clacks each time its balls meet. Walk close and you hear them.",
+          'Everything echoes like a huge wooden library now; the ruins sound like open air between broken stone walls.',
+          'The room keeps living softly behind the menus.',
+        ],
+      },
+      {
+        heading: 'Hear where things are',
+        items: [
+          'Every legend has their own footsteps: Einstein in old leather shoes, Yeat in heavy sneakers with a jingling chain, Van Gogh in wooden clogs.',
+          'What you walk on matters: paper crunches, coins clink, book covers thud and marble clicks.',
+          'Enemy footsteps are louder and carry further than your own team\'s, so you can hear someone coming round the clutter.',
+          'Sounds behind you are duller than sounds in front, and anything behind a book stack or a mug comes through muffled.',
+          'When you get hit, the hit comes from the direction of whoever shot you.',
+        ],
+      },
+      {
+        heading: 'Every hit lands',
+        items: [
+          'Big hits get a heavy punch on top of the hit tick, and eliminations end with a deep bass drop.',
+          'A soft chime confirms assists.',
+          'Low on health, a heartbeat creeps in and the world goes muffled around you, while your team\'s voices stay clear.',
+        ],
+      },
+      {
+        heading: 'Specials are moments',
+        items: [
+          'Every special is heard by everyone, anywhere on the map: a heroic stinger when your side casts one, a menacing one from the enemy\'s direction, and the caster\'s voice line.',
+          'The rest of the fight ducks out of the way while it plays out.',
+        ],
+      },
+      {
+        heading: 'The match has a story',
+        items: [
+          'The study\'s big clock counts down the last ten seconds, each tick a little tighter.',
+          'Match point gets a tense orchestral sting.',
+          'The final elimination drops into slow motion with a deep time-stop whoosh before the victory or defeat fanfare.',
+        ],
+      },
+      {
+        heading: 'The Tonka, rebuilt',
+        items: [
+          'The Tonka now has a live V8 that follows the truck exactly: it revs up from idle as Yeat transforms, climbs through three gears with a clunk and a drop in revs at each shift, and digs in harder when you floor it.',
+          'A supercharger whine rides on top at full throttle, and the exhaust pops and crackles when you lift off at the end.',
+        ],
+      },
+      {
+        heading: 'A living desk',
+        items: [
+          'Dust hangs in the air over the desk and glitters where the sunbeams cross it. Blasts blow it away.',
+          'Embers drift up from the fireplace.',
+          'Big hits jolt the desk: nearby objects shake and rattle in their own voices (china, coins, glass, pencils, paper), the whole desk booms under a special, and the chandelier swings.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.1',
     date: '2026-11-14',
     title: 'Perpetual Motion',

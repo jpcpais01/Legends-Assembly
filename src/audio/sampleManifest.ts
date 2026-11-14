@@ -183,10 +183,185 @@ export const SAMPLE_FILES: Record<string, string[]> = {
     "starFall-2.ogg?v=48f491f9"
   ],
   "ambStudy": [
-    "ambStudy-0.ogg?v=c1ac69a6"
+    "ambStudy-0.ogg?v=a12c7e78"
   ],
   "ambRuins": [
     "ambRuins-0.ogg?v=e45d1c87"
+  ],
+  "fireLoop": [
+    "fireLoop-0.ogg?v=83af44ca"
+  ],
+  "windowLoop": [
+    "windowLoop-0.ogg?v=636ab62c"
+  ],
+  "watchTick": [
+    "watchTick-0.ogg?v=65b568d1",
+    "watchTick-1.ogg?v=f3bc3f21"
+  ],
+  "cradleClack": [
+    "cradleClack-0.ogg?v=8c187be3",
+    "cradleClack-1.ogg?v=527f610f",
+    "cradleClack-2.ogg?v=ee510a4a"
+  ],
+  "metronome": [
+    "metronome-0.ogg?v=3c1c0259",
+    "metronome-1.ogg?v=3e2f14c0"
+  ],
+  "woodCreak": [
+    "woodCreak-0.ogg?v=ee3f688e",
+    "woodCreak-1.ogg?v=2aef6ad2",
+    "woodCreak-2.ogg?v=ac20d2b9",
+    "woodCreak-3.ogg?v=3e80d757"
+  ],
+  "chainCreak": [
+    "chainCreak-0.ogg?v=f3cf2665",
+    "chainCreak-1.ogg?v=4d5978b1"
+  ],
+  "cityDistant": [
+    "cityDistant-0.ogg?v=06424937",
+    "cityDistant-1.ogg?v=4d2acf06",
+    "cityDistant-2.ogg?v=c2cd7736"
+  ],
+  "birdsWindow": [
+    "birdsWindow-0.ogg?v=bfcb0ec3"
+  ],
+  "fireSurge": [
+    "fireSurge-0.ogg?v=db4716c8",
+    "fireSurge-1.ogg?v=50935f71"
+  ],
+  "rattleChina": [
+    "rattleChina-0.ogg?v=5409ae9b",
+    "rattleChina-1.ogg?v=60f28c52"
+  ],
+  "rattleCoins": [
+    "rattleCoins-0.ogg?v=2cc7c907",
+    "rattleCoins-1.ogg?v=ebe552c8"
+  ],
+  "rattleGlass": [
+    "rattleGlass-0.ogg?v=1d20ca59",
+    "rattleGlass-1.ogg?v=c66de9e3"
+  ],
+  "rattleWood": [
+    "rattleWood-0.ogg?v=2a3b840e",
+    "rattleWood-1.ogg?v=cbd3c180"
+  ],
+  "paperFlutter": [
+    "paperFlutter-0.ogg?v=2dbbddd5",
+    "paperFlutter-1.ogg?v=a7a995cc"
+  ],
+  "chandelierTinkle": [
+    "chandelierTinkle-0.ogg?v=f2f27584"
+  ],
+  "deskThud": [
+    "deskThud-0.ogg?v=93718e67",
+    "deskThud-1.ogg?v=367015fd"
+  ],
+  "stepEinstein": [
+    "stepEinstein-0.ogg?v=2142f196",
+    "stepEinstein-1.ogg?v=a23074b2",
+    "stepEinstein-2.ogg?v=3880d387",
+    "stepEinstein-3.ogg?v=724aff84",
+    "stepEinstein-4.ogg?v=36002361"
+  ],
+  "stepYeat": [
+    "stepYeat-0.ogg?v=4a403ff0",
+    "stepYeat-1.ogg?v=65b94364",
+    "stepYeat-2.ogg?v=276f731d",
+    "stepYeat-3.ogg?v=26964d48",
+    "stepYeat-4.ogg?v=2946a1a3"
+  ],
+  "stepVangogh": [
+    "stepVangogh-0.ogg?v=ff2e104a",
+    "stepVangogh-1.ogg?v=24d1a77c",
+    "stepVangogh-2.ogg?v=ab04708c",
+    "stepVangogh-3.ogg?v=d3f7c3fb",
+    "stepVangogh-4.ogg?v=d3ed19bc"
+  ],
+  "stepPaper": [
+    "stepPaper-0.ogg?v=d87f96da",
+    "stepPaper-1.ogg?v=fa92061a",
+    "stepPaper-2.ogg?v=37f7a1af",
+    "stepPaper-3.ogg?v=9226731e"
+  ],
+  "stepMetal": [
+    "stepMetal-0.ogg?v=862f674c",
+    "stepMetal-1.ogg?v=940b2882",
+    "stepMetal-2.ogg?v=7a7f7651",
+    "stepMetal-3.ogg?v=1b4ceb21"
+  ],
+  "stepLeather": [
+    "stepLeather-0.ogg?v=929ded73",
+    "stepLeather-1.ogg?v=fc94bf13",
+    "stepLeather-2.ogg?v=06a7cdf8",
+    "stepLeather-3.ogg?v=6b0666d7"
+  ],
+  "stepStone": [
+    "stepStone-0.ogg?v=d90a79cf",
+    "stepStone-1.ogg?v=b5563ee3",
+    "stepStone-2.ogg?v=14d40e1b",
+    "stepStone-3.ogg?v=26cf3d94"
+  ],
+  "hitHeavy": [
+    "hitHeavy-0.ogg?v=1104aaed",
+    "hitHeavy-1.ogg?v=785b8724"
+  ],
+  "killDrop": [
+    "killDrop-0.ogg?v=e236c742"
+  ],
+  "assist": [
+    "assist-0.ogg?v=9ca4a45e"
+  ],
+  "heartbeat": [
+    "heartbeat-0.ogg?v=8c04aa5b"
+  ],
+  "lowHealth": [
+    "lowHealth-0.ogg?v=1e2c537e"
+  ],
+  "ultAlly": [
+    "ultAlly-0.ogg?v=3a4b7b96"
+  ],
+  "ultEnemy": [
+    "ultEnemy-0.ogg?v=1b6a9e61"
+  ],
+  "finalTick": [
+    "finalTick-0.ogg?v=82a0516f"
+  ],
+  "slowmo": [
+    "slowmo-0.ogg?v=3bb75c29"
+  ],
+  "matchPointSting": [
+    "matchPointSting-0.ogg?v=b7c1abe3"
+  ],
+  "backfire": [
+    "backfire-0.ogg?v=dd21a6f7",
+    "backfire-1.ogg?v=a262d8fb",
+    "backfire-2.ogg?v=d762b9ed"
+  ],
+  "gearShift": [
+    "gearShift-0.ogg?v=f054f9eb",
+    "gearShift-1.ogg?v=b8dc2e97"
+  ],
+  "hallAmb": [
+    "hallAmb-0.ogg?v=6bc67b8d"
+  ],
+  "stageSwap": [
+    "stageSwap-0.ogg?v=24b57e45",
+    "stageSwap-1.ogg?v=5a58e26b"
+  ],
+  "musicSelect": [
+    "musicSelect-0.ogg?v=6671f858"
+  ],
+  "musicMenu": [
+    "musicMenu-0.ogg?v=92671a48"
+  ],
+  "musicCalm": [
+    "musicCalm-0.ogg?v=093cca72"
+  ],
+  "musicCombat": [
+    "musicCombat-0.ogg?v=1dc71ea3"
+  ],
+  "musicClutch": [
+    "musicClutch-0.ogg?v=c8ea781c"
   ]
 };
 

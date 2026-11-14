@@ -11,7 +11,7 @@ import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { lerp } from '../core/math';
 import { HERO_RADIUS } from '../game/Hero';
-import type { ArenaLike } from './types';
+import type { ArenaLike, Soundscape, Surface } from './types';
 import { HALL, DOME, SUN_DIR, makeSunbeam, makeMuseumDust, MuseumRaysEffect } from './museumLight';
 import { makeFloorMaterial, makeMarbleMaterial, makeCeilingMaterial, makeGoldMaterial } from './museumSurfaces';
 import { paintCollection, paintingUV, type PaintingId } from './museumPaintings';
@@ -70,6 +70,10 @@ export class MuseumArena implements ArenaLike {
   grass = null;
   readonly healthPadPositions: THREE.Vector3[] = [];
   readonly showcasePos = new THREE.Vector3(3, 0, -6);
+  /** A vast airy room tone, the same family as the Assembly Hall. */
+  readonly soundscape: Soundscape = { kind: 'hall', room: new THREE.Box3(new THREE.Vector3(-HX, 0, -HZ), new THREE.Vector3(HX, CEIL, HZ)) };
+  /** Marble everywhere; bronze and brass would ring, but heroes only stand on stone here. */
+  surfaceAt(): Surface { return 'stone'; }
   ready: Promise<void>;
 
   private renderer: THREE.WebGLRenderer;

@@ -1,6 +1,23 @@
 import type * as THREE from 'three';
 import type { World } from './collision';
 
+/** What a footstep lands on. */
+export type Surface = 'wood' | 'paper' | 'metal' | 'leather' | 'stone' | 'grass';
+
+/** Where the arena's sounds come from (fireplace, windows, clocks…). */
+export interface Soundscape {
+  kind: 'study' | 'ruins' | 'hall';
+  fire?: THREE.Vector3;
+  windows?: THREE.Vector3[];
+  chandelier?: THREE.Vector3;
+  watch?: THREE.Vector3;
+  metronome?: THREE.Vector3;
+  /** The Newton's cradle (clacks twice per 1.3 s cycle, on the arena clock). */
+  cradle?: THREE.Vector3;
+  /** The room's volume, for creaks in the walls and beams. */
+  room?: THREE.Box3;
+}
+
 /** What the game loop needs from an arena. */
 export interface ArenaLike {
   scene: THREE.Scene;
@@ -17,4 +34,9 @@ export interface ArenaLike {
   applyQuality(): void;
   setDoom(k: number): void;
   update(time: number, camera: THREE.Camera): void;
+  soundscape?: Soundscape;
+  /** What is underfoot at a point (default: the arena's floor). */
+  surfaceAt?(x: number, y: number, z: number): Surface;
+  /** Something big landed: the clutter jolts, rattles and the dust blows away. */
+  shock?(pos: THREE.Vector3, strength: number): void;
 }

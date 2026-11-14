@@ -132,6 +132,14 @@ export class Renderer {
     this.resize();
   }
 
+  /** Swap the world being drawn (the arena, or the menu's own stage). Arena-only passes sit out while it's away. */
+  setScene(scene: THREE.Scene, arenaPasses: boolean) {
+    if (this.renderPass.mainScene === scene) return;
+    this.scene = scene;
+    this.renderPass.mainScene = scene;
+    if (this.volumetric) this.volumetric.pass.enabled = arenaPasses;
+  }
+
   setCamera(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
     this.renderPass.mainCamera = camera;

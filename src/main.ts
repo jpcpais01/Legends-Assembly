@@ -11,23 +11,26 @@ import { Renderer } from './core/Renderer';
 import { Input } from './core/Input';
 import { enterFullscreen, isFullscreen, isStandalone } from './core/Display';
 import { audio } from './core/Audio';
+import { music } from './audio/Music';
+import { ambience } from './audio/Ambience';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
 import { GodRaysEffect } from './world/studyLight';
 import { StudyArena } from './world/StudyArena';
 import { MuseumArena } from './world/MuseumArena';
-import type { ArenaLike } from './world/types';
+import type { ArenaLike, Soundscape } from './world/types';
 import { loadProps } from './render/props';
 import { Game } from './game/Game';
 import { Hud } from './ui/Hud';
 import { Menu } from './ui/Menu';
+import { MenuStage } from './world/MenuStage';
 import { Subtitles } from './ui/Subtitles';
 import { renderPortraits } from './ui/portraits';
-import { warmupEinstein, warmupYeat, warmupVanGogh, HERO_LIST } from './heroes';
+import { warmupEinstein, warmupYeat, warmupVanGogh, HERO_LIST, HEROES } from './heroes';
 import { warmupHeroModels } from './render/GltfHeroModel';
 import type { HeroId } from './game/types';
-import type { Mode } from './game/Game';
+import type { Mode, Lineup } from './game/Game';
 import { damp } from './core/math';
 
 registerSW({ immediate: true });
@@ -77,6 +80,7 @@ async function boot() {
         input.unlock();
         document.body.classList.remove('in-match');
         menu.results(game, () => startMatch(lastMode, lastHero), () => toMenu());
+        music.play('menu', 4);
         if (game.playOfGame) setTimeout(() => audio.announce('playOfGame', 4), 500);
       }, 4200);
     },
@@ -99,6 +103,7 @@ async function boot() {
   warmGroup.add(spr);
   scene.add(warmGroup);
   game.setShowcase('einstein');
+  const stage = new MenuStage(renderer.gl);
   try { await renderer.gl.compileAsync(scene, camera); } catch { renderer.gl.compile(scene, camera); }
   renderer.render(0.016, 16);
   scene.remove(warmGroup);
@@ -108,8 +113,9 @@ async function boot() {
   let lastHero: HeroId = 'einstein';
 
   const menu = new Menu(uiRoot, {
-    onStart: (mode, hero) => startMatch(mode, hero),
-    onPreviewHero: (hero) => game.setShowcase(hero),
+    onStart: (mode, hero, lineup) => startMatch(mode, hero, lineup),
+    onPreviewHero: (hero) => showcase(hero),
+    onLockIn: () => { stage.burst(); music.surge(true); },
     onQualityChange: () => { renderer.applyQuality(); arena.applyQuality(); },
     onResume: () => engage(),
     onEngage: () => engage(),
@@ -117,17 +123,26 @@ async function boot() {
   });
   menu.bindGame(game);
   menu.show(false);
-  game.setShowcase(menu.hero);
+  let shownHero: HeroId | null = null;
+  /** The menu legend stands on the Assembly Hall stage, tinted to match. */
+  function showcase(hero: HeroId) {
+    if (hero !== shownHero) { shownHero = hero; audio.play('stageSwap'); }
+    game.setShowcase(hero, stage);
+    stage.setHero(HEROES[hero].color, HEROES[hero].accent);
+  }
+  Object.assign((window as unknown as { __legends: object }).__legends, { menu, hud, stage, startMatch: (m: Mode, h: HeroId) => startMatch(m, h) });
+  showcase(menu.hero);
+  try { await renderer.gl.compileAsync(stage.scene, camera); } catch { renderer.gl.compile(stage.scene, camera); }
 
-  function startMatch(mode: Mode, hero: HeroId) {
+  function startMatch(mode: Mode, hero: HeroId, lineup?: Lineup) {
     lastMode = mode; lastHero = hero;
     game.setShowcase(null);
     menu.show(false);
     menu.pause(false);
     subs.clear();
     audio.setWorldPaused(false);
-    game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty });
-    audio.startAmbience(kind === 'ruins' ? 'ruins' : 'study'); // the museum shares the study's indoor room tone
+    game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty, lineup });
+    enterWorld('arena');
     hud.setup();
     hud.show(true);
     camera.fov = settings.fov;
@@ -145,15 +160,39 @@ async function boot() {
     input.unlock();
     subs.clear();
     audio.setWorldPaused(false);
-    audio.stopAmbience();
     game.clearMatch();
+    enterWorld('hall');
     game.paused = false;
     hud.show(false);
     menu.show(true);
-    game.setShowcase(menu.hero);
+    showcase(menu.hero);
     renderer.setSaturation(0.12);
     flash();
   }
+
+  /**
+   * Which world you hear: the Assembly Hall behind the menus (its own drone, a vast airy room,
+   * menu or hero select music by page), or the arena in a match (its placed soundscape and room).
+   */
+  const HALL: Soundscape = { kind: 'hall' };
+  let menuPage = 'home';
+  function enterWorld(w: 'hall' | 'arena') {
+    if (w === 'hall') {
+      ambience.start(HALL);
+      audio.setRoom('hall');
+      audio.setAmbience(0.8, 2);
+      music.play(menuPage === 'select' ? 'select' : 'menu', 2.5);
+    } else {
+      if (arena.soundscape) ambience.start(arena.soundscape);
+      audio.setRoom(kind === 'museum' ? 'hall' : kind === 'ruins' ? 'ruins' : 'study'); // the museum rings like the Assembly Hall
+      audio.setAmbience(1, 1.5);
+    }
+  }
+  // the menu reports each page change: hero select gets its own building cue
+  window.addEventListener('la:menu', (e) => {
+    menuPage = (e as CustomEvent<{ page: string }>).detail.page;
+    if (game.state === 'menu' && audio.ctx) music.play(menuPage === 'select' ? 'select' : 'menu', 2);
+  });
 
   function flash() {
     const f = document.createElement('div');
@@ -176,6 +215,7 @@ async function boot() {
   function pauseFor(locked: boolean) {
     game.paused = !locked;
     audio.setWorldPaused(game.paused);
+    audio.setAmbience(game.paused ? 0.35 : 1, 0.5);
     menu.pause(!locked);
   }
 
@@ -206,7 +246,8 @@ async function boot() {
     audio.unlock();
     audio.setVolume(settings.volume);
     audio.setVoice(settings.voice);
-    audio.startMusic();
+    enterWorld('hall');
+    music.preload();
     bootEl.classList.add('fade');
     setTimeout(() => bootEl.remove(), 900);
     menu.show(true);
@@ -231,21 +272,26 @@ async function boot() {
     last = now;
     const dt = Math.min(0.1, ms / 1000);
     game.update(dt);
+    const onStage = game.state === 'menu';
+    renderer.setScene(onStage ? stage.scene : scene, !onStage);
+    if (onStage) stage.update(dt);
     if (game.state === 'menu' && !(window as unknown as { __freeCam?: boolean }).__freeCam) {
       menuT += dt;
       // ease toward the framing the current menu page asks for (closer on hero select)
       const want = menu.cam;
-      mc.dist = damp(mc.dist, want.dist, 2.6, dt);
-      mc.side = damp(mc.side, want.side, 2.6, dt);
-      mc.look = damp(mc.look, want.look, 2.6, dt);
-      mc.height = damp(mc.height, want.height, 2.6, dt);
+      const snap = (window as unknown as { __snapCam?: boolean }).__snapCam; // dev screenshots: no easing
+      const ck = snap ? 1e3 : 2.6;
+      mc.dist = damp(mc.dist, want.dist, ck, dt);
+      mc.side = damp(mc.side, want.side, ck, dt);
+      mc.look = damp(mc.look, want.look, ck, dt);
+      mc.height = damp(mc.height, want.height, ck, dt);
       // slow cinematic drift around the showcase hero on the dais
       const a = Math.sin(menuT * 0.09) * 0.45 - 0.15;
       const R = mc.dist + Math.sin(menuT * 0.13) * 0.6 * (mc.dist / 7.2);
       // the menu framing is tuned for a showcase standing at y = 1 (the ruins dais)
-      const sp = arena.showcasePos, dy = sp.y - 1;
+      const sp = stage.heroPos, dy = sp.y - 1;
       camTarget.set(sp.x + Math.sin(a) * R, dy + mc.height + Math.sin(menuT * 0.17) * 0.25, sp.z - Math.cos(a) * R);
-      camera.position.lerp(camTarget, 1 - Math.exp(-2 * dt));
+      camera.position.lerp(camTarget, snap ? 1 : 1 - Math.exp(-2 * dt));
       // frame the hero off-center so the UI owns the left side
       camRight.subVectors(sp, camera.position).cross(UP).normalize();
       lookTarget.set(sp.x, dy + mc.look, sp.z).addScaledVector(camRight, -mc.side);
@@ -259,7 +305,8 @@ async function boot() {
     renderer.setSaturation(sat);
     arena.setDoom(game.doom);
     audio.setDoom(game.doom);
-    arena.update(globalUniforms.uTime.value, camera);
+    if (!onStage) arena.update(globalUniforms.uTime.value, camera);
+    ambience.update(dt, globalUniforms.uTime.value);
     renderer.render(dt, ms);
     if (game.state !== 'menu') hud.update(dt, camera, renderer.fps, renderer.gl.info.render.calls);
     input.endFrame();

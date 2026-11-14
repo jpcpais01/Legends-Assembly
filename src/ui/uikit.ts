@@ -34,6 +34,11 @@ export const UI = {
   spark: '<path d="M12 3l1.8 5.6L19.5 10l-5.7 1.6L12 17.5l-1.8-5.9L4.5 10l5.7-1.4z" fill="currentColor" fill-opacity=".25"/><path d="M12 3l1.8 5.6L19.5 10l-5.7 1.6L12 17.5l-1.8-5.9L4.5 10l5.7-1.4z"/>',
   resume: '<path d="M8 5.5v13l10.5-6.5z"/>',
   exit: '<path d="M14 4.5h4.5v15H14M10 8l-4 4 4 4M6 12h9"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  map: '<path d="M3.5 6.5l5.5-2.5 6 2.5 5.5-2.5v13.5l-5.5 2.5-6-2.5-5.5 2.5z"/><path d="M9 4v13.5M15 6.5V20" opacity=".7"/>',
+  arrowR: '<path d="M5 12h13.5M13 6.5l5.5 5.5-5.5 5.5"/>',
+  heartPulse: '<path d="M12 20s-7.5-4.5-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.5-7.5 10-7.5 10z"/><path d="M6.5 12h3l1.5-2.5 2 5 1.5-2.5h3" opacity=".8"/>',
   book: '<path d="M4 5.5c2.5-1.3 5.5-1.3 8 .5 2.5-1.8 5.5-1.8 8-.5v13c-2.5-1.3-5.5-1.3-8 .5-2.5-1.8-5.5-1.8-8-.5z"/><path d="M12 6v13"/>',
 };
 

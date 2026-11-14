@@ -20,7 +20,17 @@ export interface Recipe {
   reverb?: number;
   /** Minimum seconds between two triggers of this sound. */
   dedupe?: number;
-  bus?: 'sfx' | 'ui';
+  /**
+   * sfx: the world (ducked, filtered by low health / slow motion). ui: interface and personal feedback.
+   * ult: specials, which cut through the ducking they cause. amb: the room itself.
+   */
+  bus?: 'sfx' | 'ui' | 'ult' | 'amb';
+  /** Distance (m) inside which a placed sound plays at full level. */
+  ref?: number;
+  /** How fast it fades past `ref` (gain = 1 / (1 + (d - ref) * rolloff)). */
+  rolloff?: number;
+  /** Muffle when the desk's clutter stands between it and you (default: placed sfx do). */
+  occlude?: boolean;
   loop?: boolean;
   /** When a recorded sample replaces the patch: variant n plays the one sample shifted by these semitones. */
   pitchVariants?: number[];
@@ -783,9 +793,60 @@ export const RECIPES = {
   engineHigh: { dur: 3, level: 0.32, loop: true, reverb: 0.05, sampleOnly: true },
   skid: { dur: 2, level: 0.26, loop: true, reverb: 0.05, sampleOnly: true },
   gravityCollapse: { dur: 1.1, level: 0.75, reverb: 0.25, sampleOnly: true },
-  ambStudy: { dur: 20, level: 0.16, loop: true, reverb: 0, sampleOnly: true },
-  ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true },
+  ambStudy: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
+  ambRuins: { dur: 20, level: 0.14, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
+
+  // ── the Assembly Hall (menu stage) ──
+  hallAmb: { dur: 30, level: 0.2, loop: true, reverb: 0, sampleOnly: true, bus: 'amb' },
+  stageSwap: { dur: 1.5, level: 0.32, reverb: 0.3, sampleOnly: true, bus: 'ui', dedupe: 0.25 },
+
+  // ── the room (v0.14 "Surround Sound"): placed emitters around the giant study ──
+  fireLoop: { dur: 22, level: 0.42, loop: true, reverb: 0.2, sampleOnly: true, bus: 'amb', ref: 45, rolloff: 0.03, occlude: false },
+  windowLoop: { dur: 22, level: 0.3, loop: true, reverb: 0.15, sampleOnly: true, bus: 'amb', ref: 50, rolloff: 0.025, occlude: false },
+  watchTick: { dur: 0.4, level: 0.3, reverb: 0.3, sampleOnly: true, bus: 'amb', ref: 3, rolloff: 0.16, dedupe: 0.2, jitter: 0.15, maxVoices: 2 },
+  cradleClack: { dur: 0.3, level: 0.22, reverb: 0.3, sampleOnly: true, bus: 'amb', ref: 3, rolloff: 0.14, dedupe: 0.2, jitter: 0.25, maxVoices: 2 },
+  metronome: { dur: 0.5, level: 0.32, reverb: 0.4, sampleOnly: true, bus: 'amb', ref: 5, rolloff: 0.1, dedupe: 0.2, jitter: 0.1, maxVoices: 2 },
+  woodCreak: { dur: 2, level: 0.3, reverb: 0.7, sampleOnly: true, bus: 'amb', ref: 50, rolloff: 0.02, dedupe: 1, occlude: false },
+  chainCreak: { dur: 2, level: 0.22, reverb: 0.6, sampleOnly: true, bus: 'amb', ref: 50, rolloff: 0.02, dedupe: 1, occlude: false },
+  cityDistant: { dur: 6, level: 0.2, reverb: 0.3, sampleOnly: true, bus: 'amb', ref: 60, rolloff: 0.02, dedupe: 2, occlude: false },
+  birdsWindow: { dur: 4, level: 0.18, reverb: 0.3, sampleOnly: true, bus: 'amb', ref: 60, rolloff: 0.02, dedupe: 2, occlude: false },
+  fireSurge: { dur: 2, level: 0.32, reverb: 0.3, sampleOnly: true, bus: 'amb', ref: 45, rolloff: 0.03, dedupe: 3, occlude: false },
+  // the desk answers big hits
+  rattleChina: { dur: 1, level: 0.42, reverb: 0.25, sampleOnly: true, ref: 4, rolloff: 0.09, maxVoices: 3, dedupe: 0.04, jitter: 0.6 },
+  rattleCoins: { dur: 1, level: 0.4, reverb: 0.25, sampleOnly: true, ref: 4, rolloff: 0.09, maxVoices: 3, dedupe: 0.04, jitter: 0.6 },
+  rattleGlass: { dur: 1, level: 0.4, reverb: 0.25, sampleOnly: true, ref: 4, rolloff: 0.09, maxVoices: 3, dedupe: 0.04, jitter: 0.6 },
+  rattleWood: { dur: 1, level: 0.42, reverb: 0.25, sampleOnly: true, ref: 4, rolloff: 0.09, maxVoices: 3, dedupe: 0.04, jitter: 0.6 },
+  paperFlutter: { dur: 1.4, level: 0.34, reverb: 0.2, sampleOnly: true, ref: 4, rolloff: 0.09, maxVoices: 3, dedupe: 0.04, jitter: 0.5 },
+  chandelierTinkle: { dur: 2.2, level: 0.32, reverb: 0.6, sampleOnly: true, bus: 'amb', ref: 60, rolloff: 0.02, dedupe: 0.8, occlude: false },
+  deskThud: { dur: 1.7, level: 0.7, reverb: 0.5, sampleOnly: true, ref: 18, rolloff: 0.035, maxVoices: 2, dedupe: 0.15, occlude: false },
+  // footsteps: each legend has their own shoes, each surface its own layer
+  stepEinstein: { dur: 0.2, level: 0.34, reverb: 0.14, sampleOnly: true, jitter: 0.7, maxVoices: 10, dedupe: 0 },
+  stepYeat: { dur: 0.4, level: 0.3, reverb: 0.14, sampleOnly: true, jitter: 0.7, maxVoices: 10, dedupe: 0 },
+  stepVangogh: { dur: 0.2, level: 0.34, reverb: 0.14, sampleOnly: true, jitter: 0.7, maxVoices: 10, dedupe: 0 },
+  stepPaper: { dur: 0.3, level: 0.3, reverb: 0.1, sampleOnly: true, jitter: 0.8, maxVoices: 8, dedupe: 0 },
+  stepMetal: { dur: 0.4, level: 0.22, reverb: 0.18, sampleOnly: true, jitter: 0.8, maxVoices: 8, dedupe: 0 },
+  stepLeather: { dur: 0.3, level: 0.3, reverb: 0.1, sampleOnly: true, jitter: 0.8, maxVoices: 8, dedupe: 0 },
+  stepStone: { dur: 0.3, level: 0.26, reverb: 0.16, sampleOnly: true, jitter: 0.8, maxVoices: 8, dedupe: 0 },
+  // feedback you feel
+  hitHeavy: { dur: 0.6, level: 0.36, sampleOnly: true, bus: 'ui', maxVoices: 2, dedupe: 0.06, jitter: 0.5 },
+  killDrop: { dur: 1.6, level: 0.42, sampleOnly: true, bus: 'ui', maxVoices: 2, dedupe: 0.1 },
+  assist: { dur: 0.8, level: 0.3, sampleOnly: true, bus: 'ui', dedupe: 0.3 },
+  heartbeat: { dur: 6, level: 0.5, loop: true, sampleOnly: true, bus: 'ui' },
+  lowHealth: { dur: 1.5, level: 0.4, sampleOnly: true, bus: 'ui', dedupe: 2 },
+  ultAlly: { dur: 1.8, level: 0.5, reverb: 0.25, sampleOnly: true, bus: 'ult', dedupe: 0.4, occlude: false },
+  ultEnemy: { dur: 2, level: 0.58, reverb: 0.25, sampleOnly: true, bus: 'ult', dedupe: 0.4, occlude: false },
+  finalTick: { dur: 0.5, level: 0.55, reverb: 0.5, sampleOnly: true, bus: 'ui', dedupe: 0.5 },
+  slowmo: { dur: 2.3, level: 0.6, reverb: 0.3, sampleOnly: true, bus: 'ult', dedupe: 1 },
+  matchPointSting: { dur: 2.2, level: 0.45, reverb: 0.2, sampleOnly: true, bus: 'ui', dedupe: 2 },
+  // Tonka: exhaust pops on the lift and the shifter between gears
+  backfire: { dur: 0.9, level: 0.55, reverb: 0.3, sampleOnly: true, ref: 6, rolloff: 0.06, maxVoices: 3, dedupe: 0.12, jitter: 0.8 },
+  gearShift: { dur: 0.45, level: 0.32, reverb: 0.15, sampleOnly: true, ref: 4, rolloff: 0.08, maxVoices: 2, dedupe: 0.1, jitter: 0.5 },
 } satisfies Record<string, Recipe>;
+
+// Specials carry across the whole arena and are never ducked by the moment they create.
+for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall'] as const) {
+  Object.assign(RECIPES[k], { bus: 'ult', ref: 18, rolloff: 0.035 });
+}
 
 export type Sfx = keyof typeof RECIPES;
 
