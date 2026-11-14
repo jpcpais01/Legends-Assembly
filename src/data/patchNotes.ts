@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.19.0',
+    version: '0.20.0',
     date: '2026-11-14',
     title: 'Iron Man Joins the Assembly',
     sections: [
@@ -19,13 +19,31 @@ export const PATCH_NOTES: PatchNote[] = [
           'Missile Swarm (RMB): the shoulder pods flip open and fire six homing missiles at the enemy closest to your crosshair. They corkscrew in on smoke trails and splash on impact.',
           'Unibeam (Shift): he lifts off, the arc reactor charges, and a huge beam pours out of his chest. Sweep it across the arena: it burns through every enemy in its path and scorches the floor where it lands. He takes 30% less damage while it runs.',
           'Jet Boots (passive): hold jump in the air to hover on your boot thrusters. A fuel bar under the crosshair shows how much flight is left, and it refills on the ground.',
-          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat, Van Gogh and Blitzcrank (shown as subtitles until his voice is recorded).',
+          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat, Van Gogh, Blitzcrank and Luffy (shown as subtitles until his voice is recorded).',
           'Bots play him too: they hop onto their jet boots mid-fight, fire missiles at whoever they can see, and save the Unibeam for crowds or tough targets.',
         ],
       },
       {
         heading: 'Coming soon',
         items: ['Iron Man is wearing a stand-in suit for now. His full detailed armor arrives in a later update.'],
+      },
+    ],
+  },
+  {
+    version: '0.19.0',
+    date: '2026-11-14',
+    title: 'Gum-Gum',
+    sections: [
+      {
+        heading: 'New legend: Monkey D. Luffy, the Rubber Pirate (Duelist)',
+        items: [
+          'Gum-Gum Pistol (LMB): his fists stretch out to whatever you aim at, up to 21 m, and snap back like a rubber band. Alternate hands, 40 damage, headshots deal 50% more.',
+          'Gum-Gum Rocket (RMB): both arms shoot out, grab a wall or an enemy, and slingshot him in. Anyone in the way gets body-slammed for 75 and launched. Works as an escape too.',
+          'Gear Fifth (SHIFT): the Drums of Liberation. He floats up as the drums quicken, then bursts out white in a ring of clouds that throws nearby enemies back. For 10 seconds his fists turn giant and splash, he runs faster, bounces higher, takes less damage, and his Rocket recharges twice as fast.',
+          'His arms really stretch: it is his own body, stretched by the rig, not a special effect.',
+          'He plays with a stand-in body until his full model arrives. His lines show as subtitles until they are recorded.',
+          'Bots can play Luffy and use his whole kit.',
+        ],
       },
     ],
   },

@@ -78,6 +78,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Missile Swarm locks onto the enemy nearest your crosshair, so point first, then fire.',
     'Unibeam sweeps slowly. Fire it down a corridor or at a crowd, then drag it across them.',
   ],
+  luffy: [
+    'Gum-Gum Pistol reaches whatever you aim at, up to 21 m. It is fast, so track heads.',
+    'Gum-Gum Rocket grabs walls as well as enemies. Use it to dive in or to escape.',
+    'Gear Fifth refreshes your Rocket. Awaken next to a group: the blast shoves them away.',
+  ],
   vangogh: [
     'Drop Sunflower Field where your team is fighting, not where they will be.',
     'Impasto Shot splashes. Aim at feet and walls to hit groups.',

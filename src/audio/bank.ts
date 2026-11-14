@@ -270,7 +270,7 @@ export const RECIPES = {
   },
   comm: {
     // stinger under a subtitle when a voice line has no recording yet (variant = hero)
-    dur: 0.5, variants: 5, level: 0.16, bus: 'ui',
+    dur: 0.5, variants: 6, level: 0.16, bus: 'ui',
     render(s, v) {
       const mix = wetBus(s, 1, 0.3);
       if (v === 0) { // Einstein: soft theremin glide
@@ -282,11 +282,15 @@ export const RECIPES = {
       } else if (v === 2) { // Van Gogh: two plucked notes
         s.pluck(1046.5, T, 0.4, mix, 0.5, 0.6);
         s.pluck(1568, T + 0.06, 0.4, mix, 0.4, 0.6);
-      } else if (v === 4) { // Iron Man: a HUD double-chirp
-        for (const [i, f] of [[0, 1760], [1, 2349]] as const) s.osc('square', f, T + i * 0.06, 0.05, s.filter('bandpass', f, 3, s.vca(T + i * 0.06, 0.002, 0.25, 0.045, mix)));
-      } else { // Blitzcrank: two square-wave robot beeps
+      } else if (v === 3) { // Blitzcrank: two square-wave robot beeps
         s.osc('square', 1318.5, T, 0.06, s.filter('lowpass', 4000, 1, s.vca(T, 0.002, 0.3, 0.05, mix)));
         s.osc('square', 987.8, T + 0.08, 0.08, s.filter('lowpass', 4000, 1, s.vca(T + 0.08, 0.002, 0.3, 0.07, mix)));
+      } else if (v === 5) { // Iron Man: a HUD double-chirp
+        for (const [i, f] of [[0, 1760], [1, 2349]] as const) s.osc('square', f, T + i * 0.06, 0.05, s.filter('bandpass', f, 3, s.vca(T + i * 0.06, 0.002, 0.25, 0.045, mix)));
+      } else { // Luffy (4): a rubbery boing
+        const o = s.osc('triangle', 330, T, 0.3, s.vca(T, 0.005, 0.5, 0.25, mix));
+        o.frequency.exponentialRampToValueAtTime(660, T + 0.05); o.frequency.exponentialRampToValueAtTime(420, T + 0.22);
+        s.osc('sine', 7, T, 0.3, s.gain(40, o.frequency));
       }
     },
   },
@@ -947,6 +951,149 @@ export const RECIPES = {
   },
 
   // ── sample-only (ElevenLabs; silent if the files are missing) ──
+  // ── Luffy ──
+  rubberStretch: {
+    // the arm leaving: a rubber twang that bends up as it stretches, a whip of air, a little creak
+    dur: 0.42, variants: 4, level: 0.5, jitter: 0.6, maxVoices: 4, reverb: 0.1,
+    render(s) {
+      const f = s.r(150, 190);
+      const g = s.vca(T, 0.004, 0.55, 0.3);
+      const o = s.osc('sawtooth', f, T, 0.34, s.filter('lowpass', 1400, 4, g));
+      o.frequency.exponentialRampToValueAtTime(f * 3.2, T + 0.16);
+      s.osc('sine', 18, T, 0.34, s.gain(f * 0.12, o.frequency));
+      const t2 = s.osc('triangle', f * 2, T, 0.3, s.vca(T, 0.004, 0.25, 0.26));
+      t2.frequency.exponentialRampToValueAtTime(f * 6, T + 0.16);
+      const bp = s.filter('bandpass', 900, 1.4, s.vca(T, 0.01, 0.5, 0.18));
+      s.sweep(bp.frequency, T, 700, 4200, 0.16);
+      s.noise(T, 0.2, bp, 'pink');
+      s.crackle(T + 0.02, 0.12, 5, 0.15, s.out, 1200, 3500, 1.2);
+    },
+  },
+  rubberSnap: {
+    // the arm coming home: a falling boing with a slap
+    dur: 0.3, variants: 3, level: 0.34, jitter: 0.8, maxVoices: 3, dedupe: 0.05,
+    render(s) {
+      const f = s.r(420, 520);
+      const o = s.osc('triangle', f, T, 0.24, s.vca(T, 0.002, 0.5, 0.2));
+      o.frequency.exponentialRampToValueAtTime(f * 0.35, T + 0.18);
+      s.osc('sine', 22, T, 0.24, s.gain(f * 0.08, o.frequency));
+      s.burst(T, 0.0005, 0.02, 0.45, 'bandpass', 2200, 1.2);
+      s.thump(T, 180, 90, 0.04, 0.06, 0.3);
+    },
+  },
+  pistolHit: {
+    // a meaty punch: knuckle crack, a body thud and a rubbery wobble
+    dur: 0.4, variants: 4, level: 0.62, jitter: 0.7, maxVoices: 4, dedupe: 0.03, reverb: 0.12,
+    render(s) {
+      s.burst(T, 0.0004, 0.012, 0.9, 'highpass', 2500, 0.8);
+      s.burst(T, 0.001, 0.06, 0.7, 'lowpass', 1800, 0.8, s.out, 'pink');
+      s.thump(T, 150, 48, 0.08, 0.22, 1, s.shaper(2.2, s.out));
+      const o = s.osc('sine', 240, T + 0.01, 0.2, s.vca(T + 0.01, 0.003, 0.2, 0.16));
+      o.frequency.exponentialRampToValueAtTime(110, T + 0.16);
+      s.osc('sine', 26, T, 0.2, s.gain(30, o.frequency));
+    },
+  },
+  dawnHit: {
+    // Gear Fifth's giant fist: a cartoon-sized boom with a bright bell-like top and a cloud whoosh
+    dur: 1.2, variants: 2, level: 0.85, maxVoices: 3, reverb: 0.3, dedupe: 0.04,
+    render(s) {
+      const mix = wetBus(s, 1.4, 0.3);
+      s.thump(T, 120, 36, 0.18, 0.7, 1, s.shaper(3, mix));
+      s.burst(T, 0.001, 0.25, 0.8, 'lowpass', 2600, 0.7, mix, 'pink');
+      s.burst(T, 0.0004, 0.01, 0.8, 'highpass', 4000, 0.8, mix);
+      s.partials(s.r(880, 990), [[1, 0.18, 0.6], [2.01, 0.1, 0.4], [3.02, 0.05, 0.25]], T + 0.01, mix);
+      const bp = s.filter('bandpass', 1800, 0.9, s.vca(T + 0.03, 0.02, 0.35, 0.6, mix));
+      s.sweep(bp.frequency, T + 0.03, 1800, 300, 0.6);
+      s.noise(T + 0.03, 0.7, bp, 'pink');
+    },
+  },
+  rocketLaunch: {
+    // the slingshot lets go: a deep rubber thwang into a rushing whoosh
+    dur: 1.0, level: 0.7, reverb: 0.15, maxVoices: 2,
+    render(s) {
+      const o = s.osc('sawtooth', 90, T, 0.5, s.filter('lowpass', 900, 5, s.vca(T, 0.003, 0.6, 0.45)));
+      o.frequency.exponentialRampToValueAtTime(260, T + 0.06); o.frequency.exponentialRampToValueAtTime(70, T + 0.45);
+      s.osc('sine', 14, T, 0.5, s.gain(25, o.frequency));
+      s.thump(T, 110, 50, 0.06, 0.2, 0.7);
+      const wg = s.gain(0);
+      s.swell(wg.gain, T, 0.1, 0.55, 0.5);
+      const bp = s.filter('bandpass', 600, 1.2, wg);
+      s.sweep(bp.frequency, T, 600, 2400, 0.5);
+      s.noise(T, 0.75, bp, 'pink');
+    },
+  },
+  rocketHit: {
+    dur: 1.2, level: 0.9, reverb: 0.2, maxVoices: 2, dedupe: 0.05,
+    render(s) {
+      const mix = wetBus(s, 1.2, 0.25);
+      s.thump(T, 130, 40, 0.12, 0.55, 1, s.shaper(3, mix));
+      s.burst(T, 0.0005, 0.04, 0.9, 'bandpass', 1600, 0.8, mix);
+      s.burst(T, 0.001, 0.2, 0.6, 'lowpass', 2000, 0.7, mix, 'pink');
+      const o = s.osc('triangle', 520, T + 0.03, 0.45, s.vca(T + 0.03, 0.003, 0.3, 0.4, mix));
+      o.frequency.exponentialRampToValueAtTime(140, T + 0.4);
+      s.osc('sine', 9, T, 0.45, s.gain(50, o.frequency));
+    },
+  },
+  gearDrum: {
+    // the Drums of Liberation: a two-stroke heartbeat on deep festival drums
+    dur: 0.9, variants: 2, level: 0.7, bus: 'ult', maxVoices: 3, reverb: 0.35, dedupe: 0.12, occlude: false,
+    render(s) {
+      const mix = wetBus(s, 1.6, 0.35);
+      for (const [dt, a] of [[0, 1], [0.17, 0.75]] as const) {
+        const t = T + dt;
+        s.thump(t, 105, 52, 0.1, 0.42, a, s.shaper(1.6, mix));
+        s.burst(t, 0.001, 0.05, 0.35 * a, 'bandpass', 380, 1.2, mix, 'pink');
+        s.burst(t, 0.0005, 0.01, 0.25 * a, 'highpass', 3000, 0.7, mix);
+      }
+    },
+  },
+  gearAwaken: {
+    // the heart speeds up under a rising choir of air; it peaks into the burst at ~1.05 s
+    dur: 1.3, level: 0.7, bus: 'ult', stereo: true, occlude: false,
+    render(s) {
+      const mix = wetBus(s, 2, 0.35);
+      const sw = s.gain(0);
+      s.swell(sw.gain, T, 1.0, 0.5, 0.05);
+      for (const f of [220, 277.2, 329.6, 440]) {
+        const o = s.osc('sawtooth', f, T, 1.1, s.filter('lowpass', 1800, 1, sw));
+        o.frequency.exponentialRampToValueAtTime(f * 1.5, T + 1.05);
+      }
+      const bp = s.filter('bandpass', 500, 1, s.vca(T, 0.9, 0.4, 0.15, mix));
+      s.sweep(bp.frequency, T, 500, 5000, 1.05);
+      s.noise(T, 1.1, bp, 'pink');
+      sw.connect(mix);
+    },
+  },
+  gearBurst: {
+    // awakening: a huge soft boom, bright shimmer, laughter-like warble of bells, clouds rushing out
+    dur: 2.4, level: 0.95, bus: 'ult', stereo: true, reverb: 0.3, occlude: false,
+    render(s) {
+      const mix = wetBus(s, 2.4, 0.4);
+      s.thump(T, 140, 32, 0.3, 1.1, 1, s.shaper(2.5, mix));
+      s.burst(T, 0.002, 0.6, 0.7, 'lowpass', 3000, 0.6, mix, 'pink');
+      for (let i = 0; i < 7; i++) {
+        const t = T + 0.05 + i * 0.07;
+        s.partials(523.25 * semi([0, 4, 7, 12, 16, 19, 24][i]), [[1, 0.2, 0.9], [2.01, 0.08, 0.5]], t, mix);
+      }
+      const wg = s.gain(0);
+      s.swell(wg.gain, T, 0.05, 0.5, 1.4);
+      const bp = s.filter('bandpass', 3000, 0.8, wg);
+      s.sweep(bp.frequency, T, 3000, 400, 1.4);
+      s.noise(T, 1.6, bp, 'pink');
+      wg.connect(mix);
+    },
+  },
+  gearEnd: {
+    // the transformation burns out: a hiss of steam and a deflating wobble
+    dur: 1.2, level: 0.5, reverb: 0.2,
+    render(s) {
+      const hp = s.filter('highpass', 2500, 0.7, s.vca(T, 0.02, 0.4, 0.9));
+      s.noise(T, 1, hp, 'white');
+      const o = s.osc('triangle', 300, T, 0.8, s.vca(T, 0.01, 0.3, 0.7));
+      o.frequency.exponentialRampToValueAtTime(90, T + 0.75);
+      s.osc('sine', 11, T, 0.8, s.gain(30, o.frequency));
+    },
+  },
   engineHigh: { dur: 3, level: 0.32, loop: true, reverb: 0.05, sampleOnly: true },
   skid: { dur: 2, level: 0.26, loop: true, reverb: 0.05, sampleOnly: true },
   gravityCollapse: { dur: 1.1, level: 0.75, reverb: 0.25, sampleOnly: true },

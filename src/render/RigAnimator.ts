@@ -30,7 +30,7 @@ interface LegRig { hip: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object
 
 const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
-export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'blast';
+export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'punch' | 'blast';
 /** heavy: a big machine (Blitzcrank): long arms carried forward, a planted stomp, little swing. */
 export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'heavy';
 
@@ -58,6 +58,8 @@ const GESTURES: Record<AttackKind, Gesture> = {
   stroke: { end: 0.56, dip: 0.4, keys: [k(0, -1.4, 0.55, -0.9, 0.3, -0.2, -0.04), k(0.1, -2.15, 0.95, -0.75, 0.55, -0.42, -0.1), k(0.21, -1.05, -0.38, -0.2, -0.45, 0.42, 0.14), k(0.34, -0.8, -0.5, -0.35, -0.2, 0.34, 0.1), k(0.56, -0.9, 0.0, -0.7, 0, 0.08, 0.02)] },
   // overhand throw: cock the arm behind the head, whip it through (Einstein's gravity orb)
   throw: { end: 0.72, dip: 0.8, keys: [k(0, -1.6, 0.5, -1.4, 0.2, -0.25, -0.08, 0.3), k(0.14, -2.75, 0.55, -2.0, 0.5, -0.5, -0.2, 0), k(0.25, -1.35, 0.1, -0.15, -0.5, 0.5, 0.26), k(0.42, -0.75, -0.2, -0.3, -0.2, 0.38, 0.18, 0.5), k(0.72, -0.6, 0.1, -0.6, 0, 0.08, 0.03, 0.3)] },
+  // straight rubber jab held out while the arm stretches (Luffy's Gum-Gum Pistol)
+  punch: { end: 0.42, dip: 0.3, keys: [k(0, -0.6, 0.2, -1.4, 0, -0.15, 0), k(0.05, -1.55, 0.04, -0.05, 0, 0.35, 0.06), k(0.3, -1.55, 0.04, -0.05, 0, 0.32, 0.05), k(0.42, -1.0, 0.12, -0.7, 0, 0.06, 0.02)] },
   // underhand lob (Van Gogh's seeds)
   toss: { end: 0.66, dip: 0.55, keys: [k(0, -0.2, 0.2, -0.3, 0.1, -0.1, 0.04, 0), k(0.13, 0.65, 0.25, -0.2, 0.3, -0.28, 0.12, 0), k(0.26, -1.55, 0.05, -0.35, -0.4, 0.3, -0.04, 0.4), k(0.42, -1.95, 0.1, -0.45, -0.2, 0.2, -0.06, 0.4), k(0.66, -1.2, 0.15, -0.6, 0, 0.05, 0, 0.3)] },
   // piston jab: fist chambered at the ribs, driven straight down the crosshair, snapped back (Blitzcrank)
