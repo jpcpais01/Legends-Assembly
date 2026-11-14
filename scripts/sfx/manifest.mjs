@@ -74,6 +74,19 @@ export const SFX = [
   { name: 'starry', dur: 7.8, takes: 3, keep: 1, inf: 0.5, text: 'Swirling magical starry night sky forming: dreamy shimmering pads swirling in circles, twinkling glass chimes, low warm drone, soft wind, enchanting, no drums' },
   { name: 'starFall', dur: 1.0, takes: 4, keep: 3, inf: 0.5, text: 'Falling star impact: short descending magical whistle into a sparkling crystalline burst, fantasy' },
 
+  // ── Blitzcrank (procedural patches play until these are generated) ──
+  { name: 'blitzJab', dur: 0.5, takes: 6, keep: 3, inf: 0.6, text: 'A giant steam-powered robot throws a fast piston punch: sharp pneumatic hiss and a heavy iron fist cutting the air ending in a metallic piston clunk, one punch only, no impact' },
+  { name: 'blitzPunchHit', dur: 0.7, takes: 6, keep: 3, inf: 0.65, text: 'A heavy brass robot fist slams into someone: deep meaty body thud with a hollow metallic clang and gritty crunch, punchy, one hit only' },
+  { name: 'blitzUppercut', dur: 1.4, takes: 4, keep: 1, inf: 0.6, text: 'Giant robot uppercut: rising air whoosh into an enormous metallic clang and a deep sub boom launching someone into the air, cinematic, one hit' },
+  { name: 'grabLaunch', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A robot arm launches like a rocket on a chain: thruster ignition burst, short rocket roar flying away and a heavy iron chain rattling out fast' },
+  { name: 'grabReel', dur: 0.8, takes: 4, keep: 1, inf: 0.6, text: 'A heavy iron chain being reeled back in fast by a motor: ratcheting chain clatter and a rising motor whine ending in a metallic clunk' },
+  { name: 'grabHit', dur: 1.0, takes: 4, keep: 1, inf: 0.6, text: 'A giant mechanical claw clamps onto someone: heavy metal clank, a buzzing magnetic lock zap and an iron chain snapping taut' },
+  { name: 'staticCharge', dur: 1.0, takes: 4, keep: 1, inf: 0.5, text: 'Electric generators overloading: a rising high-voltage whine climbing in pitch with fizzing electrical crackles and humming coils, about to explode' },
+  { name: 'staticBlast', dur: 3.0, takes: 4, keep: 1, inf: 0.5, text: 'Huge electric shockwave slammed into the ground: a thunderclap boom, a wall of crackling static and arcing electricity, deep sub impact and a buzzing electric ring-out, cinematic' },
+  { name: 'staticZap', dur: 0.4, takes: 6, keep: 4, inf: 0.6, text: 'A single short electric arc zap jumping to a target, crisp crackle, short' },
+  { name: 'stepBlitz', dur: 0.5, takes: 8, keep: 5, inf: 0.7, text: 'One single heavy footstep of a big brass robot on a hardwood floor, hollow metal clank with a tiny servo whirr, close mic, dry, one step only' },
+  { name: 'comm', dur: 0.6, takes: 3, keep: 1, inf: 0.6, text: 'Two short square-wave robot beeps, a tiny retro comm stinger', variant: 3 },
+
   // ── ambience ──
   // (v0.14: the study bed is now only room air; the fire, window, clocks and creaks are separate emitters placed in the room)
   { name: 'ambStudy', dur: 30, takes: 3, keep: 1, inf: 0.55, loop: true, text: 'Room tone of a large quiet old wooden library at dusk: warm still air, very faint distant city murmur muffled through thick walls, soft low hum, no clock, no fire, no rain, no music, continuous, seamless loop' },

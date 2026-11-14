@@ -8,13 +8,19 @@ import { settings, saveSettings, type QualityLevel } from '../core/settings';
 import { PATCH_NOTES } from '../data/patchNotes';
 import { audio } from '../core/Audio';
 import { esc, icon, ROLE_ICONS, UI, logoMark, splitName, countUp, mmss } from './uikit';
+import { Party, parseCode, inviteLink, type ArenaKind, type Member } from '../net/Party';
 
 const VERSION = PATCH_NOTES[0].version;
 const MODES = Object.keys(MODE_INFO) as Mode[];
 const DIFFS = ['easy', 'normal', 'hard'] as const;
 
 export interface MenuHooks {
-  onStart(mode: Mode, hero: HeroId, lineup?: Lineup): void;
+  /** Solo: the arena is picked, load it and play. */
+  onStart(mode: Mode, hero: HeroId, lineup: Lineup | undefined, arena: ArenaKind): void;
+  /** You joined, opened or left a party. */
+  onParty(p: Party | null): void;
+  /** Party host: everyone is locked in and the arena is picked. */
+  onPartyStart(arena: ArenaKind): void;
   onPreviewHero(hero: HeroId): void;
   /** The Lock In moment itself (the stage flares). */
   onLockIn(hero: HeroId): void;
@@ -34,9 +40,13 @@ const CAMS: Record<'home' | 'select' | 'page', MenuCam> = {
 };
 const ROLES: Role[] = ['Vanguard', 'Duelist', 'Strategist'];
 
-const ARENAS = [['study', "Giant's Study", 'Study'], ['museum', 'Grand Museum', 'Museum']] as const;
+export const ARENAS: { id: ArenaKind; name: string; kicker: string; desc: string; c: string }[] = [
+  { id: 'study', name: "Giant's Study", kicker: 'Desk · Close quarters', desc: 'Shrunk down on a scholar’s desk. Fight between ink pots, pencils and a ticking pocket watch.', c: '#ffb45a' },
+  { id: 'museum', name: 'Grand Museum', kicker: 'Marble halls · Long sightlines', desc: 'A sunlit rotunda of marble and gold. Statues for cover, galleries for flanks.', c: '#9fd2ff' },
+];
+export const arenaInfo = (id: ArenaKind) => ARENAS.find((a) => a.id === id) ?? ARENAS[0];
 
-type Page = 'home' | 'legends' | 'learn' | 'news' | 'settings' | 'select';
+type Page = 'home' | 'legends' | 'learn' | 'news' | 'settings' | 'select' | 'map';
 const TABS: { id: Page; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'legends', label: 'Legends' },
@@ -72,6 +82,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Drop Sunflower Field where your team is fighting, not where they will be.',
     'Impasto Shot splashes. Aim at feet and walls to hit groups.',
     'Allies inside The Starry Night are healed, so pull fights into the dome.',
+  ],
+  blitzcrank: [
+    'A caught enemy primes your uppercut: grab, then punch once to launch them.',
+    'Grab the enemy who is out of position, not the one in front of their team.',
+    'Static Field silences. Pop it before their specials go off, not after.',
   ],
 };
 
@@ -109,6 +124,11 @@ export class Menu {
   private settingsCat = 'graphics';
   /** Bot picks for the match being set up (rolled on hero select so the team panel can show them). */
   private lineup: Lineup | null = null;
+  /** The friends party you're in (null = solo). */
+  party: Party | null = null;
+  private partyBusy = false;
+  private toastEl: HTMLElement | null = null;
+  private toastT = 0;
 
   constructor(parent: HTMLElement, hooks: MenuHooks) {
     this.hooks = hooks;
@@ -164,6 +184,7 @@ export class Menu {
     if (on) {
       this.locking = false;
       this.go('home', true);
+      this.partySync();
     }
   }
 
@@ -190,6 +211,7 @@ export class Menu {
     this.page = p;
     this.root.dataset.page = p;
     this.cam = p === 'home' ? CAMS.home : p === 'select' || p === 'legends' ? CAMS.select : CAMS.page;
+    if (p !== 'select' && p !== 'map') this.locking = false;
     this.tabsEl.querySelectorAll<HTMLElement>('.tab').forEach((t) => t.classList.toggle('on', t.dataset.p === p));
     const el = document.createElement('section');
     el.className = `page pg-${p}`;
@@ -199,9 +221,10 @@ export class Menu {
     else if (p === 'learn') this.renderLearn(el);
     else if (p === 'news') this.renderNews(el);
     else if (p === 'settings') this.renderSettings(el);
+    else if (p === 'map') this.renderMap(el);
     this.renderHints();
     this.placeInk();
-    if (p !== 'select') { this.revealTimers.forEach(clearTimeout); this.lineup = p === 'home' ? this.lineup : null; }
+    if (p !== 'select' && p !== 'map') { this.revealTimers.forEach(clearTimeout); this.lineup = p === 'home' ? this.lineup : null; }
     // hook for menu music and ambience: listeners can follow which page is up and which legend is showcased
     window.dispatchEvent(new CustomEvent('la:menu', { detail: { page: p, hero: this.hero } }));
   }
@@ -222,6 +245,7 @@ export class Menu {
     let html = '';
     if (p === 'home') html = h('Enter', 'Play') + h('↑ ↓', 'Mode') + h('L', 'Legend') + h('Q E', 'Tabs');
     else if (p === 'select') html = h('Enter', 'Lock in') + h('A D', 'Legend') + h('Esc', 'Back');
+    else if (p === 'map') html = h('A D', 'Arena') + h('Enter', 'Play') + h('Esc', 'Back');
     else if (p === 'legends') html = h('A D', 'Legend') + h('Enter', 'Play') + h('Q E', 'Tabs') + h('Esc', 'Home');
     else html = h('Q E', 'Tabs') + h('Esc', 'Home');
     this.hintsEl.innerHTML = html;
@@ -238,9 +262,10 @@ export class Menu {
       return;
     }
     if (this.resultsEl && this.resultsHandlers && e.code === 'Enter') { this.resultsHandlers.again(); return; }
-    if (!this.visible || this.locking) return;
+    if (!this.visible || (this.locking && this.page !== 'map')) return;
     const onButton = document.activeElement instanceof HTMLButtonElement;
     const p = this.page;
+    if (p === 'map') { this.mapKey(e, onButton); return; }
     if ((e.code === 'KeyQ' || e.code === 'KeyE') && p !== 'select') {
       const i = TABS.findIndex((x) => x.id === p);
       const n = TABS[(i + (e.code === 'KeyE' ? 1 : TABS.length - 1)) % TABS.length];
@@ -249,6 +274,7 @@ export class Menu {
       return;
     }
     if (e.code === 'Escape') {
+      if (p === 'select' && this.party) { this.partyBack(); return; }
       if (p !== 'home') { audio.play('uiBack'); this.go('home'); }
       return;
     }
@@ -267,7 +293,7 @@ export class Menu {
       return;
     }
     if (e.code === 'Enter' && !onButton) {
-      if (p === 'home') { audio.play('ui'); this.go('select'); }
+      if (p === 'home') this.play();
       else if (p === 'select') this.lockIn();
       else if (p === 'legends') { audio.play('ui'); this.go('select'); }
     }
@@ -281,21 +307,179 @@ export class Menu {
     const n = PATCH_NOTES[0];
     el.innerHTML = `
       <aside class="h-modes">
-        <div class="sec-h"><b>Game modes</b><span>vs bots</span></div>
+        <div class="sec-h"><b>Game modes</b><span>${this.party ? 'party · bots fill' : 'vs bots'}</span></div>
         <div class="modes" role="listbox" aria-label="Game mode">${MODES.map((m) => this.modeCard(m)).join('')}</div>
       </aside>
-      <button class="h-news" data-hover>
-        <span class="hn-k">${icon(UI.spark)}What's new <i>v${n.version}</i></span>
-        <b>${esc(n.title)}</b>
-        <small>${esc(n.sections[0]?.heading ?? '')}</small>
-        <span class="hn-go">Patch notes ${icon(UI.arrowR)}</span>
-      </button>
+      <div class="h-side">
+        <button class="h-news" data-hover>
+          <span class="hn-k">${icon(UI.spark)}What's new <i>v${n.version}</i></span>
+          <b>${esc(n.title)}</b>
+          <small>${esc(n.sections[0]?.heading ?? '')}</small>
+          <span class="hn-go">Patch notes ${icon(UI.arrowR)}</span>
+        </button>
+        <div class="h-party"></div>
+      </div>
       <div class="h-legend"></div>
       <div class="h-play"></div>`;
     el.querySelectorAll<HTMLButtonElement>('.mcard').forEach((b) => b.addEventListener('click', () => this.setMode(b.dataset.m as Mode)));
     el.querySelector('.h-news')!.addEventListener('click', () => { audio.play('uiTab'); this.go('news'); });
     this.renderHomePlay(el);
     this.renderSpot(el);
+    this.renderParty(el);
+  }
+
+  /** Home → hero select. In a party only the host starts it, and it takes everyone along. */
+  private play() {
+    const p = this.party;
+    if (p && !p.isHost) { audio.play('denied'); this.toast('The party host starts the match'); return; }
+    audio.play('ui');
+    if (p) p.setPhase('select');
+    else this.go('select');
+  }
+
+  // ───────────────────────── party (play with friends) ─────────────────────────
+
+  private renderParty(el: HTMLElement) {
+    const box = el.querySelector('.h-party') as HTMLElement | null;
+    if (!box) return;
+    const p = this.party;
+    el.classList.toggle('in-party', !!p);
+    if (!p) {
+      box.innerHTML = `
+        <div class="pt-h">${icon(UI.users)}<b>Play with friends</b></div>
+        <p class="pt-sub">Open a party, send the link, pick teams. Bots fill every empty seat.</p>
+        <button class="pt-create" data-hover>${icon(UI.link)}<span>Create party</span></button>
+        <form class="pt-join"><input class="txt" maxlength="40" placeholder="Party code" spellcheck="false" autocomplete="off" aria-label="Party code"><button data-hover>Join</button></form>`;
+      box.querySelector('.pt-create')!.addEventListener('click', () => void this.hostParty());
+      const form = box.querySelector('.pt-join') as HTMLFormElement;
+      form.addEventListener('submit', (e) => { e.preventDefault(); void this.joinParty((form.querySelector('input') as HTMLInputElement).value); });
+      return;
+    }
+    const st = p.state;
+    const size = MODE_INFO[st.mode].size;
+    const row = (m: Member) => `<div class="pm${m.id === p.selfId ? ' me' : ''}" style="--hc:${HEROES[m.hero].color}">
+        <span class="pm-av"><img src="${portraits[m.hero] ?? ''}" alt=""></span>
+        <span class="pm-tx"><b>${esc(m.name)}${m.host ? `<i title="Party host">${icon(UI.crown)}</i>` : ''}</b><small>${HEROES[m.hero].name}</small></span>
+        <span class="pm-team t${m.team === (p.me?.team ?? 0) ? 'a' : 'e'}">${m.team === (p.me?.team ?? 0) ? 'Ally' : 'Enemy'}</span>
+        ${p.isHost && m.id !== p.selfId ? `<button class="pm-kick" data-kick="${m.id}" title="Remove from party" aria-label="Remove ${esc(m.name)}">${icon(UI.close)}</button>` : ''}
+      </div>`;
+    box.innerHTML = `
+      <div class="pt-h">${icon(UI.users)}<b>Party</b><span class="pt-n">${st.members.length} / ${size * 2}</span></div>
+      <button class="pt-code" data-hover title="Copy invite link"><small>Code</small><b>${p.code}</b><span>${icon(UI.link)}Copy invite link</span></button>
+      <div class="pt-list">${st.members.map(row).join('')}</div>
+      <p class="pt-sub">${p.isHost ? `You host: pick the mode, then Play. ${size * 2 - st.members.length} bot${size * 2 - st.members.length === 1 ? '' : 's'} fill the rest.` : 'The host picks the mode and starts the match.'}</p>
+      <button class="pt-leave" data-hover>${icon(UI.exit)}Leave party</button>`;
+    box.querySelector('.pt-code')!.addEventListener('click', () => this.copyInvite());
+    box.querySelector('.pt-leave')!.addEventListener('click', () => { audio.play('uiBack'); this.leaveParty(); });
+    box.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach((b) => b.addEventListener('click', () => { audio.play('uiBack'); p.kick(b.dataset.kick!); }));
+  }
+
+  private copyInvite() {
+    const p = this.party;
+    if (!p) return;
+    const link = inviteLink(p.code);
+    audio.play('ui');
+    const done = () => this.toast(`Invite link copied. Code ${p.code}`);
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(done, () => this.toast(link));
+    else this.toast(link);
+  }
+
+  async hostParty() {
+    if (this.party || this.partyBusy) return;
+    this.partyBusy = true;
+    audio.play('ui');
+    this.toast('Opening a party…');
+    try {
+      this.attachParty(await Party.host(settings.playerName || 'Player', this.hero, this.mode, settings.botDifficulty));
+      this.copyInvite();
+    } catch (e) {
+      this.toast((e as Error).message || 'Could not open a party', true);
+    } finally { this.partyBusy = false; }
+  }
+
+  async joinParty(text: string) {
+    if (this.partyBusy) return;
+    const code = parseCode(text);
+    if (!code) { audio.play('denied'); this.toast('Party codes are 5 letters, like K7QXP', true); return; }
+    if (this.party) this.leaveParty(true);
+    this.partyBusy = true;
+    audio.play('ui');
+    this.toast(`Joining party ${code}…`);
+    try {
+      this.attachParty(await Party.join(code, settings.playerName || 'Player', this.hero));
+      audio.play('lockIn');
+      this.toast(`Joined ${this.party!.state.members.find((m) => m.host)?.name ?? 'the'}'s party`);
+    } catch (e) {
+      this.toast((e as Error).message || 'Could not join that party', true);
+    } finally { this.partyBusy = false; }
+  }
+
+  private attachParty(p: Party) {
+    this.party = p;
+    const names = new Set(p.state.members.map((m) => m.id));
+    p.onState = (st) => {
+      for (const m of st.members) if (!names.has(m.id)) { names.add(m.id); if (m.id !== p.selfId) { audio.play('uiTab'); this.toast(`${m.name} joined the party`); } }
+      for (const id of [...names]) if (!st.members.some((m) => m.id === id)) names.delete(id);
+      this.partySync();
+    };
+    p.onLeft = (_id, name) => this.toast(`${name} left the party`);
+    p.onClose = (why) => { this.party = null; this.hooks.onParty(null); this.toast(why, true); if (this.visible) this.go('home', true); };
+    this.hooks.onParty(p);
+    this.partySync();
+  }
+
+  leaveParty(quiet = false) {
+    const p = this.party;
+    if (!p) return;
+    p.onClose = null;
+    p.leave();
+    this.party = null;
+    this.hooks.onParty(null);
+    if (!quiet) this.toast(p.isHost ? 'Party closed' : 'You left the party');
+    if (this.visible) this.go('home', true);
+  }
+
+  /** Follow the party: its mode and difficulty, which screen everyone is on, who picked what. */
+  partySync() {
+    const p = this.party;
+    if (!p) return;
+    const st = p.state;
+    if (st.mode !== this.mode) { this.mode = st.mode; this.lineup = null; }
+    if (st.diff !== settings.botDifficulty) settings.botDifficulty = st.diff;
+    const me = p.me;
+    if (me && me.hero !== this.hero && !p.isHost) { /* our pick is ours: the host's copy catches up */ }
+    if (!this.visible) return;
+    const want: Page | null = st.phase === 'select' ? 'select' : st.phase === 'map' ? 'map' : st.phase === 'lobby' && (this.page === 'select' || this.page === 'map') ? 'home' : null;
+    if (want && want !== this.page) { this.locking = false; this.go(want); return; }
+    const el = this.pageHost.firstElementChild as HTMLElement | null;
+    if (!el) return;
+    if (this.page === 'home') { this.renderParty(el); const tag = el.querySelector('.h-modes .sec-h span'); if (tag) tag.textContent = 'party · bots fill'; el.querySelectorAll<HTMLElement>('.mcard').forEach((t) => t.classList.toggle('on', t.dataset.m === this.mode)); this.renderHomePlay(el); }
+    else if (this.page === 'select') this.renderPartyTeams(el);
+    else if (this.page === 'map') this.renderMap(el);
+    // the host moves everyone on once every player has locked in
+    if (p.isHost && st.phase === 'select' && st.members.every((m) => m.ready)) setTimeout(() => { if (this.party === p && p.state.phase === 'select' && p.state.members.every((m) => m.ready)) p.setPhase('map'); }, 900);
+  }
+
+  private partyBack() {
+    const p = this.party!;
+    audio.play('uiBack');
+    if (p.isHost) p.setPhase('lobby');
+    else if (p.me?.ready) { p.setMine({ ready: false }); this.locking = false; this.renderPartyTeams(this.pageHost.firstElementChild as HTMLElement); }
+    else this.toast('Only the host can leave hero select. Leave the party from Home');
+  }
+
+  toast(text: string, bad = false) {
+    if (!this.toastEl) {
+      this.toastEl = document.createElement('div');
+      this.toastEl.className = 'm-toast';
+      document.getElementById('ui')!.appendChild(this.toastEl);
+    }
+    const t = this.toastEl;
+    t.textContent = text;
+    t.classList.toggle('bad', bad);
+    t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+    clearTimeout(this.toastT);
+    this.toastT = window.setTimeout(() => t.classList.remove('show'), bad ? 5200 : 3200);
   }
 
   private modeCard(m: Mode) {
@@ -312,7 +496,11 @@ export class Menu {
 
   private setMode(m: Mode) {
     if (m === this.mode) return;
+    const p = this.party;
+    if (p && !p.isHost) { audio.play('denied'); this.toast('The party host picks the mode'); return; }
+    if (p && !p.canMode(m)) { audio.play('denied'); this.toast(`Too many players for ${m}`); return; }
     audio.play('ui');
+    if (p) p.setMode(m);
     this.mode = m;
     store('la:lastMode', m);
     this.lineup = null;
@@ -327,29 +515,23 @@ export class Menu {
     const c = MODE_COPY[this.mode];
     const main = el.querySelector('.h-play') as HTMLElement;
     main.style.setProperty('--mc', c.c1);
+    const p = this.party;
+    const guest = !!p && !p.isHost;
+    const sub = p ? `Party · ${p.state.members.length} player${p.state.members.length > 1 ? 's' : ''}` : `${info.label} · ${settings.botDifficulty} bots`;
     main.innerHTML = `
       <div class="hp-opts">
-        <div class="opt"><small>${icon(UI.bot)}Bot skill</small>
+        <div class="opt${guest ? ' ro' : ''}"><small>${icon(UI.bot)}Bot skill</small>
           <div class="seg">${DIFFS.map((d) => `<button data-d="${d}" class="${settings.botDifficulty === d ? 'on' : ''}">${d}</button>`).join('')}</div>
         </div>
-        <div class="opt"><small>${icon(UI.map)}Arena</small>
-          <div class="seg">${ARENAS.map(([k, n, short]) => `<button data-arena="${k}" title="${n}" class="${settings.arena === k ? 'on' : ''}">${short}</button>`).join('')}</div>
-        </div>
       </div>
-      <button class="btn-play" data-hover>
-        <span class="bp-t"><b>Play</b><small><span class="chip">${this.mode}</span>${info.label} · ${settings.botDifficulty} bots</small></span>
-        <span class="bp-ic">${icon(UI.play)}</span>
-        <kbd>Enter</kbd>
+      <button class="btn-play${guest ? ' wait' : ''}" data-hover>
+        <span class="bp-t"><b>${guest ? 'Waiting' : 'Play'}</b><small><span class="chip">${this.mode}</span>${guest ? 'The host starts the match' : sub}</small></span>
+        <span class="bp-ic">${icon(guest ? UI.clock : UI.play)}</span>
+        ${guest ? '' : '<kbd>Enter</kbd>'}
       </button>`;
-    main.querySelector('.btn-play')!.addEventListener('click', () => { audio.play('ui'); this.go('select'); });
-    this.bindDiff(main, () => this.renderHomePlay(el));
-    main.querySelectorAll<HTMLButtonElement>('[data-arena]').forEach((b) => b.addEventListener('click', () => {
-      if (settings.arena === b.dataset.arena) return;
-      audio.play('ui');
-      settings.arena = b.dataset.arena as typeof settings.arena;
-      saveSettings(settings);
-      location.reload(); // arenas are built at boot
-    }));
+    main.querySelector('.btn-play')!.addEventListener('click', () => this.play());
+    if (guest) main.querySelectorAll<HTMLButtonElement>('.seg [data-d]').forEach((b) => b.addEventListener('click', () => { audio.play('denied'); this.toast('The party host picks the bot skill'); }));
+    else this.bindDiff(main, () => { this.party?.setDiff(settings.botDifficulty); this.renderHomePlay(el); });
   }
 
   private bindDiff(scope: HTMLElement, after?: () => void) {
@@ -381,30 +563,71 @@ export class Menu {
 
   private renderSelect(el: HTMLElement, forPlay: boolean) {
     const info = MODE_INFO[this.mode];
+    const party = forPlay ? this.party : null;
     el.classList.toggle('for-play', forPlay);
-    if (forPlay && !this.lineup) this.lineup = rollLineup(this.mode, this.hero);
-    if (forPlay && this.lineup) fixLineup(this.lineup, this.mode, this.hero);
+    el.classList.toggle('in-party', !!party);
+    if (forPlay && !party && !this.lineup) this.lineup = rollLineup(this.mode, this.hero);
+    if (forPlay && !party && this.lineup) fixLineup(this.lineup, this.mode, this.hero);
+    if (party && party.me && party.me.hero !== this.hero) party.setMine({ hero: this.hero });
     el.innerHTML = `
       <header class="sel-top">
         ${forPlay ? `<button class="back" data-hover>${icon(UI.back)}<kbd>Esc</kbd></button>` : ''}
         <div class="st-tx">
-          <small>${forPlay ? `<span class="chip">${this.mode}</span>${info.label} · ${settings.botDifficulty} bots` : 'Roster'}</small>
+          <small>${forPlay ? `<span class="chip">${this.mode}</span>${info.label} · ${party ? `party of ${party.state.members.length} · ` : ''}${settings.botDifficulty} bots` : 'Roster'}</small>
           <h2>${forPlay ? 'Choose your legend' : 'Legends'}</h2>
         </div>
       </header>
-      <aside class="sel-team">${forPlay ? this.teamHtml() : this.tipsHtml()}</aside>
+      <aside class="sel-team">${party ? '' : forPlay ? this.teamHtml() : this.tipsHtml()}</aside>
       <aside class="sel-info"></aside>
       <div class="sel-bottom">
         <div class="roster" role="listbox" aria-label="Legends">${ROLES.map((r) => this.rosterGroup(r)).join('')}</div>
         <button class="btn-lock" data-hover><span class="bl-t">${forPlay ? 'Lock in' : 'Play'}</span><small class="bl-s"></small><kbd>Enter</kbd></button>
       </div>
       <div class="lock-fx"><i></i><i class="l2"></i><b class="lock-name"></b><span>${icon(UI.check)}Locked in</span></div>`;
-    el.querySelector('.back')?.addEventListener('click', () => { audio.play('uiBack'); this.go('home'); });
+    el.querySelector('.back')?.addEventListener('click', () => { if (this.party) this.partyBack(); else { audio.play('uiBack'); this.go('home'); } });
     el.querySelectorAll<HTMLButtonElement>('.rc[data-h]').forEach((b) => b.addEventListener('click', () => this.setHero(b.dataset.h as HeroId)));
     el.querySelectorAll<HTMLButtonElement>('.rc.locked').forEach((b) => b.addEventListener('click', () => audio.play('denied')));
     el.querySelector('.btn-lock')!.addEventListener('click', () => (forPlay ? this.lockIn() : (audio.play('ui'), this.go('select'))));
     this.renderSelInfo(el);
-    if (forPlay) this.revealTeam(el);
+    if (party) this.renderPartyTeams(el);
+    else if (forPlay) this.revealTeam(el);
+  }
+
+  /** Party hero select: both teams with every player's live pick, bots in the empty seats, a team switch. */
+  private renderPartyTeams(el: HTMLElement) {
+    const p = this.party;
+    const box = el.querySelector('.sel-team') as HTMLElement | null;
+    if (!p || !box || !el.classList.contains('for-play')) return;
+    const st = p.state;
+    const size = MODE_INFO[st.mode].size;
+    const mine = p.me?.team ?? 0;
+    const slot = (m: Member | null, i: number) => {
+      if (!m) return `<div class="ts bot-seat" style="--i:${i}"><span class="ts-av">${icon(UI.bot)}</span><span class="ts-tx"><b>Bot</b><small><span class="ts-h">Picks at the start</span></small></span></div>`;
+      const d = HEROES[m.id === p.selfId ? this.hero : m.hero];
+      return `<div class="ts${m.id === p.selfId ? ' me' : ''}${m.ready ? ' rdy' : ' choosing'}" style="--hc:${d.color};--i:${i}">
+        <span class="ts-av"><img src="${portraits[d.id] ?? ''}" alt=""></span>
+        <span class="ts-tx"><b>${esc(m.name)}${m.host ? `<i class="ts-crown">${icon(UI.crown)}</i>` : ''}</b><small><span class="ts-h">${d.name}</span></small></span>
+        <span class="ts-st">${m.ready ? icon(UI.check) : '<i class="ts-dots"><i></i><i></i><i></i></i>'}</span></div>`;
+    };
+    const team = (t: number) => {
+      const on = st.members.filter((m) => m.team === t);
+      return [...on.map((m, i) => slot(m, i)), ...Array.from({ length: Math.max(0, size - on.length) }, (_, i) => slot(null, on.length + i))].join('');
+    };
+    const full = st.members.filter((m) => m.team !== mine).length >= size;
+    const waiting = st.members.filter((m) => !m.ready).length;
+    box.innerHTML = `<div class="sec-h"><b>Your team</b><span>${st.mode}</span></div>
+      <div class="ts-list">${team(mine)}</div>
+      <div class="sec-h foe"><b>Enemy team</b><span>${st.members.filter((m) => m.team !== mine).length} player${st.members.filter((m) => m.team !== mine).length === 1 ? '' : 's'}</span></div>
+      <div class="ts-list foe">${team(1 - mine)}</div>
+      <button class="pt-swap" data-hover ${full || p.me?.ready ? 'disabled' : ''}>${icon(UI.swap)}${full ? 'Enemy team is full' : 'Switch team'}</button>`;
+    box.querySelector('.pt-swap')?.addEventListener('click', () => { audio.play('ui'); p.setMine({ team: 1 - mine }); });
+    const btn = el.querySelector('.btn-lock') as HTMLElement | null;
+    const ready = !!p.me?.ready;
+    el.classList.toggle('is-ready', ready);
+    if (btn) {
+      (btn.querySelector('.bl-t') as HTMLElement).textContent = ready ? 'Locked' : 'Lock in';
+      (btn.querySelector('.bl-s') as HTMLElement).textContent = ready ? (waiting ? `Waiting for ${waiting} player${waiting > 1 ? 's' : ''} · Esc to change` : 'Everyone is in') : `as ${splitName(HEROES[this.hero].name)[1]}`;
+    }
   }
 
   private rosterGroup(role: Role) {
@@ -471,7 +694,8 @@ export class Menu {
     if (el) {
       el.querySelectorAll<HTMLElement>('.rc[data-h]').forEach((c) => c.classList.toggle('on', c.dataset.h === id));
       this.renderSelInfo(el);
-      if (el.classList.contains('for-play')) this.updateTeam(el);
+      if (el.classList.contains('for-play') && this.party) { this.party.setMine({ hero: id, ready: false }); this.locking = false; el.classList.remove('locking'); }
+      else if (el.classList.contains('for-play')) this.updateTeam(el);
       else (el.querySelector('.sel-team') as HTMLElement).innerHTML = this.tipsHtml();
     }
     const home = this.pageHost.querySelector<HTMLElement>('.pg-home');
@@ -541,12 +765,26 @@ export class Menu {
     info.classList.remove('swap'); void info.offsetWidth; info.classList.add('swap');
     const sub = el.querySelector('.bl-s') as HTMLElement | null;
     if (sub) sub.textContent = el.classList.contains('for-play') ? `as ${last}` : `Take ${last} into a match`;
+    if (this.party && el.classList.contains('for-play')) this.renderPartyTeams(el);
   }
 
   private lockIn() {
-    if (this.locking) return;
     const el = this.pageHost.querySelector<HTMLElement>('.pg-select');
     if (!el) return;
+    if (this.party) {
+      if (this.party.me?.ready || this.locking) return;
+      this.locking = true;
+      audio.play('lockIn');
+      audio.announce('assemble', 0);
+      this.hooks.onLockIn(this.hero);
+      store('la:lastHero', this.hero);
+      (el.querySelector('.lock-name') as HTMLElement).textContent = splitName(HEROES[this.hero].name)[1];
+      el.classList.add('locking');
+      this.party.setMine({ hero: this.hero, ready: true });
+      setTimeout(() => { el.classList.remove('locking'); this.locking = false; }, 1500);
+      return;
+    }
+    if (this.locking) return;
     this.locking = true;
     audio.play('lockIn');
     audio.announce('assemble', 0);
@@ -559,9 +797,85 @@ export class Menu {
     this.revealTimers.forEach(clearTimeout);
     (el.querySelector('.lock-name') as HTMLElement).textContent = splitName(HEROES[this.hero].name)[1];
     el.classList.add('locking');
+    // next: pick the arena (it loads after that, in place)
+    setTimeout(() => { if (this.page === 'select') this.go('map'); }, 1250);
+  }
+
+  // ───────────────────────── arena pick ─────────────────────────
+  // Comes after the lineup is set (solo and party): the arena then loads in place before the match.
+
+  private mapSel: ArenaKind = (settings.arena as ArenaKind) ?? 'study';
+
+  private renderMap(el: HTMLElement) {
+    const p = this.party;
+    const guest = !!p && !p.isHost;
+    if (p?.state.arena) this.mapSel = p.state.arena;
+    const info = MODE_INFO[this.mode];
+    el.classList.toggle('guest', guest);
+    el.innerHTML = `
+      <header class="sel-top">
+        ${guest ? '' : `<button class="back" data-hover>${icon(UI.back)}<kbd>Esc</kbd></button>`}
+        <div class="st-tx">
+          <small><span class="chip">${this.mode}</span>${info.label} · ${p ? `party of ${p.state.members.length}` : `${settings.botDifficulty} bots`}</small>
+          <h2>${guest ? 'The host picks the arena' : 'Choose the arena'}</h2>
+        </div>
+      </header>
+      <div class="maps" role="listbox" aria-label="Arena">${ARENAS.map((a, i) => `
+        <button class="map-card${a.id === this.mapSel ? ' on' : ''}" data-a="${a.id}" data-hover role="option" style="--mc:${a.c};--i:${i}" ${guest ? 'tabindex="-1"' : ''}>
+          <span class="mp-img"><img src="/maps/${a.id}.webp" alt="" draggable="false"></span>
+          <span class="mp-tx"><small>${a.kicker}</small><b>${a.name}</b><p>${a.desc}</p></span>
+          ${a.id === settings.arena ? '<span class="mp-ready">Loaded</span>' : ''}
+        </button>`).join('')}
+      </div>
+      <div class="map-go">${guest ? `<span class="map-wait"><i class="ts-dots"><i></i><i></i><i></i></i>Waiting for ${esc(p!.state.members.find((m) => m.host)?.name ?? 'the host')}</span>`
+        : `<button class="btn-lock" data-hover><span class="bl-t">Play</span><small class="bl-s"></small><kbd>Enter</kbd></button>`}</div>`;
+    el.querySelector('.back')?.addEventListener('click', () => this.mapBack());
+    el.querySelectorAll<HTMLButtonElement>('.map-card').forEach((b) => {
+      b.addEventListener('click', () => { if (guest) return; if (this.mapSel === b.dataset.a) this.pickArena(); else this.selectMap(b.dataset.a as ArenaKind); });
+      b.addEventListener('dblclick', () => { if (!guest) this.pickArena(); });
+    });
+    el.querySelector('.btn-lock')?.addEventListener('click', () => this.pickArena());
+    this.selectMap(this.mapSel, true);
+  }
+
+  private selectMap(id: ArenaKind, quiet = false) {
+    if (!quiet) audio.play('ui');
+    this.mapSel = id;
+    const el = this.pageHost.querySelector('.pg-map');
+    el?.querySelectorAll<HTMLElement>('.map-card').forEach((c) => c.classList.toggle('on', c.dataset.a === id));
+    const sub = el?.querySelector('.bl-s');
+    if (sub) sub.textContent = arenaInfo(id).name;
+  }
+
+  private mapBack() {
+    audio.play('uiBack');
+    const p = this.party;
+    if (p) { if (p.isHost) p.setPhase('select'); return; }
+    this.locking = false;
+    this.go('select');
+  }
+
+  private mapKey(e: KeyboardEvent, onButton: boolean) {
+    const p = this.party;
+    if (p && !p.isHost) return;
+    if (e.code === 'Escape') { this.mapBack(); return; }
+    const dir = e.code === 'ArrowLeft' || e.code === 'KeyA' ? -1 : e.code === 'ArrowRight' || e.code === 'KeyD' ? 1 : 0;
+    if (dir) { const i = ARENAS.findIndex((a) => a.id === this.mapSel); this.selectMap(ARENAS[(i + dir + ARENAS.length) % ARENAS.length].id); return; }
+    if (e.code === 'Enter' && !onButton) this.pickArena();
+  }
+
+  private pickArena() {
+    if (this.locking && this.page !== 'map') return;
+    const el = this.pageHost.querySelector<HTMLElement>('.pg-map');
+    if (!el || el.classList.contains('going')) return;
+    el.classList.add('going');
+    audio.play('lockIn');
+    this.hooks.onEngage();
+    const arena = this.mapSel;
+    if (this.party) { this.hooks.onPartyStart(arena); return; }
     const lineup = this.lineup ?? undefined;
     this.lineup = null;
-    setTimeout(() => { this.hooks.onStart(this.mode, this.hero, lineup); }, 1250);
+    this.hooks.onStart(this.mode, this.hero, lineup, arena);
   }
 
 
@@ -768,6 +1082,9 @@ export class Menu {
     if (this.g && this.g.state !== 'menu' && this.g.state !== 'ended' && this.g.paused) this.pause(true);
   }
 
+  /** Close the results screen (the party moved on without you). */
+  closeResults() { this.resultsEl?.remove(); this.resultsEl = null; this.resultsHandlers = null; }
+
   /** Kept for API compatibility: opens settings as an in-match overlay. */
   openSettings() { this.openOverlay('settings'); }
 
@@ -793,8 +1110,8 @@ export class Menu {
     el.innerHTML = `
       <aside class="pause-side">
         <div class="ps-brand">${logoMark()}<span>Legends Assembly</span></div>
-        <div class="ps-tag">Match paused</div>
-        <h2>Paused</h2>
+        <div class="ps-tag">${g?.net ? 'Online · the match keeps going' : 'Match paused'}</div>
+        <h2>${g?.net ? 'Menu' : 'Paused'}</h2>
         ${g && info ? `<div class="ps-match">
           <span class="chip">${g.config!.mode}</span><span>${info.label}</span>
           <span class="ps-score"><b class="b">${g.score[0]}</b><i>–</i><b class="r">${g.score[1]}</b></span>
@@ -804,7 +1121,7 @@ export class Menu {
           <button class="pbtn primary" data-a="resume" data-hover>${icon(UI.resume)}Resume</button>
           <button class="pbtn" data-a="settings" data-hover>${icon(UI.gear)}Settings</button>
           <button class="pbtn" data-a="learn" data-hover>${icon(UI.book)}How to play</button>
-          <button class="pbtn danger" data-a="leave" data-hover>${icon(UI.exit)}<span>Leave match</span></button>
+          <button class="pbtn danger" data-a="leave" data-hover>${icon(UI.exit)}<span>${g?.net ? (g.authority ? 'End match for everyone' : 'Leave party') : 'Leave match'}</span></button>
         </nav>
         <p class="ps-hint">Click anywhere on the arena to jump back in</p>
       </aside>
@@ -821,7 +1138,8 @@ export class Menu {
       audio.play('denied');
       leave.classList.add('armed');
       (leave.querySelector('span') as HTMLElement).textContent = 'Click again to leave';
-      armed = window.setTimeout(() => { armed = 0; leave.classList.remove('armed'); (leave.querySelector('span') as HTMLElement).textContent = 'Leave match'; }, 2600);
+      const label = g?.net ? (g.authority ? 'End match for everyone' : 'Leave party') : 'Leave match';
+      armed = window.setTimeout(() => { armed = 0; leave.classList.remove('armed'); (leave.querySelector('span') as HTMLElement).textContent = label; }, 2600);
     });
     document.getElementById('ui')!.appendChild(el);
     this.pauseEl = el;
@@ -851,7 +1169,7 @@ export class Menu {
 
   // ───────────────────────── results ─────────────────────────
 
-  results(g: Game, onAgain: () => void, onMenu: () => void) {
+  results(g: Game, onAgain: () => void, onMenu: () => void, party = false) {
     this.resultsEl?.remove();
     const me = g.local;
     const win = g.winner === me.team;
@@ -910,16 +1228,16 @@ export class Menu {
         <div class="res-teams">${team(me.team)}${team(1 - me.team)}</div>
       </div>
       <div class="res-actions">
-        <button class="btn-play sm again" data-hover><span class="bp-ic">${icon(UI.play)}</span><span class="bp-t"><b>Play again</b><small>${info.label} as ${me.def.name}</small></span><kbd>Enter</kbd></button>
-        <button class="gbtn change" data-hover>Change legend</button>
-        <button class="gbtn menu" data-hover>Main menu</button>
+        <button class="btn-play sm again" data-hover><span class="bp-ic">${icon(UI.play)}</span><span class="bp-t"><b>${party ? 'Back to party' : 'Play again'}</b><small>${party ? (this.party?.isHost ? 'Everyone picks again' : 'Pick your next legend') : `${info.label} as ${me.def.name}`}</small></span><kbd>Enter</kbd></button>
+        ${party ? '' : '<button class="gbtn change" data-hover>Change legend</button>'}
+        <button class="gbtn menu" data-hover>${party ? 'Leave party' : 'Main menu'}</button>
       </div>`;
     const close = () => { el.remove(); this.resultsEl = null; this.resultsHandlers = null; };
     const again = () => { audio.play('lockIn'); close(); onAgain(); };
     const menu = () => { audio.play('uiBack'); close(); onMenu(); };
     el.querySelector('.again')!.addEventListener('click', again);
     el.querySelector('.menu')!.addEventListener('click', menu);
-    el.querySelector('.change')!.addEventListener('click', () => { audio.play('ui'); close(); onMenu(); this.go('select'); });
+    el.querySelector('.change')?.addEventListener('click', () => { audio.play('ui'); close(); onMenu(); this.go('select'); });
     document.getElementById('ui')!.appendChild(el);
     el.querySelectorAll<HTMLElement>('.ry-grid b').forEach((b, i) => countUp(b, Number(b.dataset.n), 900, 900 + i * 90));
     this.resultsEl = el;

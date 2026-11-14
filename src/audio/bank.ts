@@ -270,7 +270,7 @@ export const RECIPES = {
   },
   comm: {
     // stinger under a subtitle when a voice line has no recording yet (variant = hero)
-    dur: 0.5, variants: 4, level: 0.16, bus: 'ui',
+    dur: 0.5, variants: 5, level: 0.16, bus: 'ui',
     render(s, v) {
       const mix = wetBus(s, 1, 0.3);
       if (v === 0) { // Einstein: soft theremin glide
@@ -279,12 +279,166 @@ export const RECIPES = {
       } else if (v === 1) { // Yeat: tiny bell + sub
         s.partials(1244.5, [[1, 0.45, 0.35], [2.76, 0.15, 0.15]], T, mix);
         s.thump(T, 110, 55, 0.05, 0.15, 0.45, mix);
-      } else if (v === 3) { // Iron Man: a HUD double-chirp
-        for (const [i, f] of [[0, 1760], [1, 2349]] as const) s.osc('square', f, T + i * 0.06, 0.05, s.filter('bandpass', f, 3, s.vca(T + i * 0.06, 0.002, 0.25, 0.045, mix)));
-      } else { // Van Gogh: two plucked notes
+      } else if (v === 2) { // Van Gogh: two plucked notes
         s.pluck(1046.5, T, 0.4, mix, 0.5, 0.6);
         s.pluck(1568, T + 0.06, 0.4, mix, 0.4, 0.6);
+      } else if (v === 4) { // Iron Man: a HUD double-chirp
+        for (const [i, f] of [[0, 1760], [1, 2349]] as const) s.osc('square', f, T + i * 0.06, 0.05, s.filter('bandpass', f, 3, s.vca(T + i * 0.06, 0.002, 0.25, 0.045, mix)));
+      } else { // Blitzcrank: two square-wave robot beeps
+        s.osc('square', 1318.5, T, 0.06, s.filter('lowpass', 4000, 1, s.vca(T, 0.002, 0.3, 0.05, mix)));
+        s.osc('square', 987.8, T + 0.08, 0.08, s.filter('lowpass', 4000, 1, s.vca(T + 0.08, 0.002, 0.3, 0.07, mix)));
       }
+    },
+  },
+
+  // ── Blitzcrank ──
+  blitzJab: {
+    // piston punch: pneumatic hiss, a fist of iron cutting the air, the piston slamming home
+    dur: 0.45, variants: 3, level: 0.5, jitter: 0.8, maxVoices: 4, reverb: 0.1,
+    render(s) {
+      s.burst(T, 0.002, 0.09, 0.45, 'highpass', 3800, 0.7, s.out, 'white');
+      const bp = s.filter('bandpass', 700, 1.4, s.vca(T, 0.01, 0.55, 0.12));
+      s.sweep(bp.frequency, T, 500, 1900, 0.1);
+      s.noise(T, 0.16, bp, 'pink');
+      // piston: a short metallic knock, the clank of the rod hitting its stop
+      s.partials(s.r(380, 430), [[1, 0.3, 0.12], [2.32, 0.18, 0.08], [3.9, 0.08, 0.05]], T + 0.07, s.out);
+      s.thump(T + 0.07, 140, 70, 0.04, 0.09, 0.6);
+      s.burst(T + 0.07, 0.0005, 0.02, 0.5, 'bandpass', 2600, 2);
+    },
+  },
+  blitzPunchHit: {
+    // iron knuckles land: meaty thud, a hollow metal clang and grit
+    dur: 0.7, variants: 3, level: 0.62, jitter: 0.8, maxVoices: 4, reverb: 0.14, dedupe: 0.04,
+    render(s) {
+      s.thump(T, 160, 48, 0.08, 0.24, 1, s.shaper(2.4, s.out));
+      s.burst(T, 0.0005, 0.05, 0.7, 'lowpass', 1800, 0.7, s.out, 'pink');
+      s.partials(s.r(240, 290), [[1, 0.26, 0.4], [1.51, 0.18, 0.3], [2.43, 0.12, 0.22], [3.7, 0.06, 0.12]], T + 0.004, s.out, 0.01);
+      s.crackle(T, 0.06, 10, 0.25, s.out, 1800, 6000, 1);
+    },
+  },
+  blitzUppercut: {
+    // the finisher: a rising whoosh, a huge clang, a sub boom that throws them skyward
+    dur: 1.3, level: 0.8, reverb: 0.22, maxVoices: 3,
+    render(s) {
+      const mix = wetBus(s, 1.2, 0.25);
+      const bp = s.filter('bandpass', 400, 1.6, s.vca(T, 0.06, 0.6, 0.12, mix));
+      s.sweep(bp.frequency, T, 300, 2600, 0.12);
+      s.noise(T, 0.2, bp, 'pink');
+      const at = T + 0.13;
+      s.thump(at, 120, 34, 0.25, 0.6, 1, s.shaper(3, mix));
+      s.partials(196, [[1, 0.3, 0.9], [1.48, 0.22, 0.7], [2.21, 0.16, 0.5], [2.94, 0.1, 0.4], [4.1, 0.06, 0.25]], at, mix, 0.012);
+      s.burst(at, 0.0005, 0.08, 0.6, 'lowpass', 2400, 0.7, mix, 'pink');
+      s.crackle(at, 0.15, 18, 0.3, mix, 2000, 7000, 1.2);
+    },
+  },
+  grabLaunch: {
+    // Rocket Grab: the thrusters ignite, the arm decouples, the chain screams out of the shoulder
+    dur: 0.9, level: 0.62, reverb: 0.12, maxVoices: 3,
+    render(s) {
+      s.burst(T, 0.001, 0.05, 0.6, 'bandpass', 1400, 1.2);
+      s.thump(T, 180, 70, 0.05, 0.12, 0.6);
+      // rocket roar: low noise through a filter that opens and drops away with distance
+      const lp = s.filter('lowpass', 900, 1.2, s.vca(T + 0.01, 0.02, 0.7, 0.45));
+      s.sweep(lp.frequency, T, 900, 3600, 0.08);
+      lp.frequency.exponentialRampToValueAtTime(700, T + 0.5);
+      s.noise(T, 0.6, lp, 'brown');
+      s.noise(T, 0.5, s.filter('highpass', 4000, 0.7, s.vca(T, 0.005, 0.25, 0.3)));
+      // chain rattling out: fast metallic ticks that slow down
+      for (let i = 0; i < 26; i++) {
+        const at = T + 0.03 + Math.pow(i / 26, 1.35) * 0.55;
+        s.partials(s.r(2100, 3600), [[1, s.r(0.05, 0.12), 0.025], [1.7, 0.04, 0.015]], at, s.out);
+      }
+    },
+  },
+  grabReel: {
+    // the chain winds back in: a ratchet and a motor whine
+    dur: 0.7, level: 0.45, maxVoices: 3,
+    render(s) {
+      const o = s.osc('sawtooth', 160, T, 0.5, s.filter('bandpass', 900, 3, s.vca(T, 0.03, 0.25, 0.42)));
+      o.frequency.exponentialRampToValueAtTime(320, T + 0.45);
+      for (let i = 0; i < 18; i++) {
+        const at = T + (i / 18) * 0.5;
+        s.burst(at, 0.0005, 0.012, 0.35, 'bandpass', s.r(1800, 3000), 3);
+      }
+      s.partials(520, [[1, 0.2, 0.15], [2.7, 0.1, 0.08]], T + 0.52, s.out);
+      s.thump(T + 0.52, 160, 80, 0.04, 0.1, 0.5);
+    },
+  },
+  grabHit: {
+    // gotcha: the claw clamps shut, a magnetic thunk, and the chain snaps taut
+    dur: 1.0, level: 0.78, reverb: 0.15,
+    render(s) {
+      const mix = wetBus(s, 0.9, 0.2);
+      s.thump(T, 140, 45, 0.1, 0.35, 1, s.shaper(2.5, mix));
+      s.partials(310, [[1, 0.3, 0.5], [1.34, 0.2, 0.4], [2.6, 0.14, 0.25], [3.9, 0.07, 0.15]], T, mix, 0.008);
+      s.burst(T, 0.0005, 0.04, 0.7, 'bandpass', 2200, 1.5, mix);
+      // magnetic lock: a buzzy downward zap
+      const z = s.osc('square', 880, T + 0.02, 0.18, s.filter('lowpass', 3000, 2, s.vca(T + 0.02, 0.002, 0.22, 0.16, mix)));
+      z.frequency.exponentialRampToValueAtTime(110, T + 0.18);
+      // chain snaps taut
+      s.burst(T + 0.12, 0.0005, 0.03, 0.5, 'highpass', 3000, 1, mix);
+      s.partials(1800, [[1, 0.1, 0.2], [1.5, 0.06, 0.12]], T + 0.12, mix);
+    },
+  },
+  staticCharge: {
+    // Static Field winds up: generators spin, the air fizzes, the pitch climbs to breaking point
+    dur: 0.9, level: 0.75,
+    render(s) {
+      const E = T + 0.7;
+      const sg = s.gain(0);
+      sg.gain.setValueAtTime(0.0001, T); sg.gain.exponentialRampToValueAtTime(0.4, E); sg.gain.linearRampToValueAtTime(0, E + 0.03);
+      const lp = s.filter('lowpass', 400, 6, sg);
+      s.sweep(lp.frequency, T, 400, 6500, 0.7);
+      for (const n of [0, 7, 12]) {
+        const o = s.osc('sawtooth', 70 * semi(n), T, 0.75, lp, s.r(-10, 10));
+        o.frequency.exponentialRampToValueAtTime(420 * semi(n), E);
+      }
+      const hum = s.osc('square', 50, T, 0.72, s.filter('bandpass', 1800, 1, s.vca(T, 0.3, 0.14, 0.5)));
+      hum.frequency.linearRampToValueAtTime(120, E);
+      s.crackle(T + 0.05, 0.65, 50, 0.35, s.out, 2500, 9000, 0.5);
+      const ng = s.gain(0);
+      s.swell(ng.gain, T, 0.7, 0.45, 0.03);
+      s.noise(T, 0.75, s.filter('highpass', 2000, 0.7, ng), 'pink');
+    },
+  },
+  staticBlast: {
+    // the slam: a thunderclap from the floor, a wall of static and a long electric ring-out
+    dur: 3.0, level: 1, reverb: 0.28, stereo: true,
+    render(s) {
+      const mix = wetBus(s, 2.5, 0.35, 2.2, 0.6);
+      s.burst(T, 0.0003, 0.03, 1, 'highpass', 1200, 0.5, mix);
+      s.thump(T, 90, 26, 0.6, 1.2, 1, s.shaper(2.5, mix));
+      s.burst(T, 0.002, 0.35, 0.8, 'lowpass', 2600, 0.7, mix, 'pink');
+      s.burst(T + 0.03, 0.05, 1.8, 0.45, 'lowpass', 160, 0.7, mix, 'brown');
+      // thunder crackle rolling away
+      s.crackle(T, 1.6, 120, 0.4, mix, 1500, 9000, 2.2);
+      // electric zap sweeping down, and a buzzing ring-out
+      const z = s.osc('sawtooth', 2400, T, 0.4, s.filter('lowpass', 5000, 3, s.vca(T, 0.002, 0.3, 0.35, mix)));
+      z.frequency.exponentialRampToValueAtTime(80, T + 0.35);
+      const buzz = s.osc('square', 100, T + 0.05, 1.6, s.filter('bandpass', 1300, 2, s.vca(T + 0.05, 0.05, 0.12, 1.3, mix)));
+      buzz.frequency.linearRampToValueAtTime(60, T + 1.6);
+      s.partials(147, [[1, 0.16, 1.8], [2.01, 0.1, 1.4], [3.02, 0.06, 1]], T + 0.02, mix, 0.006);
+    },
+  },
+  staticZap: {
+    // a stray bolt from the overcharged coils to someone too close
+    dur: 0.35, variants: 4, level: 0.42, jitter: 1.5, maxVoices: 5, dedupe: 0.05,
+    render(s) {
+      s.crackle(T, 0.1, 22, 0.7, s.out, 2500, 10000, 0.8);
+      const o = s.osc('sawtooth', s.r(1400, 2200), T, 0.14, s.filter('bandpass', 2500, 1.5, s.vca(T, 0.001, 0.35, 0.12)));
+      o.frequency.exponentialRampToValueAtTime(200, T + 0.12);
+      s.thump(T, 220, 90, 0.03, 0.06, 0.3);
+    },
+  },
+  stepBlitz: {
+    // a quarter ton of brass putting its foot down: a hollow clank, a servo, a thud
+    dur: 0.32, variants: 5, level: 0.36, jitter: 0.7, maxVoices: 10, dedupe: 0, reverb: 0.12,
+    render(s) {
+      s.thump(T, 110, 48, 0.05, 0.12, 0.9);
+      s.burst(T, 0.0008, 0.04, 0.5, 'lowpass', 900, 0.8, s.out, 'pink');
+      s.partials(s.r(330, 420), [[1, 0.14, 0.12], [2.4, 0.08, 0.07]], T + 0.002, s.out);
+      const sv = s.osc('square', s.r(420, 520), T + 0.03, 0.08, s.filter('bandpass', 1400, 4, s.vca(T + 0.03, 0.01, 0.05, 0.06)));
+      sv.frequency.linearRampToValueAtTime(s.r(600, 700), T + 0.1);
     },
   },
 
@@ -847,7 +1001,7 @@ export const RECIPES = {
 } satisfies Record<string, Recipe>;
 
 // Specials carry across the whole arena and are never ducked by the moment they create.
-for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', ...IRONMAN_ULT_SFX] as const) {
+for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', 'staticCharge', 'staticBlast', ...IRONMAN_ULT_SFX] as const) {
   Object.assign(RECIPES[k], { bus: 'ult', ref: 18, rolloff: 0.035 });
 }
 
@@ -859,6 +1013,7 @@ export const BAKE_ORDER: Sfx[] = [
   'photon', 'photonHit', 'bell', 'bellHit', 'paint', 'splat', 'gravityThrow', 'seedToss', 'gravity', 'tonka', 'engineLoop', 'crash', 'ram',
   'bloom', 'heal', 'pickup', 'respawn', 'death', 'ultReady', 'emcCharge', 'emcBlast', 'bellSummon', 'bellWhistle', 'bigBell', 'bellDrop',
   'starry', 'starFall', 'victory', 'defeat',
+  'blitzJab', 'blitzPunchHit', 'blitzUppercut', 'grabLaunch', 'grabReel', 'grabHit', 'staticCharge', 'staticBlast', 'staticZap', 'stepBlitz',
   ...IRONMAN_BAKE,
 ];
 

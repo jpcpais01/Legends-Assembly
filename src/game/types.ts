@@ -5,7 +5,7 @@ import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'ironman';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank' | 'ironman';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
@@ -25,6 +25,8 @@ export interface HeroKit {
   ult(h: Hero, g: Game): boolean;
   update(h: Hero, g: Game, dt: number): void;
   onDeath?(h: Hero, g: Game): void;
+  /** Online: a kit moment from the machine that drives this legend (see Game.net.kitEvent). */
+  onNet?(h: Hero, g: Game, ev: string): void;
 }
 
 export interface HeroDef {

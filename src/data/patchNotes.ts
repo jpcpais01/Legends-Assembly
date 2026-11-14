@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.17.0',
+    version: '0.19.0',
     date: '2026-11-14',
     title: 'Iron Man Joins the Assembly',
     sections: [
@@ -19,13 +19,91 @@ export const PATCH_NOTES: PatchNote[] = [
           'Missile Swarm (RMB): the shoulder pods flip open and fire six homing missiles at the enemy closest to your crosshair. They corkscrew in on smoke trails and splash on impact.',
           'Unibeam (Shift): he lifts off, the arc reactor charges, and a huge beam pours out of his chest. Sweep it across the arena: it burns through every enemy in its path and scorches the floor where it lands. He takes 30% less damage while it runs.',
           'Jet Boots (passive): hold jump in the air to hover on your boot thrusters. A fuel bar under the crosshair shows how much flight is left, and it refills on the ground.',
-          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat and Van Gogh (shown as subtitles until his voice is recorded).',
+          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat, Van Gogh and Blitzcrank (shown as subtitles until his voice is recorded).',
           'Bots play him too: they hop onto their jet boots mid-fight, fire missiles at whoever they can see, and save the Unibeam for crowds or tough targets.',
         ],
       },
       {
         heading: 'Coming soon',
         items: ['Iron Man is wearing a stand-in suit for now. His full detailed armor arrives in a later update.'],
+      },
+    ],
+  },
+  {
+    version: '0.18.0',
+    date: '2026-11-14',
+    title: 'Full Steam Ahead',
+    sections: [
+      {
+        heading: 'New legend: Blitzcrank, the Great Steam Golem',
+        items: [
+          'A brass Vanguard who decides who is in the fight. 425 health, long arms, a short temper and very good manners.',
+          'Power Fist (LMB): alternating piston jabs with a lunge behind each one. Every third blow is an uppercut that launches the target into the air.',
+          'Rocket Grab (RMB): his fist rockets out on a chain, clamps the first enemy it meets and reels them back to him, stunned. A caught enemy primes your next punch into the uppercut.',
+          'Static Field (SHIFT): the boilers overload, both fists hammer the floor and a lightning shockwave shocks, slows and silences everyone around him. For 6 seconds after, stray bolts jump to anyone who stays close.',
+          'He has his own robot voice, footsteps, steam vents and a full set of new punch, grab and slam animations. Bots play him too.',
+        ],
+      },
+      {
+        heading: 'Combat',
+        items: [
+          'New status: Silenced. Silenced legends cannot use RMB or SHIFT abilities, and static crackles over their body while it lasts.',
+          'New status: Stunned. Stunned legends cannot move or act for a moment, and little sparks circle their head.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.17.1',
+    date: '2026-11-14',
+    title: 'Gallery Walls',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'The walls are no longer one column bay repeated: velvet-draped arches, a marble chariot relief, a lion head fountain and bronze doors with a pediment behind each spawn now alternate with the painted arches.',
+          'The upper storey mixes the laurel niches with an arched gallery loggia over the staircases, golden rose windows and painted sky panels.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.17.0',
+    date: '2026-11-14',
+    title: 'Assemble Together',
+    sections: [
+      {
+        heading: 'Play online with friends',
+        items: [
+          'Create a party on the home screen and send the invite link (or the 5-letter code). Your friend clicks it, or types the code into Join, and lands in your party.',
+          'Up to 10 players in one match: 1v1, 2v2, 3v3 or 5v5. Play together on one team or against each other. Bots fill every empty seat.',
+          'Hero select shows both teams live: everyone’s pick, who has locked in, and a Switch team button. The match moves on when every player is locked in.',
+          'Your own legend answers instantly on your screen, your shots land where you saw them land, and the host keeps everyone’s health, eliminations and score in step.',
+          'No account and no download: it connects browser to browser. If a player drops, a bot takes over their legend so the match can finish.',
+          'After the match, Back to party takes everyone straight into the next hero select.',
+        ],
+      },
+      {
+        heading: 'Pick the arena last, load it in place',
+        items: [
+          'The arena is now picked after your lineup is set, solo and in a party, on a new arena screen with a preview of each map.',
+          'Choosing an arena no longer reloads the whole game. It loads in place behind a new versus screen that shows both teams.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.16.3',
+    date: '2026-11-14',
+    title: 'Click Fix',
+    sections: [
+      {
+        heading: 'Fixes',
+        items: [
+          'Lock In on hero select takes mouse clicks again. Before, only Enter would start the match.',
+          'The pause menu shows Leave match again, and Resume, Settings and How to play now do what they say instead of trying to leave the match.',
+          'Clicking the arena to jump back in after a pause works reliably: an invisible HUD layer was swallowing those clicks.',
+        ],
       },
     ],
   },

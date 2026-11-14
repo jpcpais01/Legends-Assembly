@@ -117,6 +117,34 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.29, [0.0, 0.42, 0.82], [0, 0.8, 0.6], [0, 0.6, -0.8], 0.2, -0.06),
     key(0.44, [0.06, -0.3, 0.55], [0, 0.1, 1], [0, 0.6, -0.8], 0.06, 0),
   ] },
+  // piston jab: fist chambered at the ribs, driven straight down the crosshair with the shoulder behind it (Blitzcrank)
+  jab: { out: 0.16, keys: [
+    key(0.05, [0.2, -0.08, 0.22], [0, 0.45, 0.89], [-0.95, -0.25, 0.15], -0.36, -0.05, [0.6, -0.75, -0.3]),
+    key(0.11, [0.05, 0.1, 1.0], [0, 0.04, 1], [-0.72, -0.69, 0], 0.46, 0.12),
+    key(0.19, [0.07, 0.08, 0.92], [0, 0.08, 0.99], [-0.72, -0.69, 0], 0.34, 0.08),
+    key(0.36, [0.16, -0.18, 0.45], [0, 0.5, 0.86], [-0.95, -0.25, 0.15], 0.08, 0.02),
+  ] },
+  // uppercut: dip the fist to the hip, then drive it up past the chin with the chest rising behind it
+  uppercut: { out: 0.2, keys: [
+    key(0.08, [0.22, -0.78, 0.18], [0, 0.2, 0.98], [-0.9, 0.1, 0.3], -0.4, 0.2, [0.4, -0.9, -0.2]),
+    key(0.17, [0.04, 0.5, 0.72], [0, 0.92, 0.38], [-0.3, 0, -0.95], 0.48, -0.14),
+    key(0.27, [0.04, 0.72, 0.5], [0, 0.98, 0.15], [-0.3, 0, -0.95], 0.34, -0.2),
+    key(0.46, [0.16, -0.15, 0.45], [0, 0.5, 0.86], [-0.95, -0.25, 0.15], 0.06, 0),
+  ] },
+  // rocket launch: cock the arm, punch it out straight and hold it there while the fist flies on its chain
+  launch: { out: 0.24, keys: [
+    key(0.07, [0.24, 0.0, 0.16], [0, 0.5, 0.86], [-0.95, -0.2, 0.2], -0.45, -0.06, [0.6, -0.7, -0.4]),
+    key(0.13, [0.02, 0.06, 1.0], [0, 0.03, 1], [0, -1, 0.03], 0.52, 0.14),
+    key(0.62, [0.02, 0.05, 1.0], [0, 0.03, 1], [0, -1, 0.03], 0.46, 0.12),
+    key(0.8, [0.16, -0.2, 0.5], [0, 0.4, 0.92], [-0.95, -0.25, 0.15], 0.08, 0.02),
+  ] },
+  // two-fisted hammer slam into the floor (Static Field); played on both arms, so each arm carries half the lean
+  slam: { out: 0.26, keys: [
+    key(0.14, [0.3, 1.0, 0.12], [0.05, 0.99, 0.1], [0, 0.1, 0.99], 0, -0.08, [0.9, -0.1, -0.4]),
+    key(0.25, [0.16, -0.62, 0.72], [0, -0.7, 0.71], [-0.95, -0.2, -0.2], 0, 0.26),
+    key(0.45, [0.17, -0.6, 0.7], [0, -0.72, 0.69], [-0.95, -0.2, -0.2], 0, 0.22),
+    key(0.72, [0.18, -0.5, 0.42], [0, -0.3, 0.95], [-0.95, -0.25, 0.15], 0, 0.04),
+  ] },
 };
 /** Sustained channels (ultimates). On the ground the striking arm sweeps up to the sky; floating, both arms open wide with the palms forward. */
 const CAST_UP = key(0, [0.3, 0.8, 0.5], [0.05, 0.92, 0.38], [0, -0.38, 0.92], 0.16, -0.1, [0.9, -0.3, -0.3]);
@@ -335,10 +363,14 @@ export class MocapAnimator {
     // ── attacks: start a gesture on the striking arm ──
     this.castW = damp(this.castW, s.cast, 9, dt);
     if (s.attack > this.lastAttack + 0.3) {
-      const a = this.arm[(s.attackSide ?? 1) < 0 ? 0 : 1];
-      a.g = GESTURES[s.attackKind ?? this.kind]; a.t = 0; a.hold = 0;
-      // start from wherever the hand is: mid-gesture that is the spring, otherwise the animated pose (captured below)
-      if (a.w > 0.3) { a.p0[0] = a.sp[0].x; a.p0[1] = a.sp[1].x; a.p0[2] = a.sp[2].x; } else a.hold = -1;
+      const side = (s.attackSide ?? 1) < 0 ? 0 : 1;
+      for (let k = 0; k < 2; k++) {
+        if (k !== side && !s.attackBoth) continue;
+        const a = this.arm[k];
+        a.g = GESTURES[s.attackKind ?? this.kind]; a.t = 0; a.hold = 0;
+        // start from wherever the hand is: mid-gesture that is the spring, otherwise the animated pose (captured below)
+        if (a.w > 0.3) { a.p0[0] = a.sp[0].x; a.p0[1] = a.sp[1].x; a.p0[2] = a.sp[2].x; } else a.hold = -1;
+      }
     }
     this.lastAttack = s.attack;
 

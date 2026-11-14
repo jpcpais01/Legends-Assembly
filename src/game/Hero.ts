@@ -14,6 +14,12 @@ let nextId = 1;
 
 export class Hero {
   readonly id = nextId++;
+  /** Seat in the match roster: the same on every machine in an online match. */
+  idx = 0;
+  /** Who drives this legend here: you, a bot this machine simulates, or another machine (online). */
+  ctrl: 'local' | 'bot' | 'remote' = 'bot';
+  /** Online: seconds to keep your own special charge instead of the host's (it is still catching up to your cast). */
+  ultGuardT = 0;
   def: HeroDef;
   name: string;
   team: number;
@@ -48,6 +54,10 @@ export class Hero {
   dmgMult = 1;
   dmgTakenMult = 1;
   channel = 0; // >0 = can't act or move freely
+  /** >0 = silenced: abilities (RMB and SHIFT) are offline, basic attacks still work. */
+  silenceT = 0;
+  /** >0 = stunned: no actions and no steering, but gravity and knockback still apply (unlike a channel). */
+  stunT = 0;
   moveLock = 0;
   overrideVel: THREE.Vector3 | null = null;
   flashT = 0;
@@ -108,6 +118,10 @@ export class Hero {
     this.slowT = Math.max(this.slowT, dur);
   }
 
+  applyStun(dur: number) { this.stunT = Math.max(this.stunT, dur); }
+
+  applySilence(dur: number) { this.silenceT = Math.max(this.silenceT, dur); }
+
   applyImpulse(v: THREE.Vector3) {
     this.impulse.add(v);
     if (v.y > 0) { this.grounded = false; }
@@ -120,7 +134,7 @@ export class Hero {
 
     // desired horizontal velocity in world space
     let mx = 0, mz = 0;
-    if (this.alive && this.moveLock <= 0) {
+    if (this.alive && this.moveLock <= 0 && this.stunT <= 0) {
       const f = this.forward, r = this.right;
       mx = f.x * inp.forward + r.x * inp.strafe;
       mz = f.z * inp.forward + r.z * inp.strafe;
@@ -135,7 +149,7 @@ export class Hero {
       this.vel.x = damp(this.vel.x, mx * speed, accel, dt);
       this.vel.z = damp(this.vel.z, mz * speed, accel, dt);
       if (this.channel <= 0) this.vel.y -= GRAVITY * dt;
-      if (inp.jump && this.grounded && this.alive && this.moveLock <= 0 && this.channel <= 0) {
+      if (inp.jump && this.grounded && this.alive && this.moveLock <= 0 && this.channel <= 0 && this.stunT <= 0) {
         this.vel.y = JUMP;
         this.grounded = false;
       }
@@ -195,7 +209,7 @@ export class Hero {
     this.hp = this.maxHp;
     this.alive = true;
     this.spawnT = 0;
-    this.slowT = 0; this.slowAmt = 0;
+    this.slowT = 0; this.slowAmt = 0; this.silenceT = 0; this.stunT = 0;
     this.channel = 0; this.moveLock = 0; this.overrideVel = null;
     this.speedMult = 1; this.dmgMult = 1; this.dmgTakenMult = 1;
     this.anim.cast = 0; this.anim.levitate = 0; this.anim.dash = 0;

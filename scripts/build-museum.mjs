@@ -28,7 +28,27 @@ const arg = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 
 const ONLY = arg('only', null);
 const SRC = 'models-src/museum', OUT = 'public/models/museum';
 /** Models seen big or up close keep a 2K base color. */
-const BIG = new Set(['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton']);
+const BIG = new Set(['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'museum_bay_drape', 'museum_bay_relief', 'museum_bay_fountain', 'museum_bay_doorway']);
+/**
+ * Stray Meshy triangles to cut, by index in the raw file. The loggia ("Marble Arcade") had a double-sided sheet running
+ * diagonally through its gallery and a thin sliver across the left arch.
+ */
+const DROP = {
+  museum_upper_loggia: [9961, 14247, 9652, 14580, 14583],
+  // the lion fountain's recess backdrop came out as shards with broken UVs (black and yellow wedges, two stray sheets):
+  // it is cut here and the game puts a verde marble panel in its place (FOUNTAIN_PATCH in MuseumArena)
+  museum_bay_fountain: [1777, 14195, 10705, 14199, 372, 374, 846, 849, 1778, 1780, 2199, 2200, 4076, 4078, 5454, 5455, 6302, 6304, 6470, 6729,
+    7565, 7566, 7869, 7870, 8266, 8268, 9120, 9122, 9587, 10230, 10620, 10745, 10747, 10804, 10806, 11027, 11028, 11442, 11444, 11908, 11909,
+    12754, 12775, 12776, 12777, 12778, 12779, 12780, 12781, 12782, 12783],
+};
+const dropTriangles = (tris) => (doc) => {
+  const drop = new Set(tris);
+  for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+    const idx = prim.getIndices(), I = idx.getArray(), keep = [];
+    for (let t = 0; t < I.length / 3; t++) if (!drop.has(t)) keep.push(I[t * 3], I[t * 3 + 1], I[t * 3 + 2]);
+    idx.setArray(new I.constructor(keep));
+  }
+};
 
 await MeshoptEncoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
@@ -48,6 +68,7 @@ for (const f of files) {
   const doc = await io.read(inPath);
   const base = BIG.has(name) ? 2048 : 1024;
   await doc.transform(
+    ...(DROP[name] ? [dropTriangles(DROP[name])] : []),
     dedup(), weld(), prune(),
     // resize losslessly first (PNG) so Basis encodes from clean pixels
     textureCompress({ encoder: sharp, targetFormat: 'png', slots: /^baseColor/, resize: [base, base] }),

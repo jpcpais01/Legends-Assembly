@@ -79,7 +79,7 @@ export class Hud {
       <div class="intro"><small class="in-mode"></small><b class="in-title"></b><span class="in-goal"></span></div>
       <div class="vs"><div class="vs-side ally"></div><b class="vs-x">VS</b><div class="vs-side enemy"></div></div>
       <div class="cine"><i class="cb t"></i><i class="cb b"></i><div class="cine-t"><small></small><b></b><span></span></div></div>
-      <div class="danger"><span class="dg-av"><img alt=""></span><div><small>Enemy special</small><b></b></div></div>
+      <div class="hud-warn"><span class="dg-av"><img alt=""></span><div><small>Enemy special</small><b></b></div></div>
       <div class="countdown"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"/></svg><span></span></div>
       <div class="death hidden">
         <div class="dt-k">${icon(UI.skull)}Eliminated by</div>
@@ -122,7 +122,7 @@ export class Hud {
       lmb: '.s-lmb', rmb: '.s-rmb', rmbCd: '.s-rmb .cd', rmbNum: '.s-rmb .num', ult: '.ult', ultRing: '.ult .u-rc', ultPct: '.ult .pct',
       teamA: '.h-team.ally', teamE: '.h-team.enemy', scoreA: '.hs-side.ally .hs-n', scoreE: '.hs-side.enemy .hs-n',
       barA: '.hs-side.ally .hs-bar s', barE: '.hs-side.enemy .hs-bar s', timer: '.hs-time', goal: '.hs-goal',
-      nums: '.nums', plates: '.plates', scoreboard: '.scoreboard', cine: '.cine', danger: '.danger',
+      nums: '.nums', plates: '.plates', scoreboard: '.scoreboard', cine: '.cine', danger: '.hud-warn',
     };
     for (const k in map) this.els[k] = q(map[k]);
     this.dirs = Array.from(root.querySelectorAll('.dmgdir i')).map((el) => ({ el: el as HTMLElement, t: 0, from: new THREE.Vector3() }));
@@ -165,7 +165,7 @@ export class Hud {
     // crosshair style per hero
     const ch = this.els.crosshair;
     ch.innerHTML = '<i class="dot"></i>';
-    if (d.id === 'yeat') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
+    if (d.id === 'yeat' || d.id === 'blitzcrank') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
     else if (d.id === 'ironman') {
       // repulsor reticle: a tight targeting ring with four ticks, and the jet-boot fuel arc underneath
       ch.insertAdjacentHTML('beforeend', '<i class="ring" style="left:-13px;top:-13px;width:26px;height:26px"></i><i class="imfuel"><s></s></i>');
@@ -216,7 +216,7 @@ export class Hud {
     this.lastScore = [-1, -1];
     this.els.uToast.className = 'u-toast';
     // mode intro card plays over the countdown
-    (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
+    (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = g.net ? `${g.config!.mode} · online · ${g.config!.roster?.filter((r) => r.owner).length ?? 1} players` : `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
     (this.els.intro.querySelector('.in-title') as HTMLElement).textContent = info.label;
     (this.els.intro.querySelector('.in-goal') as HTMLElement).textContent = `First team to ${info.target} eliminations wins`;
     this.restart(this.els.intro, 'intro', 'show');
@@ -231,7 +231,7 @@ export class Hud {
     this.restart(vs, 'vs', 'show');
     this.root.classList.remove('outro');
     this.els.cine.className = 'cine';
-    this.els.danger.className = 'danger';
+    this.els.danger.className = 'hud-warn';
   }
 
   /** Your special: letterbox bars snap in with its name. An enemy special nearby: a danger warning. */
@@ -247,7 +247,7 @@ export class Hud {
     (d.querySelector('img') as HTMLImageElement).src = portraits[h.def.id] ?? '';
     (d.querySelector('b') as HTMLElement).textContent = h.def.abilities.ult.name;
     d.style.setProperty('--hc', h.def.color);
-    this.restart(d, 'danger', 'on');
+    this.restart(d, 'hud-warn', 'on');
   }
 
   /** End of match: letterbox the final-blow orbit and drop the gameplay HUD. */

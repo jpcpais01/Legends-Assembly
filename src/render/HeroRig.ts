@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeHeroFxUniforms, patchRigMaterial, type HeroFxUniforms } from './materials';
-import { RigAnimator, type AttackKind } from './RigAnimator';
+import { RigAnimator, STYLE_ATTACK, type AttackKind, type MotionStyle } from './RigAnimator';
 
-export { RigAnimator };
+export { RigAnimator, STYLE_ATTACK };
 
 export interface AnimState {
   speed: number;
@@ -30,6 +30,8 @@ export interface AnimState {
   hitK?: number;
   /** Which attack gesture the next attack pulse plays (defaults to the hero's style). */
   attackKind?: AttackKind;
+  /** The attack is two-fisted: both arms play the gesture. */
+  attackBoth?: boolean;
 }
 
 export interface HeroModel {
@@ -38,12 +40,18 @@ export interface HeroModel {
   update(dt: number, s: AnimState): void;
   handWorld(side: 'L' | 'R', out: THREE.Vector3): THREE.Vector3;
   headWorld(out: THREE.Vector3): THREE.Vector3;
+  /** Shrink a hand away (its owner fired it off on a chain) and bring it back with 1. */
+  setHandScale?(side: 'L' | 'R', s: number): void;
   dispose(): void;
 }
 
 export interface RigLook {
   /** Dress the base mannequin: colors + accessories. */
   build(r: RigBuilder): void;
+  /** Extra shoulder abduction (radians) for bulky torsos. */
+  armOut?: number;
+  /** Body language for the procedural stand-in. */
+  style?: MotionStyle;
 }
 
 type Bone = THREE.Bone;
@@ -239,8 +247,10 @@ export class ProceduralHeroModel implements HeroModel {
     this.r.finalize();
     this.root = this.r.root;
     this.fx = this.r.fx;
-    this.anim = new RigAnimator(this.r);
+    this.anim = new RigAnimator(this.r, { armOut: look.armOut, style: look.style });
   }
+
+  setHandScale(side: 'L' | 'R', s: number) { (side === 'L' ? this.r.handL : this.r.handR).scale.setScalar(Math.max(1e-3, s)); }
 
   update(dt: number, s: AnimState) { this.anim.update(dt, s); }
 

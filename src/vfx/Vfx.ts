@@ -62,6 +62,15 @@ export class Vfx {
     }
   }
 
+  /** Follow the match world into another arena's scene. */
+  moveTo(scene: THREE.Scene) {
+    if (scene === this.scene) return;
+    scene.add(this.add.mesh, this.alpha.mesh, this.trailsAdd.mesh, this.trailsAlpha.mesh);
+    for (const f of this.flashes) scene.add(f.light);
+    for (const g of this.glyphs) scene.add(g.sprite);
+    this.scene = scene;
+  }
+
   p(o: ParticleOpts) { this.add.spawn(o); }
   pa(o: ParticleOpts) { this.alpha.spawn(o); }
 

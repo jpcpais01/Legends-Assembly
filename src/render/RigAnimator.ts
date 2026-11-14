@@ -30,8 +30,12 @@ interface LegRig { hip: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object
 
 const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
-export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'blast';
-export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist';
+export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'blast';
+/** heavy: a big machine (Blitzcrank): long arms carried forward, a planted stomp, little swing. */
+export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'heavy';
+
+/** The attack each body language throws by default. */
+export const STYLE_ATTACK: Record<MotionStyle, AttackKind> = { default: 'flick', swagger: 'ring', scholar: 'flick', artist: 'stroke', heavy: 'jab' };
 
 /**
  * One key of an attack gesture, for the attacking arm. Angles in radians, side-relative:
@@ -56,6 +60,14 @@ const GESTURES: Record<AttackKind, Gesture> = {
   throw: { end: 0.72, dip: 0.8, keys: [k(0, -1.6, 0.5, -1.4, 0.2, -0.25, -0.08, 0.3), k(0.14, -2.75, 0.55, -2.0, 0.5, -0.5, -0.2, 0), k(0.25, -1.35, 0.1, -0.15, -0.5, 0.5, 0.26), k(0.42, -0.75, -0.2, -0.3, -0.2, 0.38, 0.18, 0.5), k(0.72, -0.6, 0.1, -0.6, 0, 0.08, 0.03, 0.3)] },
   // underhand lob (Van Gogh's seeds)
   toss: { end: 0.66, dip: 0.55, keys: [k(0, -0.2, 0.2, -0.3, 0.1, -0.1, 0.04, 0), k(0.13, 0.65, 0.25, -0.2, 0.3, -0.28, 0.12, 0), k(0.26, -1.55, 0.05, -0.35, -0.4, 0.3, -0.04, 0.4), k(0.42, -1.95, 0.1, -0.45, -0.2, 0.2, -0.06, 0.4), k(0.66, -1.2, 0.15, -0.6, 0, 0.05, 0, 0.3)] },
+  // piston jab: fist chambered at the ribs, driven straight down the crosshair, snapped back (Blitzcrank)
+  jab: { end: 0.4, dip: 0.45, keys: [k(0, -0.9, 0.3, -1.9, 0, -0.25, -0.03), k(0.05, -0.75, 0.35, -2.25, 0, -0.4, -0.06), k(0.1, -1.6, 0.0, -0.04, 0.1, 0.45, 0.14), k(0.2, -1.52, 0.05, -0.18, 0, 0.32, 0.1), k(0.4, -0.95, 0.22, -1.3, 0, 0.06, 0.02)] },
+  // uppercut: dip the fist to the hip, then drive it up past the chin with the whole body rising behind it
+  uppercut: { end: 0.62, dip: 0.8, keys: [k(0, -0.25, 0.3, -1.5, 0, -0.3, 0.12, 0), k(0.09, 0.25, 0.35, -1.9, 0, -0.5, 0.22, 0), k(0.18, -2.2, 0.05, -1.35, 0.2, 0.5, -0.16, 0.3), k(0.32, -2.4, 0.12, -1.1, 0.1, 0.32, -0.2, 0.2), k(0.62, -1.15, 0.22, -1.2, 0, 0.05, 0, 0.3)] },
+  // rocket launch: cock the arm, punch it out straight and hold it there while the fist flies (Rocket Grab)
+  launch: { end: 0.9, dip: 0.55, keys: [k(0, -1.1, 0.3, -1.8, 0, -0.3, -0.05), k(0.07, -0.95, 0.38, -2.3, 0, -0.48, -0.08), k(0.13, -1.62, 0.0, 0.0, 0.25, 0.5, 0.14), k(0.62, -1.58, 0.02, -0.02, 0.25, 0.44, 0.12), k(0.9, -1.05, 0.2, -1.2, 0, 0.06, 0.02)] },
+  // two-fisted hammer slam into the floor (Static Field); played on both arms, so the chest lean is split
+  slam: { end: 0.85, dip: 1.1, keys: [k(0, -2.1, 0.35, -0.9, 0.3, 0, -0.08, 0), k(0.13, -2.95, 0.28, -0.5, 0.4, 0, -0.14, 0), k(0.24, -1.25, 0.1, -0.1, -0.4, 0, 0.32, 0), k(0.45, -1.15, 0.12, -0.2, -0.2, 0, 0.28, 0), k(0.85, -0.7, 0.2, -0.8, 0, 0, 0.02, 0)] },
 };
 
 interface ArmGesture { g: Gesture | null; t: number; struck: boolean; x: Spring; z: Spring; e: Spring; w: Spring }
@@ -221,9 +233,13 @@ export class RigAnimator {
     const attackRise = s.attack > this.lastAttack + 0.3;
     this.lastAttack = s.attack;
     if (attackRise) {
-      const kind: AttackKind = s.attackKind ?? (this.style === 'swagger' ? 'ring' : this.style === 'artist' ? 'stroke' : 'flick');
-      const arm = this.armG[kind === 'ring' || s.attackSide >= 0 ? 1 : 0];
-      arm.g = GESTURES[kind]; arm.t = 0; arm.struck = false;
+      const kind: AttackKind = s.attackKind ?? STYLE_ATTACK[this.style];
+      const both = !!s.attackBoth;
+      for (let i = 0; i < 2; i++) {
+        if (!both && i !== (kind === 'ring' || s.attackSide >= 0 ? 1 : 0)) continue;
+        const arm = this.armG[i];
+        arm.g = GESTURES[kind]; arm.t = 0; arm.struck = both && i === 0; // one body dip for a two-fisted blow
+      }
     }
     let gYaw = 0, gPitch = 0;
     const gPose: ({ x: number; z: number; e: number; w: number; wgt: number } | null)[] = [null, null];
@@ -348,7 +364,7 @@ export class RigAnimator {
     }
     this.lastHit = hit;
     const st = this.style;
-    const posture = st === 'scholar' ? 0.09 : st === 'artist' ? 0.04 : st === 'swagger' ? -0.03 : 0;
+    const posture = st === 'scholar' ? 0.09 : st === 'artist' ? 0.04 : st === 'swagger' ? -0.03 : st === 'heavy' ? 0.07 : 0;
     const leanTarget = posture + 0.12 * runK * mw * (this.backpedal ? -0.4 : 1) + clamp(this.accF * 0.024, -0.26, 0.34) + s.dash * 0.5 + this.air * (0.08 - 0.18 * this.rise);
     const lean = this.pitchS.step(leanTarget, 2.2, 0.42, dt);
     const bank = this.bankS.step(clamp(this.accR * 0.018, -0.32, 0.32), 2, 0.5, dt);
@@ -368,7 +384,7 @@ export class RigAnimator {
     r.head.rotation.set(-pitch * 0.45 - lean * 0.45 + headKick * 0.25 - gp * 0.4 - posture + nod, -shoulderCounter * 0.5 - gy * 0.5 + Math.sin(t * 0.55) * 0.06 * (1 - mw), -bank * 0.3 + (st === 'artist' ? 0.06 : 0));
 
     // ── arms: locomotion pose ──
-    const swingK = st === 'swagger' ? 1.15 : st === 'scholar' ? 0.8 : 1;
+    const swingK = st === 'swagger' ? 1.15 : st === 'scholar' ? 0.8 : st === 'heavy' ? 0.55 : 1;
     const swingAmp = lerp(0.32, 0.72, runK) * mw * (this.backpedal ? 0.5 : 1) * swingK;
     const swing = Math.cos(cyc);
     let lx = this.armLS.step(swingAmp * swing + 0.06 - this.air * 0.5 * this.rise, 3.2, 0.5, dt);
@@ -384,6 +400,12 @@ export class RigAnimator {
     const aimPose = 0.32 * (1 - 0.35 * runK * mw);
     rx = lerp(rx, -1.0 - pitch * 0.6, aimPose);
     re = lerp(re, -0.75, aimPose);
+    if (st === 'heavy') {
+      // brawler's carry: both long arms hang forward of the body, fists loaded, elbows soft
+      const g = 0.75 * (1 - 0.4 * runK * mw);
+      lx = lerp(lx, -0.5, g); rx = lerp(rx, -0.62 - pitch * 0.3, g);
+      le = lerp(le, -0.75, g); re = lerp(re, -0.85, g);
+    }
 
     // ── arms: blend in the attack gestures through fast springs (overshoot + settle reads as weight) ──
     const base = [[lx, lz, le], [rx, -rz, re]];

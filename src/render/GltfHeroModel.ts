@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { ProceduralHeroModel, RigAnimator, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
+import { ProceduralHeroModel, RigAnimator, STYLE_ATTACK, RIG_BONE_NAMES, type AnimState, type HeroModel, type RigBones } from './HeroRig';
 import { patchHeroMaterial, type HeroFxUniforms } from './materials';
 import { PROPS } from './props';
 import { bakeMocap, snapshotRest } from './mocap';
@@ -98,7 +98,7 @@ export class GltfHeroModel implements HeroModel {
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         // the procedural animator only stands in when the motion library could not be loaded
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
-        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: def.motion === 'swagger' ? 'ring' : def.motion === 'artist' ? 'stroke' : 'flick' });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'] });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         const held = def.held, t = held ? PROPS[held.prop] : undefined;
         if (held && t) {
@@ -172,6 +172,12 @@ export class GltfHeroModel implements HeroModel {
     this.inner.rotation.x = s.dead ? Math.max(this.inner.rotation.x - dt * 3, -1.45) : Math.min(0.35, s.fwd / 30 + s.dash * 0.3);
     this.inner.position.y = s.levitate * 0.15;
     if (!this.mixer) this.inner.position.y += Math.abs(Math.sin(s.time * 9)) * 0.04 * Math.min(1, s.speed / 6);
+  }
+
+  setHandScale(side: 'L' | 'R', s: number) {
+    this.fallback.setHandScale(side, s);
+    const h = side === 'L' ? this.handL : this.handR;
+    if (h && this.obj && this.animator) h.scale.setScalar(Math.max(1e-3, s));
   }
 
   handWorld(side: 'L' | 'R', out: THREE.Vector3) {
