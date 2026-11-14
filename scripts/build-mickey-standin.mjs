@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Builds the stand-in Mickey hero model until João's Meshy model is delivered.
+ * Builds the code-made stand-in Mickey (used before the Meshy model arrived; kept for reference and rig tests).
  *
- *   node scripts/build-mickey-standin.mjs   ->  public/models/heroes/mickey.glb
+ *   node scripts/build-mickey-standin.mjs [out.glb]   ->  models-src/mickey-standin.glb (the shipped model is the Meshy one)
  *
  * The 1928 rubber-hose mouse is modelled from smooth primitives (vertex colors, one material, ~25k triangles),
  * in the same A-pose a Meshy export comes in, then auto-rigged onto the game skeleton with scripts/autorig.mjs.
@@ -21,7 +21,8 @@ import { prune, meshopt } from '@gltf-transform/functions';
 import { MeshoptEncoder } from 'meshoptimizer';
 import { autoRig } from './autorig.mjs';
 
-const OUT = 'public/models/heroes/mickey.glb';
+// the real Meshy Mickey lives at public/models/heroes/mickey.glb now: the stand-in only goes there on request
+const OUT = process.argv[2] ?? 'models-src/mickey-standin.glb';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // palette (linear-ish sRGB values, the loader treats COLOR_0 as linear)
@@ -198,7 +199,7 @@ const overrides = {
 await autoRig(doc, { overrides, flip: false });
 await MeshoptEncoder.ready;
 await doc.transform(prune(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
-mkdirSync('public/models/heroes', { recursive: true });
+mkdirSync(OUT.replace(/[/][^/]*$/, ''), { recursive: true });
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
 await io.write(OUT, doc);
 console.log(`  -> ${OUT} (${(statSync(OUT).size / 1024).toFixed(0)} KB)`);
