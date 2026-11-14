@@ -12,7 +12,7 @@
  * Usage: npm run models [-- --ratio 0.1] [-- --only yeat] [-- --rig | --norig] [-- --flip]
  *        props: npm run models -- --src models-src/props --out public/models/props --ratio 1 --norig --tex 1024
  */
-import { readdirSync, mkdirSync, statSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, mkdirSync, statSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
@@ -31,6 +31,9 @@ const OUT = arg('out', 'public/models/heroes');
 const FORCE_RIG = args.includes('--rig');
 const NO_RIG = args.includes('--norig');
 const FLIP = args.includes('--flip') ? true : null;
+
+// per-hero landmark fixes (same file scripts/rerig.mjs reads)
+const RIG_OV = existsSync('scripts/rig-overrides.json') ? JSON.parse(readFileSync('scripts/rig-overrides.json', 'utf8')) : {};
 
 await MeshoptSimplifier.ready;
 await MeshoptEncoder.ready;
@@ -72,7 +75,7 @@ for (const f of files) {
   }
 
   // Unrigged (or --rig): bind to the game's own skeleton so the procedural animator drives it.
-  if (!NO_RIG && (FORCE_RIG || !doc.getRoot().listSkins().length)) await autoRig(doc, { flip: FLIP });
+  if (!NO_RIG && (FORCE_RIG || !doc.getRoot().listSkins().length)) await autoRig(doc, { flip: FLIP, overrides: RIG_OV[basename(f, '.glb').toLowerCase()] ?? {} });
 
   await doc.transform(
     resample(),

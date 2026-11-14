@@ -312,11 +312,11 @@ const BOAT_AHEAD = 58;
 const BOAT_W = 7.2;
 const BOAT_L = 15;
 const BOAT_H = 11;
-/** Turn the delivered Meshy boat to face +z (set once the model's orientation is known). */
-const STEAMBOAT_YAW = 0;
+/** The Meshy boat's bow points down -x: turn it to face +z. */
+const STEAMBOAT_YAW = Math.PI / 2;
 const BOAT_DMG = 180;
 
-interface Boat { group: THREE.Group; wheels: THREE.Object3D[]; stacks: THREE.Object3D[]; stackTops: THREE.Object3D[]; whistle: THREE.Object3D | null }
+interface Boat { group: THREE.Group; wheels: THREE.Object3D[]; stacks: THREE.Object3D[]; stackTops: THREE.Object3D[]; whistle: THREE.Object3D | null; body?: THREE.Object3D }
 
 let boatTemplate: THREE.Group | null = null;
 /** Bakes a group's direct mesh children into one mesh per material (the boat is ~80 parts: this keeps it to a handful of draws). */
@@ -340,15 +340,19 @@ function mergeByMaterial(parent: THREE.Object3D) {
     parent.add(mesh);
   }
 }
-/** Chubby 1920s river steamboat, faces +z. Stand-in until the Meshy `steamboat` is delivered. */
+/** Chubby 1920s river steamboat, faces +z: the Meshy `steamboat` prop, or a code-built stand-in if it fails to load. */
 function buildBoat(): Boat {
   const meshy = propMesh('steamboat', BOAT_H);
   if (meshy) {
     meshy.rotation.y = STEAMBOAT_YAW;
-    const group = new THREE.Group();
-    group.add(meshy);
-    const top = new THREE.Object3D(); top.position.set(0, BOAT_H * 0.95, -BOAT_L * 0.1); group.add(top);
-    return { group, wheels: [], stacks: [], stackTops: [top], whistle: top };
+    // one solid model: the whole boat squashes and stretches on the chug instead of the stacks alone
+    const group = new THREE.Group(), body = new THREE.Group();
+    body.add(meshy); group.add(body);
+    const len = BOAT_H * PROPS.steamboat!.size.x;
+    // the two funnels lean back over the stern, the horn sits on the wheelhouse roof up front
+    const tops = [-0.35, 0.35].map((x) => { const o = new THREE.Object3D(); o.position.set(x, BOAT_H * 0.97, -len * 0.2); body.add(o); return o; });
+    const whistle = new THREE.Object3D(); whistle.position.set(0, BOAT_H * 0.85, len * 0.2); body.add(whistle);
+    return { group, wheels: [], stacks: [], stackTops: tops, whistle, body };
   }
   if (!boatTemplate) {
     const t = new THREE.Group();
@@ -497,6 +501,7 @@ function launchSteamboat(h: Hero, g: Game) {
         const k = Math.sin(ph);
         st.scale.set(1 - k * 0.12, 1 + k * 0.16, 1 - k * 0.12);
       });
+      if (boat.body) { const k = Math.sin(beat * Math.PI * 2); boat.body.scale.set(1 - k * 0.035, 1 + k * 0.05, 1 - k * 0.035); }
       for (const w of boat.wheels) w.rotation.x += dt * 9;
       if (Math.floor(beat) !== Math.floor(beat - dt * 5) && sinkT < 0) {
         for (const top of boat.stackTops) {
@@ -640,7 +645,7 @@ export const MICKEY: HeroDef = {
   accent: '#fff1d6',
   maxHp: 275,
   // stand-in built by scripts/build-mickey-standin.mjs until the Meshy model lands; bump ?v= whenever the file changes
-  modelUrl: '/models/heroes/mickey.glb?v=1',
+  modelUrl: '/models/heroes/mickey.glb?v=2',
   motion: 'cartoon',
   speed: 6.7,
   secondaryCd: 8,

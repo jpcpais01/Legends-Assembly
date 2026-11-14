@@ -1,1 +1,9 @@
-{}
+{
+  "mickey": {
+    "chinY": 1.06,
+    "headY": 1.085,
+    "neckBaseY": 1.04,
+    "armR": 0.045,
+    "handLen": 0.17
+  }
+}
