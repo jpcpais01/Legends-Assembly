@@ -361,7 +361,7 @@ export async function autoRig(doc, { height = H, flip = null, normalize = true, 
   // 6) skin weights
   const neckR = neckW + 0.03;
   const W = skinWeights(P, TI, {
-    joints, arms, legs, torsoW, crotch, chinY, neckR, top: H, beardZ: overrides.beardZ,
+    joints, arms, legs, torsoW, crotch, chinY, neckR, top: H, beardZ: overrides.beardZ, faceR: overrides.faceR,
     halfW: (y) => { const c = central(at(y).bl); return c && y < armpit ? (c.x1 - c.x0) / 2 : torsoW; },
     log,
   });
@@ -427,7 +427,7 @@ class Heap {
   }
 }
 
-function skinWeights(P, TI, { joints, arms, legs, chinY, neckR, top, halfW, beardZ, log }) {
+function skinWeights(P, TI, { joints, arms, legs, chinY, neckR, top, halfW, beardZ, faceR, log }) {
   const NV = P.length / 3, NB = RIG_BONES.length;
   const vs = H / 150;
   const bb = new THREE.Box3();
@@ -614,8 +614,12 @@ function skinWeights(P, TI, { joints, arms, legs, chinY, neckR, top, halfW, bear
     // head: rigid above the chin line; below it the head lets go quickly (collars and scarves stay with the body)
     // (a raised collar or hood reaches above the chin but hangs from the shoulders: it is not part of the head)
     // a long beard or chin strap resting on the chest is still face: with a `beardZ` override, whatever sits in
-    // front of that depth around the chin line belongs to the head however close the chest is through the body
-    const own = beardZ !== undefined && y > chinY - band && z > beardZ ? 1 : smooth(headLead[v], -0.02, 0.04);
+    // front of that depth around the chin line belongs to the head however close the chest is through the body.
+    // `faceR` does the same for a big cartoon head on a thin neck: around the chin, anything wider than that from
+    // the neck column is cheek, not neck (only from the chin line up, so the shoulders below stay with the body).
+    const nearChin = y > chinY - band;
+    const own = nearChin && ((beardZ !== undefined && z > beardZ) || (faceR !== undefined && y > chinY - 0.005 && Math.hypot(x, z - nz0) > faceR))
+      ? 1 : smooth(headLead[v], -0.02, 0.04);
     const hk = smooth(y, chinY - band, chinY) * own;
     row[HEAD] *= smooth(y, chinY - band * 2.2, chinY - band * 0.4) * own;
     // neck: only what is close to the neck column

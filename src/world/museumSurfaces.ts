@@ -22,9 +22,9 @@ void main() {
   float warp = m1 * 2.4 + m2 * 0.9;
   // main veins: a periodic wave pushed around by noise, kept only at its crest (thin, branching where the warp folds)
   float ph = (uv.x * 2.0 + uv.y * 1.0) * 6.2831853 + warp * 5.2;
-  float v1 = pow(1.0 - abs(sin(ph)), 16.0) * (0.35 + 0.8 * m3);
+  float v1 = pow(max(1.0 - abs(sin(ph)), 0.0), 16.0) * (0.35 + 0.8 * m3);
   float ph2 = (-uv.x * 1.0 + uv.y * 3.0) * 6.2831853 + (fbm(uv + 0.7, vec2(4.0)) * 2.0 + m1) * 4.0;
-  float v2 = pow(1.0 - abs(sin(ph2)), 34.0) * 0.8;
+  float v2 = pow(max(1.0 - abs(sin(ph2)), 0.0), 34.0) * 0.8;
   float cloud = fbm(uv + 0.33, vec2(2.0)) * 0.7 + m2 * 0.3;
   float grain = vnoise(uv * 256.0, vec2(256.0)) * 0.6 + vnoise(uv * 97.0, vec2(97.0)) * 0.4;
   gl_FragColor = vec4(clamp(v1 + v2 * 0.45, 0.0, 1.0), cloud, grain, v2);

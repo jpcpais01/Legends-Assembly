@@ -645,7 +645,7 @@ export const MICKEY: HeroDef = {
   accent: '#fff1d6',
   maxHp: 275,
   // stand-in built by scripts/build-mickey-standin.mjs until the Meshy model lands; bump ?v= whenever the file changes
-  modelUrl: '/models/heroes/mickey.glb?v=2',
+  modelUrl: '/models/heroes/mickey.glb?v=3',
   motion: 'cartoon',
   speed: 6.7,
   secondaryCd: 8,

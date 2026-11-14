@@ -35,7 +35,7 @@ function orbPool() {
   const m = new THREE.ShaderMaterial({
     uniforms: { uTime: globalUniforms.uTime },
     vertexShader: `varying vec3 vN; varying vec3 vV; void main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }`,
-    fragmentShader: `uniform float uTime; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(normalize(vN), vV)), 2.5); vec3 c = mix(vec3(0.0), vec3(1.4,0.5,3.4), f) + vec3(2.0,1.2,4.0) * pow(f, 6.0) * (1.0 + 0.3*sin(uTime*30.0)); gl_FragColor = vec4(c, 1.0); }`,
+    fragmentShader: `uniform float uTime; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(clamp(1.0 - abs(dot(normalize(vN), vV)), 0.0, 1.0), 2.5); vec3 c = mix(vec3(0.0), vec3(1.4,0.5,3.4), f) + vec3(2.0,1.2,4.0) * pow(f, 6.0) * (1.0 + 0.3*sin(uTime*30.0)); gl_FragColor = vec4(c, 1.0); }`,
   });
   return new InstancedPool(new THREE.SphereGeometry(1, 20, 14), m, 32);
 }
@@ -75,7 +75,7 @@ function wellMaterials() {
   coreMat = new THREE.ShaderMaterial({
     uniforms: {},
     vertexShader: `varying vec3 vN; varying vec3 vV; void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }`,
-    fragmentShader: `varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(normalize(vN), vV)), 3.0); gl_FragColor = vec4(vec3(1.2,0.6,2.6) * f * 2.0, 1.0); }`,
+    fragmentShader: `varying vec3 vN; varying vec3 vV; void main(){ float f = pow(clamp(1.0 - abs(dot(normalize(vN), vV)), 0.0, 1.0), 3.0); gl_FragColor = vec4(vec3(1.2,0.6,2.6) * f * 2.0, 1.0); }`,
   });
   return { diskMat, haloMat, coreMat };
 }
@@ -217,7 +217,7 @@ function createBlastMaterial() {
       fragmentShader: /* glsl */ `
         uniform float uTime; uniform sampler2D uNoise; uniform float uK; varying vec3 vN; varying vec3 vV; varying vec3 vP;
         void main(){
-          float f = pow(1.0 - abs(dot(normalize(vN), vV)), 2.0);
+          float f = pow(clamp(1.0 - abs(dot(normalize(vN), vV)), 0.0, 1.0), 2.0);
           float n = texture2D(uNoise, vP.xz * 0.6 + vP.y * 0.3 + uTime * 0.5).g;
           vec3 hot = mix(vec3(4.0, 3.2, 2.2), vec3(4.0, 1.6, 0.5), uK);
           vec3 c = hot * (0.25 + f * 1.6) * (0.7 + n * 0.6);
@@ -468,7 +468,7 @@ export const EINSTEIN: HeroDef = {
   color: '#7fd3ff',
   accent: '#b48cff',
   maxHp: 250,
-  modelUrl: '/models/heroes/einstein.glb?v=2', // bump ?v= whenever the file changes: models are cached forever on players' devices
+  modelUrl: '/models/heroes/einstein.glb?v=3', // bump ?v= whenever the file changes: models are cached forever on players' devices
   motion: 'scholar',
   speed: 6.0,
   secondaryCd: 10,

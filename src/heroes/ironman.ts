@@ -632,7 +632,7 @@ export const IRONMAN: HeroDef = {
   accent: '#ffc857',
   maxHp: 250,
   // Meshy model (the code-built stand-in from scripts/build-ironman-placeholder.mjs is retired); bump ?v= when the file changes
-  modelUrl: '/models/heroes/ironman.glb?v=2',
+  modelUrl: '/models/heroes/ironman.glb?v=3',
   speed: 6.1,
   secondaryCd: 9,
   ultCost: 1500,
