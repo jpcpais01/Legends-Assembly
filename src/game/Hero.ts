@@ -58,6 +58,9 @@ export class Hero {
   silenceT = 0;
   /** >0 = stunned: no actions and no steering, but gravity and knockback still apply (unlike a channel). */
   stunT = 0;
+  /** >0 = drowsy (Bob Marley's smoke): the legend's own screen sways and blurs. Strength 0..1 eases in and out. */
+  drowsyT = 0;
+  drowsyK = 0;
   moveLock = 0;
   overrideVel: THREE.Vector3 | null = null;
   flashT = 0;
@@ -121,6 +124,8 @@ export class Hero {
   applyStun(dur: number) { this.stunT = Math.max(this.stunT, dur); }
 
   applySilence(dur: number) { this.silenceT = Math.max(this.silenceT, dur); }
+
+  applyDrowsy(dur: number) { this.drowsyT = Math.max(this.drowsyT, dur); }
 
   applyImpulse(v: THREE.Vector3) {
     this.impulse.add(v);
@@ -209,7 +214,7 @@ export class Hero {
     this.hp = this.maxHp;
     this.alive = true;
     this.spawnT = 0;
-    this.slowT = 0; this.slowAmt = 0; this.silenceT = 0; this.stunT = 0;
+    this.slowT = 0; this.slowAmt = 0; this.silenceT = 0; this.stunT = 0; this.drowsyT = 0; this.drowsyK = 0;
     this.channel = 0; this.moveLock = 0; this.overrideVel = null;
     this.speedMult = 1; this.dmgMult = 1; this.dmgTakenMult = 1;
     this.anim.cast = 0; this.anim.levitate = 0; this.anim.dash = 0;

@@ -8,6 +8,30 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.24.0',
+    date: '2026-11-14',
+    title: 'One Love',
+    sections: [
+      {
+        heading: 'New legend: Bob Marley (Strategist)',
+        items: [
+          'Bob Marley joins the roster with his guitar slung on its strap: his fretting hand rides the neck and every attack is a real strum.',
+          'Skank Chords (LMB): offbeat chords fly as rings of sound in red, gold and green. Every 4th strum is the drop, a heavy bass wave that splashes enemies and heals allies near where it lands.',
+          'Kaya Cloud (RMB): blow a big rolling cloud of smoke ahead. Enemies inside are slowed and turn Drowsy.',
+          'One Love (SHIFT): a giant Jamaican sound system rises beside you and pumps bass on the one drop for 7 seconds. Every pulse heals allies around it and hits, knocks back, slows and drowses enemies.',
+          'Bots play him too: they blow smoke on whoever they fight and drop the sound system when their team is hurt.',
+        ],
+      },
+      {
+        heading: 'New status: Drowsy',
+        items: [
+          'A Drowsy legend sees their own screen sway, swim and double, with a warm haze closing in at the edges. Lazy wisps of smoke and a floating "z" show who is affected.',
+          'Drowsy bots aim worse and turn slower.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-11-14',
     title: 'Steve Joins the Fight',

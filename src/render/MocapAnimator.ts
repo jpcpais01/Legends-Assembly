@@ -64,7 +64,7 @@ type V3 = readonly [number, number, number];
  * in, `el` is where the elbow points.
  */
 interface GKey { t: number; p: V3; h: V3; n: V3; cy: number; cp: number; el: V3 }
-interface Gesture { keys: GKey[]; out: number }
+interface Gesture { keys: GKey[]; out: number; /** played on the body, not along the crosshair: follows only part of the aim pitch */ flat?: boolean }
 const DOWN: V3 = [0.45, -1, -0.25];
 const key = (t: number, p: V3, h: V3, n: V3, cy = 0, cp = 0, el: V3 = DOWN): GKey => ({ t, p, h, n, cy, cp, el });
 /**
@@ -151,6 +151,14 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.45, [0.17, -0.6, 0.7], [0, -0.72, 0.69], [-0.95, -0.2, -0.2], 0, 0.22),
     key(0.72, [0.18, -0.5, 0.42], [0, -0.3, 0.95], [-0.95, -0.25, 0.15], 0, 0.04),
   ] },
+  // guitar strum (Bob Marley): the picking hand brushes down across the strings at the hip and lifts off again;
+  // it plays on the guitar, so it ignores where the crosshair points
+  strum: { out: 0.16, flat: true, keys: [
+    key(0.03, [0.00, -0.58, 0.56], [-0.3, -0.75, 0.6], [0.1, 0.3, -0.95], 0.06, 0.02, [0.7, -0.5, -0.5]),
+    key(0.085, [-0.04, -0.86, 0.5], [-0.25, -0.9, 0.35], [0.1, 0.25, -0.96], -0.04, 0.03, [0.7, -0.5, -0.5]),
+    key(0.17, [-0.02, -0.8, 0.52], [-0.28, -0.85, 0.45], [0.1, 0.25, -0.96], -0.02, 0.02, [0.7, -0.5, -0.5]),
+    key(0.28, [-0.01, -0.68, 0.54], [-0.3, -0.8, 0.5], [0.1, 0.3, -0.95], 0, 0.01, [0.7, -0.5, -0.5]),
+  ] },
   // Steve's diamond sword: a flat forehand sweep from high outside, right across the front and down
   slash: { out: 0.2, keys: [
     key(0.06, [0.62, 0.45, 0.25], [0.3, 0.25, -0.92], [0, -1, 0], -0.4, -0.04, [0.8, -0.3, -0.5]),
@@ -185,6 +193,16 @@ const GESTURES: Record<AttackKind, Gesture> = {
     key(0.34, [0.15, -0.4, 0.5], [0, 0.2, 0.98], [-0.9, -0.3, 0.2], 0.05, 0.02),
   ] },
 };
+/**
+ * Holding a guitar slung on its strap (Bob Marley): the fretting hand cradles the neck up by the left shoulder,
+ * the picking hand rests over the strings at the right hip. [left, right], in the same shoulder space as GESTURES.
+ */
+const GUITAR = [
+  key(0, [0.12, -0.2, 0.62], [-0.2, 0.55, 0.8], [-0.85, 0.4, -0.3], 0, 0, [0.8, -0.55, 0.1]),
+  key(0, [-0.01, -0.68, 0.6], [-0.3, -0.8, 0.5], [0.1, 0.3, -0.95], 0, 0, [0.7, -0.5, -0.5]),
+];
+/** How much of the aim pitch a body-held pose follows (the chest already carries some of it). */
+const FLAT_PITCH = 0.35;
 /** Archer's stance (Steve): the bow arm locked down the crosshair, the string hand from the bow (R0) to the cheek (R1). */
 const BOW_L = key(0, [-0.08, 0.12, 1.02], [-0.95, 0, 0.3], [0, 0, 1], 0.32, 0.02, [0.6, -0.7, -0.3]);
 const BOW_R0 = key(0, [-0.62, 0.16, 0.9], [-0.4, 0, 0.92], [0, -1, 0], -0.05, 0.02, [0.8, -0.5, -0.3]);
@@ -195,7 +213,7 @@ const CAST_OPEN = key(0, [0.66, -0.22, 0.3], [0.78, -0.5, 0.36], [0, 0.58, 0.81]
 /** Both arms straight down the crosshair, hands grabbing (Luffy's Gum-Gum Rocket). */
 const REACH = key(0, [-0.06, 0.08, 1.3], [0, 0.08, 1], [0, -1, 0.08], 0, 0.08, [0.6, -0.6, -0.4]);
 
-interface ArmState { g: Gesture | null; t: number; w: number; p0: number[]; h0: number[]; n0: number[]; sp: [Spring, Spring, Spring]; cy: number; cp: number; hold: number }
+interface ArmState { g: Gesture | null; t: number; w: number; flat?: boolean; p0: number[]; h0: number[]; n0: number[]; sp: [Spring, Spring, Spring]; cy: number; cp: number; hold: number }
 const newArm = (): ArmState => ({ g: null, t: 0, w: 0, p0: [0.1, -1, 0], h0: [0, -1, 0], n0: [-1, 0, 0], sp: [new Spring(), new Spring(), new Spring()], cy: 0, cp: 0, hold: 0 });
 /** hand follow spring: stiff enough to hit the strike pose on time, loose enough to settle with a little life */
 const SPR_F = 16, SPR_Z = 0.75;
@@ -230,7 +248,7 @@ export class MocapAnimator {
   private lastAttack = 0; private lastHit = 0;
   private hit: { c: Baked; t: number } | null = null;
   private deadT = 0;
-  private castW = 0; private lev = 0; private reachW = 0; private bowW = 0; private drawK = 0;
+  private castW = 0; private lev = 0; private reachW = 0; private guitarW = 0; private bowW = 0; private drawK = 0;
   private prevVX = 0; private prevVZ = 0; private accF = 0; private accR = 0; private hasPrev = false;
   private lean = new Spring(); private bank = new Spring();
   /** hit recoil: the torso is shoved along the blow and springs back (pitch, roll, twist) */
@@ -414,6 +432,7 @@ export class MocapAnimator {
     // ── attacks: start a gesture on the striking arm ──
     this.castW = damp(this.castW, s.cast, 9, dt);
     this.reachW = damp(this.reachW, s.reach ?? 0, 16, dt);
+    this.guitarW = damp(this.guitarW, s.guitar ?? 0, 8, dt);
     this.bowW = damp(this.bowW, s.bow ?? 0, 14, dt);
     this.drawK = damp(this.drawK, s.bowDraw ?? 0, 14, dt);
     if (s.attack > this.lastAttack + 0.3) {
@@ -548,15 +567,20 @@ export class MocapAnimator {
    */
   private gestures(dt: number, s: AnimState, pitch: number) {
     const set = this.set, Q = this.Q, P = this.P, A = this.armLen, lev = this.lev;
-    const cp0 = Math.cos(pitch), sp0 = Math.sin(pitch);
+    const cpF = Math.cos(pitch * FLAT_PITCH), spF = Math.sin(pitch * FLAT_PITCH);
     let yaw = 0, lean = 0, any = false;
     for (let k = 0; k < 2; k++) {
       const a = this.arm[k], sgn = k ? -1 : 1;
       const sh = k ? I.shoulderR : I.shoulderL, hd = k ? I.handR : I.handL;
       // channel: the striking arm on the ground, both arms when floating
       const rw = this.reachW, bw = this.bowW;
-      const cw = Math.max(this.castW * (k ? 1 : lev), rw, bw);
+      const castK = this.castW * (k ? 1 : lev);
+      const gw = this.guitarW;
+      const cw = Math.max(castK, rw, bw, gw);
       const casting = !a.g && cw > 0.01;
+      const holding = rw <= 0.01 && bw <= 0.01 && gw > castK;
+      a.flat = a.g ? !!a.g.flat : holding;
+      const cp0 = a.flat ? cpF : Math.cos(pitch), sp0 = a.flat ? spF : Math.sin(pitch);
       if (!a.g && !casting && a.w < 0.005) { a.w = 0; a.cy = a.cp = 0; continue; }
       any = true;
       if (a.hold < 0 || (casting && a.w < 0.02)) {
@@ -572,8 +596,9 @@ export class MocapAnimator {
         const K = a.g.keys, last = K[K.length - 1];
         if (a.t >= last.t) {
           tx = last.p[0]; ty = last.p[1]; tz = last.p[2]; cy = last.cy; cpv = last.cp;
-          a.w -= dt / a.g.out;
-          if (a.w <= 0) { a.w = 0; a.g = null; }
+          // a body-held pose (the guitar) takes the hand straight back from the gesture's last key
+          if (holding) { a.g = null; a.hold = 0; }
+          else { a.w -= dt / a.g.out; if (a.w <= 0) { a.w = 0; a.g = null; } }
         } else {
           a.w = Math.min(1, a.w + dt * 28);
           let i = 0;
@@ -589,6 +614,7 @@ export class MocapAnimator {
       } else {
         a.w = damp(a.w, cw, rw > 0.01 ? 18 : 10, dt);
         if (rw > 0.01) { tx = REACH.p[0]; ty = REACH.p[1]; tz = REACH.p[2]; cy = 0; cpv = REACH.cp; }
+        else if (holding) { const G = GUITAR[k]; tx = G.p[0]; ty = G.p[1] + Math.sin(s.time * 2.3 + k) * 0.012; tz = G.p[2]; }
         else if (bw > 0.01) {
           const d = this.drawK;
           if (k) { tx = lerp(BOW_R0.p[0], BOW_R1.p[0], d); ty = lerp(BOW_R0.p[1], BOW_R1.p[1], d); tz = lerp(BOW_R0.p[2], BOW_R1.p[2], d); cy = lerp(BOW_R0.cy, BOW_R1.cy, d); cpv = BOW_R0.cp; }
@@ -619,6 +645,7 @@ export class MocapAnimator {
       const a = this.arm[k];
       if (a.w <= 0.005) continue;
       const sgn = k ? -1 : 1;
+      const cp0 = a.flat ? cpF : Math.cos(pitch), sp0 = a.flat ? spF : Math.sin(pitch);
       const g = a.g;
       // hand orientation: blend the keys around the cursor
       let h: V3 = CAST_UP.h, n: V3 = CAST_UP.n, el: V3 = CAST_UP.el, h2: V3 = CAST_OPEN.h, n2: V3 = CAST_OPEN.n, el2: V3 = CAST_OPEN.el, u = lev;
@@ -629,6 +656,7 @@ export class MocapAnimator {
         h = ka.h; n = ka.n; el = ka.el; h2 = kb.h; n2 = kb.n; el2 = kb.el;
         if (a.t >= K[K.length - 1].t) u = 1;
       } else if (this.reachW > 0.01) { h = h2 = REACH.h; n = n2 = REACH.n; el = el2 = REACH.el; }
+      else if (a.flat) { const G = GUITAR[k]; h = h2 = G.h; n = n2 = G.n; el = el2 = G.el; }
       else if (this.bowW > 0.01) {
         if (k) { h = BOW_R0.h; n = BOW_R0.n; el = BOW_R0.el; h2 = BOW_R1.h; n2 = BOW_R1.n; el2 = BOW_R1.el; u = this.drawK; }
         else { h = h2 = BOW_L.h; n = n2 = BOW_L.n; el = el2 = BOW_L.el; }

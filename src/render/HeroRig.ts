@@ -45,6 +45,8 @@ export interface AnimState {
   armReach?: 'fore' | 'upper';
   fistL?: number;
   fistR?: number;
+  /** 0..1: hold a guitar slung on its strap: fretting hand on the neck, picking hand over the strings (Bob Marley). */
+  guitar?: number;
   /** Which held item is out (HeroDef.items ids); the others are hidden. */
   item?: string;
   /** 0..1 archer's stance: the bow arm straight down the crosshair, the string hand back toward the cheek. */
