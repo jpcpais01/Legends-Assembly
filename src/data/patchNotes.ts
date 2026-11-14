@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.1',
+    date: '2026-11-14',
+    title: 'Free Cursor',
+    sections: [
+      {
+        heading: 'Menus',
+        items: [
+          'Locking in your legend no longer hides the mouse: the game still goes fullscreen, but your cursor stays visible so you can click an arena on the Choose the Arena screen.',
+          'The mouse is captured when you confirm the arena, so the match still starts ready to aim with no extra click.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-11-14',
     title: 'Brass Knuckles',
