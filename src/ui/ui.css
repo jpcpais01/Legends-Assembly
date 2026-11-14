@@ -716,6 +716,9 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; bord
 .crosshair .dot { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--xc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
 .crosshair .arm { background: var(--xc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .5); border-radius: 1px; }
 .crosshair .ring { left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--xc) 60%, transparent); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25), inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.crosshair .imfuel { left: -18px; top: 24px; width: 36px; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .25s; overflow: hidden; }
+.crosshair .imfuel.on { opacity: 1; }
+.crosshair .imfuel s { position: absolute; inset: 0; background: linear-gradient(90deg, #ffb347, #9fe8ff); transform-origin: left; transform: scaleX(var(--f, 1)); }
 .hitmarker { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; --hk: 1; --hm: #fff; }
 .hitmarker i { position: absolute; left: -1.5px; top: -14px; width: 3px; height: 9px; border-radius: 1px; background: var(--hm); box-shadow: 0 0 0 1px rgba(0, 0, 0, .55); transform-origin: 50% 14px; }
 .hitmarker i:nth-child(1) { transform: rotate(45deg); } .hitmarker i:nth-child(2) { transform: rotate(135deg); }

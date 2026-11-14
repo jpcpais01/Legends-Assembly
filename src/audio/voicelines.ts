@@ -68,6 +68,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       shutdown: L('shutdown', '[laughs] Streak over. Sit down.', 'Not on my watch.'),
     },
     rival: {
+      ironman: R('ironman', '[laughs] Tin can got rung.', 'Big suit, small bell.'),
       einstein: R('einstein', '[laughs] Do the math on that one.', 'Big brain, still lost.', 'Relativity? Relatively dead.'),
       vangogh: R('vangogh', '[laughs] Paint that.', 'Frame that one, Vinny.', 'Starry night? Lights out.'),
       yeat: R('yeat', 'Only one Twizzy, bro.', '[smug] Copycat got rung.'),
@@ -111,6 +112,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       shutdown: L('shutdown', 'Your streak has collapsed.', '[chuckles] Every curve comes down.'),
     },
     rival: {
+      ironman: R('ironman', '[chuckles] All that armor, and still subject to physics.', 'Your reactor obeys my equation.'),
       yeat: R('yeat', '[chuckles] Silence, at last.', 'Your bell is out of tune.', 'Noise, cancelled.'),
       vangogh: R('vangogh', 'Sorry, Vincent. Physics beats paint.', '[chuckles] A still life now.', 'Even the stars must fall.'),
       einstein: R('einstein', '[chuckles] Only one genius per universe.', 'Imitation is not a theory.'),
@@ -154,6 +156,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       shutdown: L('shutdown', 'Your streak is painted over.', 'Not so loud now.'),
     },
     rival: {
+      ironman: R('ironman', 'Red and gold. A lovely palette. A pity.', '[sighs] Even iron rusts, my friend.'),
       yeat: R('yeat', '[satisfied] Finally, some quiet.', 'Ring that, young man.', 'A still life, with bell.'),
       einstein: R('einstein', 'Your equation lacked color, Albert.', '[laughs] Relative to me, you lost.', 'Beauty beats logic.'),
       vangogh: R('vangogh', 'A forgery. Obviously.', '[laughs] Only the original survives.'),
@@ -200,6 +203,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       einstein: R('einstein', 'Your mass has been converted. To scrap.', '[deadpan] Relatively easy.', 'Physics, meet force.'),
       yeat: R('yeat', '[deadpan] Your bell rang. I answered.', 'Volume reduced to zero.', 'Too loud. Muted.'),
       vangogh: R('vangogh', 'You are now a still life.', '[deadpan] I do not understand art. I understand punching.'),
+      ironman: R('ironman', '[deadpan] Your armor has been recycled.', 'Arc reactor, unplugged.'),
       blitzcrank: R('blitzcrank', 'Inferior model.', '[deadpan] Only one of us can be the original.'),
     },
     banter: [
@@ -207,6 +211,55 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_yeat', vs: 'yeat', text: 'Your music is very loud. My ears are speakers. They hurt.', reply: 'That\'s the point, bro.' },
       { id: 'vs_vangogh', vs: 'vangogh', text: 'Mister van Gogh, please paint me. Use a lot of brass.', reply: 'You would be a magnificent golden study.' },
       { id: 'vs_blitzcrank', vs: 'blitzcrank', text: 'Another steam golem? Running diagnostics on you.', reply: 'Diagnostics complete. You are going down.' },
+    ],
+  },
+  ironman: {
+    short: 'Iron Man',
+    // a touch of helmet: band-limited, a little bite, a short metallic slap
+    chain: { hp: 160, lp: 9500, drive: 0.12, slap: 0.03, slapMix: 0.12, reverb: 0.1, rate: 1, gain: 1.05 },
+    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cocky genius billionaire, fast, dry wit, speaking inside a metal helmet]', stability: 0.4, style: 0.65 },
+    lines: {
+      matchStart: L('matchStart', 'Suit\'s warm. Systems green. Let\'s make some noise.', '[smug] Relax, everyone. The expensive one is here.', 'Flight check done. Weapons hot.', '[dry] I was told there would be a challenge.'),
+      primary: L('primary', 'Repulsors, online.', '[smug] Hold still.', 'Palm\'s up. Bad news for you.'),
+      secondary: L('secondary', '[confident] Missiles away!', 'Pods open. Pick a number.', '[smug] Heat-seeking, and they\'re seeking you.', 'Say hello to the swarm.'),
+      secondaryHit: L('secondaryHit', 'Direct hit. Obviously.', '[laughs] Six for six.', 'Tracking works. I built it.'),
+      ult: L('ult', '[shouting] Unibeam, full power!', '[intense] Arc reactor, everything you\'ve got!', '[shouting] Light \'em up!'),
+      ultEnemy: L('ultEnemy', '[intense] Look at the chest. Last thing you\'ll see.', '[shouting] Stand right there!'),
+      kill: L('kill', 'And that\'s why I don\'t do sequels.', '[smug] Genius, one. You, zero.', 'Should\'ve read the fine print.', 'Target down. Next.', '[dry] I\'ve had tougher board meetings.', 'Scratch one.', '[laughs] Was that it?'),
+      multiKill: L('multiKill', '[hyped] Look at the scoreboard! That\'s all me!', '[laughs] Buy one, get one free.', '[smug] Group discount.'),
+      death: L('death', '[groans] Okay... that one dented.', '[annoyed] Rebooting. Don\'t touch anything.', '[strained] Note to self: thicker plating.'),
+      respawn: L('respawn', 'New suit, same attitude.', '[confident] Mark two. Upgraded.', 'Back online. Miss me?'),
+      ultReady: L('ultReady', '[confident] Arc reactor is charged. Point me at something.', 'Unibeam\'s ready. Just say when.', '[smug] Chest is glowing. That\'s a good sign.'),
+      lowHp: L('lowHp', '[alarmed] Armor\'s failing, I need a breather!', '[strained] Power\'s at ten percent!', '[panicked] Hull breach! Somebody cover me!'),
+      victory: L('victory', '[smug] Was there ever any doubt?', '[laughs] Somebody get me a cheeseburger.', 'Victory. Put it on my tab.'),
+      defeat: L('defeat', '[sighs] Back to the workshop.', '[annoyed] I\'ll fix it in the next version.'),
+      assist: L('assist', 'Nice. I softened them up for you.', 'Teamwork. Mostly my work.', 'Good hit. I\'ll allow it.'),
+      revenge: L('revenge', '[smug] Remember me? I remember you.', 'Payback, with interest.', '[laughs] I keep receipts.'),
+      streak: L('streak', '[hyped] I\'m on a roll! Somebody stop me! Actually, don\'t.', 'Suit\'s running hot and so am I.', '[smug] They should charge admission.'),
+      heal: L('heal', 'Patched up. Good as new.', 'Systems restored.'),
+      takeLead: L('takeLead', '[confident] We\'re ahead. Let\'s keep it boring for them.', 'Lead\'s ours. Don\'t get cute.'),
+      behind: L('behind', '[serious] We\'re behind. Time to improvise.', 'Okay, new plan. Same genius.'),
+      matchPoint: L('matchPoint', '[intense] One more and we\'re done here!', 'Match point. Finish it.'),
+      overtime: L('overtime', '[smug] Overtime? I bill extra for this.', 'Extra innings. Fine by me.'),
+      enemyUlt: L('enemyUlt', '[alarmed] Big energy spike, incoming!', '[shouting] Scatter! Now!'),
+      allyDown: L('allyDown', 'We lost one!', '[annoyed] Man down, I\'m on it.'),
+      shutdown: L('shutdown', '[smug] Streak\'s over. Sit down.', 'And the show is cancelled.'),
+    },
+    rival: {
+      einstein: R('einstein', 'Relatively speaking, you lost.', '[smug] I read your papers. Peer reviewed.', 'E equals me, squared.'),
+      yeat: R('yeat', '[dry] Ring this.', 'Your bell has a dent now.', '[laughs] Saved by the bell? Not today.'),
+      vangogh: R('vangogh', 'I prefer modern art.', '[smug] Nice brushwork. Shame about the ending.', 'That\'s going in the museum.'),
+      blitzcrank: R('blitzcrank', '[smug] Steam power? Adorable.', 'I\'ll put you in a museum. Right next to the toaster.'),
+      luffy: R('luffy', '[smug] Stretch that.', 'Rubber doesn\'t beat physics, kid.'),
+      ironman: R('ironman', '[annoyed] Knock-off armor. I could tell.', 'There can only be one genius.'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Albert! Big fan. I fixed three of your equations, by the way.', reply: 'Fascinating. Show me your work.' },
+      { id: 'vs_yeat', vs: 'yeat', text: 'Love the bell. Very... analog.', reply: 'Love the suit. Very... rented.' },
+      { id: 'vs_vangogh', vs: 'vangogh', text: 'Vincent, want me to frame your next one in titanium?', reply: 'Gold would suit you better, I think.' },
+      { id: 'vs_blitzcrank', vs: 'blitzcrank', text: 'A steam robot? I have a vacuum cleaner smarter than you.', reply: 'Your vacuum cleaner has my sympathy.' },
+      { id: 'vs_ironman', vs: 'ironman', text: 'Nice suit. Who made it? Oh wait. Me.', reply: 'Then you know exactly how to break it.' },
+      { id: 'vs_luffy', vs: 'luffy', text: 'Rubber arms? I\'ve got rockets. Choose wisely, kid.', reply: 'Rockets? Cool! Can I ride one?' },
     ],
   },
   luffy: {
@@ -256,7 +309,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
   },
 };
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).

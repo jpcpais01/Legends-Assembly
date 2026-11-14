@@ -8,6 +8,28 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.20.0',
+    date: '2026-11-14',
+    title: 'Iron Man Joins the Assembly',
+    sections: [
+      {
+        heading: 'New legend: Iron Man (Duelist)',
+        items: [
+          'Repulsor Blast (LMB): alternating palm blasts that fly fast and straight. His arm locks out toward the crosshair and the palm flares on every shot. Headshots deal 50% bonus damage.',
+          'Missile Swarm (RMB): the shoulder pods flip open and fire six homing missiles at the enemy closest to your crosshair. They corkscrew in on smoke trails and splash on impact.',
+          'Unibeam (Shift): he lifts off, the arc reactor charges, and a huge beam pours out of his chest. Sweep it across the arena: it burns through every enemy in its path and scorches the floor where it lands. He takes 30% less damage while it runs.',
+          'Jet Boots (passive): hold jump in the air to hover on your boot thrusters. A fuel bar under the crosshair shows how much flight is left, and it refills on the ground.',
+          'His own crosshair, footsteps that clank like armor, and plenty to say: lines and banter with Einstein, Yeat, Van Gogh, Blitzcrank and Luffy (shown as subtitles until his voice is recorded).',
+          'Bots play him too: they hop onto their jet boots mid-fight, fire missiles at whoever they can see, and save the Unibeam for crowds or tough targets.',
+        ],
+      },
+      {
+        heading: 'Coming soon',
+        items: ['Iron Man is wearing a stand-in suit for now. His full detailed armor arrives in a later update.'],
+      },
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-11-14',
     title: 'Gum-Gum',
