@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { smoothstep } from '../core/math';
 import type { HeightGrid } from './HeightGrid';
 
 export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top: number }
@@ -18,8 +17,8 @@ export class World {
   bounds: Bounds = { kind: 'circle', r: ARENA_RADIUS };
   /** Mesh-derived collision (Giant's Study). */
   grid: HeightGrid | null = null;
-  /** Base ground height: the Sunset Ruins use an analytic meadow, other arenas a flat floor. */
-  ground: (x: number, z: number) => number = ruinsHeight;
+  /** Base ground height (every arena uses a flat floor under its mesh grid). */
+  ground: (x: number, z: number) => number = () => 0;
 
   /** Random point inside the bounds (walkable, when the arena has a nav grid). */
   randomPoint(out: THREE.Vector3, spread = 0.45) {
@@ -175,23 +174,4 @@ export class World {
     }
     return best <= 1 ? best : -1;
   }
-}
-
-/** Analytic Sunset Ruins terrain. */
-export function ruinsHeight(x: number, z: number) {
-  const r = Math.sqrt(x * x + z * z);
-  let h = 0;
-  // rolling meadow undulation, flat in the center
-  const und = (Math.sin(x * 0.11 + 1.3) * Math.cos(z * 0.09 - 0.4) + Math.sin((x + z) * 0.05) * 0.8) * 0.28;
-  h += und * smoothstep(9, 22, r);
-  // central dais
-  h = Math.max(h, 1.0 * (1 - smoothstep(6.2, 8.6, r)));
-  // spawn platforms
-  for (const s of SPAWNS) {
-    const d = Math.hypot(x - s.x, z - s.z);
-    h = Math.max(h, 0.45 * (1 - smoothstep(4.2, 5.8, d)));
-  }
-  // island rim falls away into the lake
-  h -= smoothstep(45, 52, r) * 7.5;
-  return h;
 }

@@ -15,7 +15,6 @@ import { music } from './audio/Music';
 import { ambience } from './audio/Ambience';
 import { settings, saveSettings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
-import { Arena } from './world/Arena';
 import { GodRaysEffect } from './world/studyLight';
 import { StudyArena } from './world/StudyArena';
 import { MuseumArena } from './world/MuseumArena';
@@ -55,11 +54,11 @@ async function boot() {
   initGlobals();
 
   let kind: ArenaKind = settings.arena;
-  const makeArena = (k: ArenaKind, sc: THREE.Scene): ArenaLike => k === 'museum' ? new MuseumArena(sc, renderer.gl) : k === 'ruins' ? new Arena(sc, renderer.gl) : new StudyArena(sc, renderer.gl);
+  const makeArena = (k: ArenaKind, sc: THREE.Scene): ArenaLike => k === 'museum' ? new MuseumArena(sc, renderer.gl) : new StudyArena(sc, renderer.gl);
   const volumetricFor = (a: ArenaLike) => a instanceof StudyArena && a.hasRoomModel ? new GodRaysEffect(camera, 16) : a instanceof MuseumArena ? a.raysEffect(camera, 16) : null;
-  await progress(20, kind === 'museum' ? 'Unlocking the museum' : kind === 'ruins' ? 'Raising the ruins' : 'Opening the study');
+  await progress(20, kind === 'museum' ? 'Unlocking the museum' : 'Opening the study');
   let arena: ArenaLike = makeArena(kind, scene);
-  await progress(45, kind === 'museum' ? 'Polishing the marble' : kind === 'ruins' ? 'Growing the meadow' : 'Dusting the desk');
+  await progress(45, kind === 'museum' ? 'Polishing the marble' : 'Dusting the desk');
   await Promise.all([loadProps(), arena.ready]);
   arena.placeProps();
   renderer.setVolumetric(volumetricFor(arena));
@@ -156,7 +155,6 @@ async function boot() {
   const LOAD_COPY: Record<ArenaKind, [string, string]> = {
     study: ['Opening the study', 'Dusting the desk'],
     museum: ['Unlocking the museum', 'Polishing the marble'],
-    ruins: ['Raising the ruins', 'Growing the meadow'],
   };
   let arenaLoad: Promise<void> | null = null;
   /** Build an arena in its own scene, warm its shaders, then swap it in and free the old one. */
@@ -384,7 +382,7 @@ async function boot() {
       music.play(menuPage === 'select' ? 'select' : 'menu', 2.5);
     } else {
       if (arena.soundscape) ambience.start(arena.soundscape);
-      audio.setRoom(kind === 'museum' ? 'hall' : kind === 'ruins' ? 'ruins' : 'study'); // the museum rings like the Assembly Hall
+      audio.setRoom(kind === 'museum' ? 'hall' : 'study'); // the museum rings like the Assembly Hall
       audio.setAmbience(1, 1.5);
     }
   }
@@ -497,7 +495,7 @@ async function boot() {
       // slow cinematic drift around the showcase hero on the dais
       const a = Math.sin(menuT * 0.09) * 0.45 - 0.15;
       const R = mc.dist + Math.sin(menuT * 0.13) * 0.6 * (mc.dist / 7.2);
-      // the menu framing is tuned for a showcase standing at y = 1 (the ruins dais)
+      // the menu framing is tuned for a showcase standing at y = 1
       const sp = stage.heroPos, dy = sp.y - 1;
       camTarget.set(sp.x + Math.sin(a) * R, dy + mc.height + Math.sin(menuT * 0.17) * 0.25, sp.z - Math.cos(a) * R);
       camera.position.lerp(camTarget, snap ? 1 : 1 - Math.exp(-2 * dt));

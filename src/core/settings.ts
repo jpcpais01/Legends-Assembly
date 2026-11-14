@@ -32,7 +32,7 @@ export interface Settings {
   invertY: boolean;
   playerName: string;
   botDifficulty: 'easy' | 'normal' | 'hard';
-  arena: 'study' | 'museum' | 'ruins';
+  arena: 'study' | 'museum';
   /** HUD size multiplier (0.8 to 1.25). */
   hudScale: number;
   damageNumbers: boolean;
@@ -93,7 +93,11 @@ export function loadSettings(): Settings {
   const d = defaults();
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...d, ...JSON.parse(raw) };
+    if (raw) {
+      const s: Settings = { ...d, ...JSON.parse(raw) };
+      if (s.arena !== 'study' && s.arena !== 'museum') s.arena = d.arena; // retired arenas (Sunset Ruins) fall back to the study
+      return s;
+    }
   } catch { /* storage unavailable */ }
   return d;
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TEAM_COLORS } from '../world/Arena';
+import { TEAM_COLORS } from '../world/types';
 import type { ArenaLike } from '../world/types';
 import { Vfx, InstancedPool } from '../vfx/Vfx';
 import { Shape } from '../vfx/Particles';
@@ -1157,7 +1157,7 @@ export class Game {
     const rel = h.isLocal ? 0 : me && h.team === me.team ? 1 : 2;
     const vol = [0.5, 0.6, 1.05][rel] * k;
     const opts: PlayOpts | undefined = rel === 2 ? { ref: 5, rolloff: 0.055 } : undefined;
-    const surf: Surface = this.arena.surfaceAt?.(h.pos.x, h.pos.y, h.pos.z) ?? (settings.arena === 'ruins' ? 'grass' : 'wood');
+    const surf: Surface = this.arena.surfaceAt?.(h.pos.x, h.pos.y, h.pos.z) ?? 'wood';
     const shoe = STEP[h.def.id];
     const shoeOk = audio.hasSample(shoe);
     const under = SURFACE_STEP[surf];

@@ -33,6 +33,39 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
+    version: '0.16.2',
+    date: '2026-11-14',
+    title: 'Museum Treasures',
+    sections: [
+      {
+        heading: 'New in the Grand Museum',
+        items: [
+          'A blue whale skeleton now hangs on steel cables high over the east half of the hall, swaying ever so slightly.',
+          'Four golden pharaoh sarcophagi stand behind velvet ropes near the spawn corners. They are tall, solid cover as you leave your base.',
+          'Crimson velvet benches face the paintings: low cover you can vault, right in the lanes.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.16.1',
+    date: '2026-11-14',
+    title: 'Farewell, Sunset Ruins',
+    sections: [
+      {
+        heading: 'Arenas',
+        items: [
+          "The Sunset Ruins are gone for good. Matches now play in the Giant's Study or the Grand Museum.",
+          "If the Ruins were your last pick, you'll land in the Giant's Study instead.",
+        ],
+      },
+      {
+        heading: 'Under the hood',
+        items: ['The ruins meadow, its props and its ambience no longer download, so the game loads a little lighter.'],
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-11-14',
     title: 'The Grand Museum',

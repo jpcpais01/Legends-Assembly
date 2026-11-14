@@ -232,7 +232,7 @@ export class AudioEngine {
     if (p) this.setLowHealth(0);
   }
 
-  /** Shape the shared reverb like the arena: a huge wooden study, or open stone ruins. */
+  /** Shape the shared reverb like the arena: a huge wooden study, or the vast Assembly Hall. */
   setRoom(r: RoomPreset) {
     if (!this.ctx || this.room === r) return;
     this.room = r;

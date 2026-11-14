@@ -43,7 +43,6 @@ const ROLES: Role[] = ['Vanguard', 'Duelist', 'Strategist'];
 export const ARENAS: { id: ArenaKind; name: string; kicker: string; desc: string; c: string }[] = [
   { id: 'study', name: "Giant's Study", kicker: 'Desk · Close quarters', desc: 'Shrunk down on a scholar’s desk. Fight between ink pots, pencils and a ticking pocket watch.', c: '#ffb45a' },
   { id: 'museum', name: 'Grand Museum', kicker: 'Marble halls · Long sightlines', desc: 'A sunlit rotunda of marble and gold. Statues for cover, galleries for flanks.', c: '#9fd2ff' },
-  { id: 'ruins', name: 'Sunset Ruins', kicker: 'Open meadow · Golden hour', desc: 'Broken columns in tall grass. Wide lanes that reward aim and movement.', c: '#ff8fb0' },
 ];
 export const arenaInfo = (id: ArenaKind) => ARENAS.find((a) => a.id === id) ?? ARENAS[0];
 

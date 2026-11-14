@@ -4,7 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { World } from './collision';
 import { HeightGrid } from './HeightGrid';
 import { Sky } from './Sky';
-import { TEAM_COLORS } from './Arena';
+import { TEAM_COLORS } from './types';
 import { loadTemplate, type PropTemplate } from '../render/props';
 import { QUALITY, settings } from '../core/settings';
 import { damp, lerp, mulberry32 } from '../core/math';

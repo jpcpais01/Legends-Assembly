@@ -11,8 +11,7 @@ import type { Soundscape } from '../world/types';
  * - the pocket watch on the desk ticking in time with its second hand, the metronome
  *   clicking on each swing, the Newton's cradle clacking as its balls meet
  * - the old house creaking in its beams, the chandelier chain groaning as it sways
- * The ruins get their outdoor bed and birds around the meadow; the Assembly Hall (menus) a vast
- * airy drone of its own.
+ * The Assembly Hall (menus) and the museum get a vast airy drone of their own.
  */
 interface Emitter { name: Sfx; pos: THREE.Vector3 | null; vol: number; h: LoopHandle | null }
 
@@ -24,7 +23,7 @@ class AmbienceDirector {
   private lastSec = -1;
   private lastBeat = -1;
   private lastClack = -1;
-  private timers = { creak: 6, chain: 9, outside: 7, surge: 18, birds: 4 };
+  private timers = { creak: 6, chain: 9, outside: 7, surge: 18 };
   private refresh = 0;
   private _p = new THREE.Vector3();
 
@@ -39,7 +38,6 @@ class AmbienceDirector {
       if (sc.fire) L('fireLoop', sc.fire, 1);
       for (const w of sc.windows ?? []) L('windowLoop', w, 0.8);
     } else if (sc.kind === 'hall') L('hallAmb', null, 1);
-    else L('ambRuins', null, 1);
   }
 
   stop() {
@@ -62,7 +60,6 @@ class AmbienceDirector {
       }
     }
     if (sc.kind === 'study') this.study(sc, dt, time);
-    else if (sc.kind === 'ruins') this.ruins(dt);
   }
 
   private study(sc: Soundscape, dt: number, time: number) {
@@ -103,16 +100,6 @@ class AmbienceDirector {
       audio.play(Math.random() < 0.55 ? 'cityDistant' : 'birdsWindow', w, rnd(0.6, 1));
     }
     if (t.surge <= 0 && sc.fire) { t.surge = rnd(22, 45); audio.play('fireSurge', sc.fire, rnd(0.6, 1)); }
-  }
-
-  private ruins(dt: number) {
-    const t = this.timers;
-    t.birds -= dt;
-    if (t.birds <= 0) {
-      t.birds = rnd(6, 14);
-      const a = rnd(0, Math.PI * 2), r = rnd(30, 60);
-      audio.play('birdsWindow', this._p.set(Math.cos(a) * r, rnd(8, 20), Math.sin(a) * r), rnd(0.5, 0.9));
-    }
   }
 }
 

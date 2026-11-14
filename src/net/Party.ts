@@ -10,7 +10,7 @@ import { PATCH_NOTES } from '../data/patchNotes';
  */
 
 export type Diff = 'easy' | 'normal' | 'hard';
-export type ArenaKind = 'study' | 'museum' | 'ruins';
+export type ArenaKind = 'study' | 'museum';
 export type Phase = 'lobby' | 'select' | 'map' | 'loading' | 'match';
 
 export interface Member { id: string; name: string; team: number; hero: HeroId; ready: boolean; host: boolean }
