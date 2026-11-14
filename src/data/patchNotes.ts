@@ -8,6 +8,25 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.1',
+    date: '2026-11-14',
+    title: "Mickey's New Look",
+    sections: [
+      {
+        heading: 'Mickey Mouse',
+        items: [
+          'Mickey has his final model: big round ears, red shorts, yellow shoes and a proper cartoon grin, with his bouncy rubber-hose walk on top.',
+          'Steamboat Willie now sends a real wooden paddle steamer down the lane, puffing smoke from both funnels and squashing on every chug.',
+          'Spud Shot throws an actual potato now. Look closely: it has a little face.',
+        ],
+      },
+      {
+        heading: 'Fixes',
+        items: ['The start screen now lists all seven legends.'],
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-11-14',
     title: 'Steamboat Willie',
