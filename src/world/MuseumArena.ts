@@ -14,7 +14,7 @@ import { HERO_RADIUS } from '../game/Hero';
 import type { ArenaLike, Soundscape, Surface } from './types';
 import { HALL, DOME, SUN_DIR, makeSunbeam, makeMuseumDust, MuseumRaysEffect } from './museumLight';
 import { makeFloorMaterial, makeMarbleMaterial, makeCeilingMaterial, makeGoldMaterial } from './museumSurfaces';
-import { paintCollection, paintingUV, type PaintingId } from './museumPaintings';
+import { loadPaintings, frameStretch, paintingUV, PAINTINGS, type PaintingId } from './museumPaintings';
 
 /**
  * The Grand Museum: a colossal marble hall with a broken dome over the crossing, open to the sky.
@@ -220,7 +220,10 @@ export class MuseumArena implements ArenaLike {
   private async load() {
     const ktx2 = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(this.renderer);
     const loader = new GLTFLoader().setKTX2Loader(ktx2).setMeshoptDecoder(MeshoptDecoder);
-    const loaded = await Promise.all(MODELS.map((n) => loadTemplate(`/models/museum/${n}.glb?v=${MODEL_VER[n]}`, loader)));
+    const [loaded, paintings] = await Promise.all([
+      Promise.all(MODELS.map((n) => loadTemplate(`/models/museum/${n}.glb?v=${MODEL_VER[n]}`, loader))),
+      loadPaintings(ktx2),
+    ]);
     MODELS.forEach((n, i) => {
       const t = loaded[i];
       if (!t) { console.warn(`[museum] ${n} missing`); return; }
@@ -234,9 +237,9 @@ export class MuseumArena implements ArenaLike {
     const places: Partial<Record<MuseumModel, Place[]>> = {};
     const put = (n: MuseumModel, m: THREE.Matrix4, collide: boolean) => { (places[n] ??= []).push({ m, collide }); return m; };
     const frames: { m: THREE.Matrix4; h: number; art: PaintingId }[] = [];
-    const ART: PaintingId[] = ['starry', 'relativity', 'sunflowers', 'bell', 'seascape', 'wheatfield', 'ruins', 'grid'];
+    // every frame gets its own painting: the walls' bays take the collection in order, the spawn screens the rest
     let artI = 0;
-    const nextArt = () => ART[artI++ % ART.length];
+    const nextArt = () => PAINTINGS[artI++ % PAINTINGS.length];
 
     // ── walls: the kit pieces of WALL_PLAN, ground tier below the cornice and upper tier above, backed onto the wall plane
     const fountains: THREE.Matrix4[] = [];
@@ -258,7 +261,8 @@ export class MuseumArena implements ArenaLike {
       const stairHere = STAIRS.some(([sx, sz]) => Math.abs(sx - wx) < 1 && Math.sign(sz) === Math.sign(wz) && Math.abs(wz) === HZ);
       const fh = 6.2;
       const local = new THREE.Matrix4().makeTranslation(0, (stairHere ? 5.6 : 2.5) / BAY_H, -0.145 + (0.123 * fh / BAY_H) / BAY_DZ * 0.5 + 0.002);
-      frames.push({ m: bay.clone().multiply(local).multiply(new THREE.Matrix4().makeScale(fh / BAY_H, fh / BAY_H, fh / BAY_H / BAY_DZ)), h: fh, art: nextArt() });
+      const art = nextArt();
+      frames.push({ m: bay.clone().multiply(local).multiply(new THREE.Matrix4().makeScale(frameStretch(art) * fh / BAY_H, fh / BAY_H, fh / BAY_H / BAY_DZ)), h: fh, art });
     });
     if (fountains.length) {
       const P = FOUNTAIN_PATCH;
@@ -285,7 +289,8 @@ export class MuseumArena implements ArenaLike {
         const bay = put('museum_column_bay', mat4(sx + face * d / 2, 0, 0, yaw, SCREEN_H, 1, SCREEN_DZ), true);
         const fh = 4.5;
         const local = new THREE.Matrix4().makeTranslation(0, 1.5 / SCREEN_H, -0.145 + (0.123 * fh / SCREEN_H) / SCREEN_DZ * 0.5 + 0.002);
-        frames.push({ m: bay.clone().multiply(local).multiply(new THREE.Matrix4().makeScale(fh / SCREEN_H, fh / SCREEN_H, fh / SCREEN_H / SCREEN_DZ)), h: fh, art: face * sx < 0 ? 'starry' : 'bell' });
+        const art = nextArt();
+        frames.push({ m: bay.clone().multiply(local).multiply(new THREE.Matrix4().makeScale(frameStretch(art) * fh / SCREEN_H, fh / SCREEN_H, fh / SCREEN_H / SCREEN_DZ)), h: fh, art });
       }
     }
     for (const f of frames) put('painting_frame', f.m, false);
@@ -342,7 +347,7 @@ export class MuseumArena implements ArenaLike {
     this.fillDisplayCases(grid, caseMats);
     this.buildOrreryPlanets();
     this.buildArchitecture(grid);
-    this.hangPaintings(frames);
+    this.hangPaintings(frames, paintings);
     for (const [x, z, yaw] of STAIRS) this.stairCollision(grid, mat4(x, 0, z, yaw, STAIR_H));
     this.lightStairLamps();
 
@@ -473,9 +478,8 @@ export class MuseumArena implements ArenaLike {
   }
 
   /** The collection, in one atlas: a canvas in front of each frame's blank, one draw for all of them. */
-  private hangPaintings(frames: { m: THREE.Matrix4; h: number; art: PaintingId }[]) {
-    if (!this.T.painting_frame) return;
-    const tex = paintCollection();
+  private hangPaintings(frames: { m: THREE.Matrix4; h: number; art: PaintingId }[], tex: THREE.Texture | null) {
+    if (!this.T.painting_frame || !tex) return;
     const parts: THREE.BufferGeometry[] = [];
     for (const f of frames) {
       // canvas opening of the frame model (normalized, height 1): x ±0.31, y 0.155..0.8, just proud of the blank

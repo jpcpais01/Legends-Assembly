@@ -8,7 +8,7 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.25.1',
+    version: '0.25.2',
     date: '2026-11-14',
     title: 'Full Voices',
     sections: [
@@ -25,6 +25,21 @@ export const PATCH_NOTES: PatchNote[] = [
           'The T-Rex is recorded from tooth to tail: earth-shaking footsteps, snapping jaws, crunching bites, tail sweeps, the charging stampede, wall crashes, the ground rumbling as he rears up, meteors whistling down and slamming in, and a colossal roar for Extinction Event.',
           'Bob Marley’s guitar is now a real muted reggae skank, his chord drops hit with a deep dub bass, his notes pluck when they land, his smoke exhales slowly and One Love rises out of a rumbling speaker stack into a ringing chord.',
           'Steve’s Ender Dragon tears its portal open and roars with real recordings.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.25.1',
+    date: '2026-11-14',
+    title: 'Old Masters',
+    sections: [
+      {
+        heading: 'The Grand Museum',
+        items: [
+          'The green bells and the other placeholder art are gone. Every frame in the hall now holds a real masterpiece, and no two frames repeat.',
+          'On show: The Night Watch, the Mona Lisa, The Birth of Venus, Las Meninas, Girl with a Pearl Earring, The Kiss, The Arnolfini Portrait, Impression, Sunrise, The Starry Night, The Scream, Woman with a Parasol and The Swing.',
+          'Each frame widens or narrows a little to fit its painting, so the works are shown close to their true proportions.',
         ],
       },
     ],
