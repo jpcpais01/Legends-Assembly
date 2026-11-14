@@ -32,7 +32,7 @@ const KILLFLASH = new THREE.Color(1.6, 1.3, 1.1);
 const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 /** Each legend's own shoes on bare wood, and what each surface adds underneath them. */
-const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh' };
+const STEP: Record<HeroId, Sfx> = { einstein: 'stepEinstein', yeat: 'stepYeat', vangogh: 'stepVangogh', blitzcrank: 'stepBlitz' };
 const SURFACE_STEP: Partial<Record<Surface, Sfx>> = { paper: 'stepPaper', metal: 'stepMetal', leather: 'stepLeather', stone: 'stepStone', grass: 'stepGrass' };
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
@@ -106,7 +106,7 @@ export interface Callout {
 
 const MULTI_WINDOW = 4.5;
 /** View kick per primary shot (radians). */
-const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007 };
+const RECOIL: Partial<Record<HeroId, number>> = { einstein: 0.005, yeat: 0.011, vangogh: 0.007, blitzcrank: 0.014 };
 const MULTI = [
   null, null,
   { title: 'Double Elimination', vox: 'double' },
@@ -428,7 +428,7 @@ export class Game {
     victim.stats.deaths++;
     const victimStreak = victim.stats.streak;
     victim.stats.streak = 0;
-    victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0;
+    victim.channel = 0; victim.overrideVel = null; victim.moveLock = 0; victim.stunT = 0;
     victim.kit.onDeath?.(victim, this);
     const assists: Hero[] = [];
     for (const [id, t] of victim.recentAttackers) {
@@ -883,17 +883,18 @@ export class Game {
     // reset per-frame buffs; kit re-applies
     h.speedMult = 1; h.dmgMult = 1; h.dmgTakenMult = 1;
     h.kit.update(h, this, dt);
-    if (!frozen && h.channel <= 0 && h.alive) {
+    if (!frozen && h.channel <= 0 && h.stunT <= 0 && h.alive) {
       if (h.input.primary && h.primaryCd <= 0) {
         h.kit.primary(h, this); h.spawnT = Math.max(h.spawnT, 1.6); h.abT.primary = this.time; this.voice.say(h, 'primary');
         if (h.isLocal) this.camRig.recoil(RECOIL[h.def.id] ?? 0.006, rand(-1, 1) * 0.002);
       }
-      if (h.input.secondary && h.secondaryCd <= 0) {
+      const silenced = h.silenceT > 0;
+      if (h.input.secondary && h.secondaryCd <= 0 && !silenced) {
         if (h.kit.secondary(h, this)) { h.secondaryCd = h.def.secondaryCd; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.secondary = this.time; this.voice.say(h, 'secondary'); if (h.isLocal) this.camRig.recoil(0.012); }
-      } else if (h.isLocal && this.input.rmbPressed && h.secondaryCd > 0) this.play('denied', undefined, 0.4);
-      if (h.input.ult && h.ult >= 1) {
+      } else if (h.isLocal && this.input.rmbPressed && (h.secondaryCd > 0 || silenced)) this.play('denied', undefined, 0.4);
+      if (h.input.ult && h.ult >= 1 && !silenced) {
         if (h.kit.ult(h, this)) { h.ult = 0; h.spawnT = Math.max(h.spawnT, 1.6); h.abT.ult = this.time; this.voice.ult(h); this.ultCastFx(h); this.ultCine(h); this.ultMoment(h); }
-      } else if (h.isLocal && this.input.shiftPressed && h.ult < 1) this.play('denied', undefined, 0.4);
+      } else if (h.isLocal && this.input.shiftPressed && (h.ult < 1 || silenced)) this.play('denied', undefined, 0.4);
     }
     this.heroAmbient(h, dt);
     if (h.moveLock > 0) h.moveLock -= dt;
@@ -944,6 +945,16 @@ export class Game {
     if (h.slowT > 0 && h.slowAmt > 0.05 && Math.random() < dt * 14) {
       const a = rand(0, TAU);
       this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.5, y: h.pos.y + rand(0.1, 1.4), z: h.pos.z + Math.sin(a) * 0.5, vx: -Math.sin(a) * 1.2, vy: rand(-0.6, -0.2), vz: Math.cos(a) * 1.2, r: SLOWC.r, g: SLOWC.g, b: SLOWC.b, size: rand(0.05, 0.1), life: rand(0.4, 0.7), shape: Shape.Star, spin: 3 });
+    }
+    // silenced: static crackles over the body
+    if (h.silenceT > 0 && Math.random() < dt * 16) {
+      const a = rand(0, TAU), y = h.pos.y + rand(0.3, 1.7);
+      this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.45, y, z: h.pos.z + Math.sin(a) * 0.45, vx: rand(-2, 2), vy: rand(-1, 2), vz: rand(-2, 2), r: 0.8, g: 2.2, b: 3.4, size: rand(0.08, 0.16), life: rand(0.08, 0.16), shape: Shape.Spark, stretch: 0.05 });
+    }
+    // stunned: little sparks circling the head
+    if (h.stunT > 0 && Math.random() < dt * 12) {
+      const a = this.time * 9 + rand(0, 0.4);
+      this.vfx.p({ x: h.pos.x + Math.cos(a) * 0.35, y: h.pos.y + 2.0, z: h.pos.z + Math.sin(a) * 0.35, vx: -Math.sin(a) * 2, vz: Math.cos(a) * 2, r: 3, g: 2.5, b: 0.8, size: 0.12, life: 0.25, shape: Shape.Star, spin: 6 });
     }
     if (h.ult >= 1 && Math.random() < dt * 9) {
       const a = rand(0, TAU), r = rand(0.35, 0.6);

@@ -68,6 +68,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Impasto Shot splashes. Aim at feet and walls to hit groups.',
     'Allies inside The Starry Night are healed, so pull fights into the dome.',
   ],
+  blitzcrank: [
+    'A caught enemy primes your uppercut: grab, then punch once to launch them.',
+    'Grab the enemy who is out of position, not the one in front of their team.',
+    'Static Field silences. Pop it before their specials go off, not after.',
+  ],
 };
 
 const QUALITY_COPY: Record<QualityLevel, string> = {

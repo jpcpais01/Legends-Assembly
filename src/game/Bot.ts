@@ -8,8 +8,8 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50 };
-const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, blitzcrank: 58 };
+const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, blitzcrank: 4.4 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
 export class Bot {
@@ -214,6 +214,13 @@ export class Bot {
         }
         if (h.ult >= 1 && (enemiesClose(11) >= 2 || (enemiesClose(10) >= 1 && g.alliesNear(h.team, h.pos, 10).length >= 2))) inp.ult = true;
         else if (h.ult >= 1 && enemiesClose(8) >= 1 && hpFrac < 0.5) inp.ult = true;
+        break;
+      }
+      case 'blitzcrank': {
+        // Rocket Grab: only on a clean line, at a range where walking in would take too long
+        if (h.secondaryCd <= 0 && vis && tDist > 5 && tDist < 22 && yawErr < 0.08 + 0.6 / tDist && Math.random() < 0.65) inp.secondary = true;
+        // Static Field: dive into a crowd, or drop it on whoever he just pulled in
+        if (h.ult >= 1 && (enemiesClose(8) >= 2 || (enemiesClose(4.5) >= 1 && (t.hp > 110 || hpFrac < 0.45)))) inp.ult = true;
         break;
       }
     }

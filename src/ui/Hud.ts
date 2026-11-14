@@ -165,7 +165,7 @@ export class Hud {
     // crosshair style per hero
     const ch = this.els.crosshair;
     ch.innerHTML = '<i class="dot"></i>';
-    if (d.id === 'yeat') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
+    if (d.id === 'yeat' || d.id === 'blitzcrank') ch.insertAdjacentHTML('beforeend', '<i class="ring"></i>');
     else {
       const gap = d.id === 'einstein' ? 7 : 9;
       for (const [x, y, w, hh] of [[-gap - 8, -1, 8, 2], [gap, -1, 8, 2], [-1, gap, 2, 8]] as const) {
