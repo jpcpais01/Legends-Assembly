@@ -8,6 +8,19 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.4',
+    date: '2026-11-14',
+    title: 'Gum-Gum Voice',
+    sections: [
+      {
+        heading: 'Luffy',
+        items: [
+          'Luffy finally speaks! Every line is now fully voiced: his battle cries for Gum-Gum Pistol, Rocket and Gear Fifth, his trash talk, his reactions when he takes a hit or loses a teammate, and his banter with the other legends.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.3',
     date: '2026-11-14',
     title: "Mickey's New Look",
