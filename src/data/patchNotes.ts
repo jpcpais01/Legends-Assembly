@@ -31,6 +31,22 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
+    version: '0.22.8',
+    date: '2026-11-14',
+    title: 'Say Cheese',
+    sections: [
+      {
+        heading: 'Selfie cam',
+        items: [
+          'Hold V in a match to swing the camera round to your hero\'s front for a selfie view. Release to swing back.',
+          'Moving the mouse turns your hero with the camera, like a selfie stick, and your aim stays exactly where the crosshair was.',
+          'The selfie camera keeps clear of walls and floors, just like the normal camera.',
+          'Added to the Controls list on the Learn page.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.7',
     date: '2026-11-14',
     title: 'Treasures of the Grand Museum',
