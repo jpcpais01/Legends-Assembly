@@ -57,7 +57,7 @@ export function logoMark(cls = 'mark') {
 }
 
 /** Names that are one title, not a first and last name: they are never split ("Iron Man" stays "Iron Man"). */
-const WHOLE_NAMES = new Set(['Iron Man']);
+const WHOLE_NAMES = new Set(['Iron Man', 'Mickey Mouse']);
 /** "Albert Einstein" → ["Albert", "Einstein"]; "Vincent van Gogh" → ["Vincent", "van Gogh"]; "Yeat" → ["", "Yeat"]. */
 export function splitName(name: string): [string, string] {
   const parts = name.split(' ');

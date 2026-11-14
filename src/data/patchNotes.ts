@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.1',
+    date: '2026-11-14',
+    title: 'Iron Man Suits Up',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'Iron Man now wears his real armor: a fully detailed red and gold suit with a glowing arc reactor, eye slits and back flaps, replacing the stand-in suit.',
+          'Missile Swarm fires proper micro-missiles now: sleek red and gold rockets with gold nose cones and swept fins.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-11-14',
     title: 'Steamboat Willie',
