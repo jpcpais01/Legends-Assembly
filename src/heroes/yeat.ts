@@ -114,6 +114,15 @@ class YeatKit implements HeroKit {
   onDeath(h: Hero, g: Game) {
     if (h.kitState.truck) endTonka(h, g, false);
   }
+
+  /** Online: the driver's machine decides when the truck hits a wall or rams someone; everyone else follows. */
+  onNet(h: Hero, g: Game, ev: string) {
+    const st = h.kitState.truck as TruckState | null;
+    if (!st) return;
+    const dir = new THREE.Vector3(-Math.sin(st.heading), 0, -Math.cos(st.heading));
+    if (ev === 'crash') tonkaCrash(h, g, st, dir);
+    else if (ev === 'ram') tonkaRam(h, g, st, dir, g.enemiesNear(h.team, _v1.copy(h.pos).addScaledVector(dir, 1.3), 2.6));
+  }
 }
 
 // ───────────────────────── Tonka ─────────────────────────
@@ -348,7 +357,28 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   const dir = new THREE.Vector3(-Math.sin(st.heading), 0, -Math.cos(st.heading));
   // walls: if we barely moved compared to what we asked for last frame, we hit something solid
   const moved = Math.hypot(h.pos.x - st.last.x, h.pos.z - st.last.z);
-  if (st.t > 0.15 && st.expect > 0.02 && moved < st.expect * 0.35) {
+  if (g.owns(h) && st.t > 0.15 && st.expect > 0.02 && moved < st.expect * 0.35) {
+    g.net?.kitEvent(h, 'crash');
+    tonkaCrash(h, g, st, dir);
+  }
+  st.last.copy(h.pos);
+  st.expect = st.speed * dt;
+  h.overrideVel = (h.overrideVel ?? new THREE.Vector3()).copy(dir).multiplyScalar(st.speed).setY(-3);
+
+  // ram: everyone in front of the bumper takes damage scaled by speed (the driver's machine decides)
+  if (st.speed > 6 && g.owns(h)) {
+    const nose = _v1.copy(h.pos).addScaledVector(dir, 1.3);
+    const victims = g.enemiesNear(h.team, nose, 1.9);
+    if (victims.length) {
+      g.net?.kitEvent(h, 'ram');
+      tonkaRam(h, g, st, dir, victims);
+      return;
+    }
+  }
+  tonkaVisuals(h, g, st, dir, turn, dt);
+}
+
+function tonkaCrash(h: Hero, g: Game, st: TruckState, dir: THREE.Vector3) {
     if (st.speed > 12) {
       g.play('crash', h.pos, 0.8);
       const hitAt = _v1.copy(h.pos).addScaledVector(dir, st.len * 0.55).setY(h.pos.y + 0.8);
@@ -360,16 +390,12 @@ function updateTonka(h: Hero, g: Game, dt: number) {
       if (h.isLocal) screenFx.punch(0.35);
     }
     st.speed *= 0.2;
-  }
-  st.last.copy(h.pos);
-  st.expect = st.speed * dt;
-  h.overrideVel = (h.overrideVel ?? new THREE.Vector3()).copy(dir).multiplyScalar(st.speed).setY(-3);
+}
 
-  // ram: everyone in front of the bumper takes damage scaled by speed
-  if (st.speed > 6) {
-    const nose = _v1.copy(h.pos).addScaledVector(dir, 1.3);
-    const victims = g.enemiesNear(h.team, nose, 1.9);
-    if (victims.length) {
+function tonkaRam(h: Hero, g: Game, st: TruckState, dir: THREE.Vector3, victims: Hero[]) {
+  const nose = _v1.copy(h.pos).addScaledVector(dir, 1.3);
+  {
+    {
       const dmg = Math.round(30 + st.speed * 4.4);
       for (const e of victims) {
         g.damage(e, dmg, h, { knock: dir.clone().multiplyScalar(st.speed * 0.75).setY(8) });
@@ -393,10 +419,11 @@ function updateTonka(h: Hero, g: Game, dt: number) {
       const involved = h.isLocal || victims.some((v) => v.isLocal);
       if (involved) { g.hitStop(0.1); screenFx.punch(0.7); screenFx.zoomPunch(0.4); }
       endTonka(h, g, true);
-      return;
     }
   }
+}
 
+function tonkaVisuals(h: Hero, g: Game, st: TruckState, dir: THREE.Vector3, turn: number, dt: number) {
   // visuals: the model root follows the hero's body yaw, so counter-rotate to the truck heading
   st.group.rotation.set(0, st.heading - h.bodyYaw, st.roll);
   st.group.position.y = Math.sin(st.t * 30) * 0.015 * (st.speed / TONKA_MAX);
