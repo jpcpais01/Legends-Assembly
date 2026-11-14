@@ -57,7 +57,9 @@ export function logoMark(cls = 'mark') {
 export function splitName(name: string): [string, string] {
   const parts = name.split(' ');
   if (parts.length === 1) return ['', name];
-  return [parts[0], parts.slice(1).join(' ')];
+  // "Monkey D. Luffy" -> ["Monkey D.", "Luffy"]: a middle initial stays with the first name
+  const n = parts.length > 2 && /^[A-Z]\.$/.test(parts[1]) ? 2 : 1;
+  return [parts.slice(0, n).join(' '), parts.slice(n).join(' ')];
 }
 
 export const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

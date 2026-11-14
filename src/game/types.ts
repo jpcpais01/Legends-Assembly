@@ -5,7 +5,7 @@ import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'luffy';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
@@ -53,6 +53,8 @@ export interface HeroDef {
     ring?: boolean;
   };
   look: RigLook;
+  /** Rubber limbs (Luffy): hand skin weights are sharpened at load so a stretched arm carries the whole fist. */
+  rubber?: boolean;
   createKit(): HeroKit;
   /** Difficulty / stats for UI bars, 0..1. */
   ratings: { damage: number; mobility: number; support: number; difficulty: number };

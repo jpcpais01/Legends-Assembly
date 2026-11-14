@@ -30,6 +30,13 @@ export interface AnimState {
   hitK?: number;
   /** Which attack gesture the next attack pulse plays (defaults to the hero's style). */
   attackKind?: AttackKind;
+  /** 0..1: both arms reach straight down the crosshair (grabs, Gum-Gum Rocket). */
+  reach?: number;
+  /** Rubber limbs: metres each hand is pushed out along its forearm, and each fist's scale (Luffy). */
+  stretchL?: number;
+  stretchR?: number;
+  fistL?: number;
+  fistR?: number;
 }
 
 export interface HeroModel {
@@ -225,6 +232,17 @@ export interface RigBones {
   hipL: THREE.Object3D; hipR: THREE.Object3D; kneeL: THREE.Object3D; kneeR: THREE.Object3D; footL: THREE.Object3D; footR: THREE.Object3D;
 }
 
+/**
+ * Rubber arm: pushes the hand out along the forearm (its rest offset from the elbow) by `extra` metres and scales
+ * the fist. Skinning does the rest: vertices shared between forearm and hand spread across the gap, so the skin
+ * stretches into a long rubber limb instead of tearing.
+ */
+export function stretchArm(hand: THREE.Object3D, rest: THREE.Vector3, extra: number, fist: number) {
+  const L = rest.length() || 1;
+  hand.position.copy(rest).multiplyScalar((L + Math.max(0, extra)) / L);
+  hand.scale.setScalar(fist);
+}
+
 export const RIG_BONE_NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'handL', 'handR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'footL', 'footR'] as const;
 
 export class ProceduralHeroModel implements HeroModel {
@@ -242,7 +260,16 @@ export class ProceduralHeroModel implements HeroModel {
     this.anim = new RigAnimator(this.r);
   }
 
-  update(dt: number, s: AnimState) { this.anim.update(dt, s); }
+  private handRest: [THREE.Vector3, THREE.Vector3] | null = null;
+
+  update(dt: number, s: AnimState) {
+    this.anim.update(dt, s);
+    if (s.stretchL !== undefined || this.handRest) {
+      this.handRest ??= [this.r.handL.position.clone(), this.r.handR.position.clone()];
+      stretchArm(this.r.handL, this.handRest[0], s.stretchL ?? 0, s.fistL ?? 1);
+      stretchArm(this.r.handR, this.handRest[1], s.stretchR ?? 0, s.fistR ?? 1);
+    }
+  }
 
   handWorld(side: 'L' | 'R', out: THREE.Vector3) {
     const h = side === 'L' ? this.r.handL : this.r.handR;

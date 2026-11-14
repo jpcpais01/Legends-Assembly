@@ -53,6 +53,8 @@ function render(name = 'front', w = 480, h = 600) {
 }
 
 const api = {
+  /** Set hero fx uniforms (uWhite, uRim...) for look checks. */
+  fx(u: Record<string, number>) { if (model) for (const [k, v] of Object.entries(u)) (model.fx as any)[k].value = v; },
   async load(id: keyof typeof HEROES) {
     await loadProps().catch(() => {});
     if (model) { scene.remove(model.root); model.dispose(); }
