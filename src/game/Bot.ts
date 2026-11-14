@@ -8,7 +8,7 @@ const DIFF = {
   normal: { err: 0.65, turn: 8, react: 0.4, fireCone: 0.09, think: 0.3 },
   hard: { err: 0.28, turn: 14, react: 0.2, fireCone: 0.06, think: 0.18 },
 };
-const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, mickey: 42 };
+const PROJ_SPEED: Record<string, number> = { einstein: 95, yeat: 62, vangogh: 50, mickey: 48 };
 const EFFECTIVE: Record<string, number> = { einstein: 45, yeat: 15, vangogh: 34, mickey: 28 };
 
 /** Utility-style bot: target selection, ranged spacing, strafing, leading shots, and smart ability use. */
@@ -223,8 +223,8 @@ export class Bot {
             const away = h.pos.clone().sub(t.pos).setY(0).normalize();
             inp.aim.copy(h.pos).addScaledVector(away, 14);
             inp.secondary = true;
-          } else if (vis && tDist > 4 && tDist < 17 && Math.random() < 0.4) {
-            // pop out right under the target for the stomp
+          } else if (vis && tDist > 4 && tDist < 17 && hpFrac > 0.75 && t.hp / t.maxHp < 0.55 && g.alliesNear(h.team, t.pos, 12).length >= 1) {
+            // pop under a weakened target, only with a teammate nearby to follow up
             inp.aim.copy(t.pos);
             inp.secondary = true;
           }

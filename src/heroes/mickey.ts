@@ -33,9 +33,9 @@ const _ax = new THREE.Vector3();
 const _sc = new THREE.Vector3();
 
 // ───────────────────────── Spud Shot ─────────────────────────
-const SPUD_SPEED = 42;
+const SPUD_SPEED = 48;
 const SPUD_G = 11;
-const SPUD_DMG = 34;
+const SPUD_DMG = 38;
 const SPUD_SIZE = 0.15;
 
 let spudGeo: THREE.BufferGeometry | null = null;
@@ -93,7 +93,7 @@ function throwSpud(g: Game, h: Hero, pos: THREE.Vector3, vel: THREE.Vector3, bou
   const tilt = rand(0, TAU);
   trail?.push(pos);
   g.spawnProjectile({
-    owner: h, kind: 'spud', pos: pos.clone(), vel, gravity: SPUD_G, radius: 0.17, life: 2.4, damage, color: SPUD_C,
+    owner: h, kind: 'spud', pos: pos.clone(), vel, gravity: SPUD_G, radius: 0.2, life: 2.4, damage, color: SPUD_C,
     render(p, g) {
       _q1.setFromAxisAngle(spin, tilt + p.age * spinRate);
       g.pool('spud', spudPool).add(_m1.compose(p.pos, _q1, _sc.setScalar(SPUD_SIZE)));
@@ -556,7 +556,7 @@ function launchSteamboat(h: Hero, g: Game) {
 class MickeyKit implements HeroKit {
   primary(h: Hero, g: Game) {
     if (h.kitState.hole) return;
-    h.primaryCd = 0.5;
+    h.primaryCd = 0.4;
     const st = h.kitState;
     st.hand = st.hand === 1 ? -1 : 1;
     const m = h.muzzle(st.hand === 1 ? 'R' : 'L');
@@ -638,7 +638,7 @@ export const MICKEY: HeroDef = {
   tagline: 'Toot toot! Full steam ahead, pals!',
   color: '#ff5a4e',
   accent: '#fff1d6',
-  maxHp: 250,
+  maxHp: 275,
   // stand-in built by scripts/build-mickey-standin.mjs until the Meshy model lands; bump ?v= whenever the file changes
   modelUrl: '/models/heroes/mickey.glb?v=1',
   motion: 'cartoon',

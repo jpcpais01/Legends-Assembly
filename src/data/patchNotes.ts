@@ -33,6 +33,60 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
+    version: '0.17.1',
+    date: '2026-11-14',
+    title: 'Gallery Walls',
+    sections: [
+      {
+        heading: 'Grand Museum',
+        items: [
+          'The walls are no longer one column bay repeated: velvet-draped arches, a marble chariot relief, a lion head fountain and bronze doors with a pediment behind each spawn now alternate with the painted arches.',
+          'The upper storey mixes the laurel niches with an arched gallery loggia over the staircases, golden rose windows and painted sky panels.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.17.0',
+    date: '2026-11-14',
+    title: 'Assemble Together',
+    sections: [
+      {
+        heading: 'Play online with friends',
+        items: [
+          'Create a party on the home screen and send the invite link (or the 5-letter code). Your friend clicks it, or types the code into Join, and lands in your party.',
+          'Up to 10 players in one match: 1v1, 2v2, 3v3 or 5v5. Play together on one team or against each other. Bots fill every empty seat.',
+          'Hero select shows both teams live: everyone’s pick, who has locked in, and a Switch team button. The match moves on when every player is locked in.',
+          'Your own legend answers instantly on your screen, your shots land where you saw them land, and the host keeps everyone’s health, eliminations and score in step.',
+          'No account and no download: it connects browser to browser. If a player drops, a bot takes over their legend so the match can finish.',
+          'After the match, Back to party takes everyone straight into the next hero select.',
+        ],
+      },
+      {
+        heading: 'Pick the arena last, load it in place',
+        items: [
+          'The arena is now picked after your lineup is set, solo and in a party, on a new arena screen with a preview of each map.',
+          'Choosing an arena no longer reloads the whole game. It loads in place behind a new versus screen that shows both teams.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.16.3',
+    date: '2026-11-14',
+    title: 'Click Fix',
+    sections: [
+      {
+        heading: 'Fixes',
+        items: [
+          'Lock In on hero select takes mouse clicks again. Before, only Enter would start the match.',
+          'The pause menu shows Leave match again, and Resume, Settings and How to play now do what they say instead of trying to leave the match.',
+          'Clicking the arena to jump back in after a pause works reliably: an invisible HUD layer was swallowing those clicks.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.2',
     date: '2026-11-14',
     title: 'Museum Treasures',
