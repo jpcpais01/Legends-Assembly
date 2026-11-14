@@ -8,6 +8,29 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.23.0',
+    date: '2026-11-14',
+    title: 'Steve Joins the Fight',
+    sections: [
+      {
+        heading: 'New legend: Steve, the Blocky Miner',
+        items: [
+          'Steve is here, built block by block, with two weapons on his hotbar. Scroll the mouse wheel (or press 1 / 2) to swap between them.',
+          'Diamond Sword: a wide sweeping slash that hits everyone in front of you. Jump and strike on the way down for a critical hit.',
+          'Bow: hold to draw and release to shoot. A full draw flies fast and flat with a crit trail; headshots crit too. Missed arrows stick where they land.',
+          'Build Up (RMB): a hill of grass, dirt and stone bursts out of the ground where you aim. It is a sheer wall toward the enemy and a staircase on your side, so you can jump up for the high ground. Blocks crumble after 8 seconds.',
+          'Ender Dragon (SHIFT): the dragon bursts out of an End portal, circles the fight and dives on enemies, breathing purple fire and leaving burning clouds of breath on the ground.',
+        ],
+      },
+      {
+        heading: 'HUD',
+        items: [
+          'Steve gets a two-slot hotbar above his attack tile and a draw meter under the crosshair that glows purple at full draw.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.7',
     date: '2026-11-14',
     title: 'Treasures of the Grand Museum',
