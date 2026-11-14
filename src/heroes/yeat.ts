@@ -9,6 +9,7 @@ import type { RigBuilder } from '../render/HeroRig';
 import { ICONS } from './icons';
 import { propMesh, PROPS } from '../render/props';
 import { audio, type LoopHandle } from '../core/Audio';
+import { TonkaEngine } from '../audio/TonkaEngine';
 import { screenFx } from '../vfx/ScreenFx';
 import { TrailStyle, type Trail } from '../vfx/Trails';
 
@@ -135,6 +136,8 @@ interface TruckState {
   /** Full-throttle layer crossfaded over the cruising engine, and the tire squeal in hard turns. */
   engineHi: LoopHandle | null;
   skidSnd: LoopHandle | null;
+  /** The live V8 (null where AudioWorklet isn't available: the recorded loops play instead). */
+  v8: TonkaEngine | null;
   skidAmt: number;
   /** Truck footprint in meters (from its bounding box). */
   len: number;
@@ -305,12 +308,15 @@ function startTonka(h: Hero, g: Game) {
   const f = h.forward;
   const size = addHeadlights(group);
   const tail = [-1, 1].map(() => g.vfx.trail({ color: new THREE.Color(3.2, 0.25, 0.3), endColor: new THREE.Color(0.8, 0.05, 0.1), width: 0.06, life: 0.22, style: TrailStyle.Smooth, minDist: 0.35 }));
-  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, engineHi: null, skidSnd: null, skidAmt: 0, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
+  const st: TruckState = { t: 0, speed: Math.max(7, Math.hypot(h.vel.x, h.vel.z)), heading: Math.atan2(-f.x, -f.z), group, wheels, hidden, last: h.pos.clone(), expect: 0, roll: 0, engine: null, engineHi: null, skidSnd: null, v8: null, skidAmt: 0, len: Math.max(2.4, size.z), wid: Math.max(1.4, size.x), tail, skidT: 0 };
   h.kitState.truck = st;
   if (h.isLocal) g.camRig.vehicle = 1;
   g.play('tonka', h.pos, 1.1);
-  st.engine = g.loop('engineLoop', h.pos, 0);
-  st.engineHi = g.loop('engineHigh', h.pos, 0);
+  st.v8 = TonkaEngine.create(h.pos);
+  if (!st.v8) {
+    st.engine = g.loop('engineLoop', h.pos, 0);
+    st.engineHi = g.loop('engineHigh', h.pos, 0);
+  }
   st.skidSnd = g.loop('skid', h.pos, 0);
   const c = h.center;
   g.vfx.smoke(c, new THREE.Color(0.75, 0.7, 0.6), 14, 1.1, 0.9, 0.6);
@@ -426,7 +432,8 @@ function updateTonka(h: Hero, g: Game, dt: number) {
   // cruising engine hands over to a full-throttle one, so pitch only has to move a little.
   const sk = st.speed / TONKA_MAX;
   const fadeIn = Math.min(1, st.t / 0.6);
-  if (st.engineHi) {
+  if (st.v8) st.v8.update(dt, h.pos, st.speed, h.input.forward > 0.1 ? 1 : 0.72);
+  else if (st.engineHi) {
     const hi = Math.min(1, Math.max(0, (sk - 0.35) / 0.55));
     st.engine?.set(h.pos, 0.82 + sk * 0.4, fadeIn * (0.75 - hi * 0.45));
     st.engineHi.set(h.pos, 0.86 + sk * 0.24, fadeIn * hi * 0.95);
@@ -446,6 +453,7 @@ function endTonka(h: Hero, g: Game, crashed: boolean) {
   const st = h.kitState.truck as TruckState | null;
   if (!st) return;
   h.kitState.truck = null;
+  st.v8?.stop(crashed);
   st.engine?.stop(crashed ? 0.08 : 0.35);
   st.engineHi?.stop(crashed ? 0.08 : 0.3);
   st.skidSnd?.stop(0.15);

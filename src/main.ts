@@ -11,6 +11,8 @@ import { Renderer } from './core/Renderer';
 import { Input } from './core/Input';
 import { enterFullscreen, isFullscreen, isStandalone } from './core/Display';
 import { audio } from './core/Audio';
+import { music } from './audio/Music';
+import { ambience } from './audio/Ambience';
 import { settings } from './core/settings';
 import { initGlobals, globalUniforms } from './render/materials';
 import { Arena } from './world/Arena';
@@ -76,6 +78,7 @@ async function boot() {
         input.unlock();
         document.body.classList.remove('in-match');
         menu.results(game, () => startMatch(lastMode, lastHero), () => toMenu());
+        music.play('menu', 4);
         if (game.playOfGame) setTimeout(() => audio.announce('playOfGame', 4), 500);
       }, 4200);
     },
@@ -135,7 +138,7 @@ async function boot() {
     subs.clear();
     audio.setWorldPaused(false);
     game.startMatch({ mode, heroId: hero, difficulty: settings.botDifficulty, lineup });
-    audio.startAmbience(study ? 'study' : 'ruins');
+    audio.setAmbience(1);
     hud.setup();
     hud.show(true);
     camera.fov = settings.fov;
@@ -153,8 +156,9 @@ async function boot() {
     input.unlock();
     subs.clear();
     audio.setWorldPaused(false);
-    audio.stopAmbience();
+    audio.setAmbience(0.55);
     game.clearMatch();
+    music.play('menu', 3);
     game.paused = false;
     hud.show(false);
     menu.show(true);
@@ -184,6 +188,7 @@ async function boot() {
   function pauseFor(locked: boolean) {
     game.paused = !locked;
     audio.setWorldPaused(game.paused);
+    audio.setAmbience(game.paused ? 0.35 : 1, 0.5);
     menu.pause(!locked);
   }
 
@@ -214,7 +219,12 @@ async function boot() {
     audio.unlock();
     audio.setVolume(settings.volume);
     audio.setVoice(settings.voice);
-    audio.startMusic();
+    audio.setRoom(study ? 'study' : 'ruins');
+    // the room is alive behind the menus too, softer
+    if (arena.soundscape) ambience.start(arena.soundscape);
+    audio.setAmbience(0.55, 3);
+    music.play('menu', 2);
+    music.preload();
     bootEl.classList.add('fade');
     setTimeout(() => bootEl.remove(), 900);
     menu.show(true);
@@ -273,6 +283,7 @@ async function boot() {
     arena.setDoom(game.doom);
     audio.setDoom(game.doom);
     if (!onStage) arena.update(globalUniforms.uTime.value, camera);
+    ambience.update(dt, globalUniforms.uTime.value);
     renderer.render(dt, ms);
     if (game.state !== 'menu') hud.update(dt, camera, renderer.fps, renderer.gl.info.render.calls);
     input.endFrame();
