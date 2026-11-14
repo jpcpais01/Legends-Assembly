@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.26.1',
+    date: '2026-11-14',
+    title: 'Slung Right',
+    sections: [
+      {
+        heading: 'Bob Marley',
+        items: [
+          'Bob Marley’s guitar now hangs from a leather strap with a red, gold and green stripe that runs over his left shoulder and across his back.',
+          'His fretting hand now wraps the guitar neck and his picking hand rests over the strings. He holds it this way everywhere, including the menus and hero select.',
+          'The loose strap that dangled from the guitar is gone.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-11-14',
     title: 'Gilded Frame',
