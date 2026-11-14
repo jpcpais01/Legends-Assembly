@@ -259,7 +259,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Iron Man',
     // a touch of helmet: band-limited, a little bite, a short metallic slap
     chain: { hp: 160, lp: 9500, drive: 0.12, slap: 0.03, slapMix: 0.12, reverb: 0.1, rate: 1, gain: 1.05 },
-    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cocky genius billionaire, fast, dry wit, speaking inside a metal helmet]', stability: 0.4, style: 0.65 },
+    tts: { voice: 'cjVigY5qzO86Huf0OWal', direction: '[cocky genius billionaire, fast, dry wit, speaking inside a metal helmet]', stability: 0.4, style: 0.65 },
     lines: {
       matchStart: L('matchStart', 'Suit\'s warm. Systems green. Let\'s make some noise.', '[smug] Relax, everyone. The expensive one is here.', 'Flight check done. Weapons hot.', '[dry] I was told there would be a challenge.'),
       primary: L('primary', 'Repulsors, online.', '[smug] Hold still.', 'Palm\'s up. Bad news for you.'),
