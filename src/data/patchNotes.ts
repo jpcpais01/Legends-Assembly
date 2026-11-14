@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.1',
+    date: '2026-11-14',
+    title: 'The Real Straw Hat',
+    sections: [
+      {
+        heading: 'Luffy',
+        items: [
+          'Luffy gets his real look: a fully detailed new model replaces the stand-in, with the red vest, blue shorts, sandals, scar and his trademark grin. His stretchy punches, rocket grabs and giant Gear Fifth fists all work with the new body.',
+          'Gear Fifth now opens with a proper giant straw hat spinning above him as the drums of liberation kick in.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-11-14',
     title: 'Steamboat Willie',
