@@ -32,10 +32,11 @@ const easeInOut = (s: number) => s * s * (3 - 2 * s);
 
 export type AttackKind = 'flick' | 'ring' | 'stroke' | 'throw' | 'toss' | 'jab' | 'uppercut' | 'launch' | 'slam' | 'punch' | 'blast';
 /** heavy: a big machine (Blitzcrank): long arms carried forward, a planted stomp, little swing. */
-export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'heavy';
+/** cartoon: 1928 rubber-hose bounce (Mickey): footfall dips and an idle bop to the beat. */
+export type MotionStyle = 'default' | 'swagger' | 'scholar' | 'artist' | 'heavy' | 'cartoon';
 
 /** The attack each body language throws by default. */
-export const STYLE_ATTACK: Record<MotionStyle, AttackKind> = { default: 'flick', swagger: 'ring', scholar: 'flick', artist: 'stroke', heavy: 'jab' };
+export const STYLE_ATTACK: Record<MotionStyle, AttackKind> = { default: 'flick', swagger: 'ring', scholar: 'flick', artist: 'stroke', heavy: 'jab', cartoon: 'throw' };
 
 /**
  * One key of an attack gesture, for the attacking arm. Angles in radians, side-relative:

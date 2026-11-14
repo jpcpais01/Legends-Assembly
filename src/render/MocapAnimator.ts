@@ -203,11 +203,14 @@ export class MocapAnimator {
   /** per arm: rest finger direction, palm normal and hand rotation (model space) */
   private handRest: { m: THREE.Matrix4; q: THREE.Quaternion }[] = [];
   private kind: AttackKind;
+  /** Rubber-hose cartoon timing (Mickey): hips dip on every footfall, and he bops to a beat while standing. */
+  private bounce: number;
   /** dev viewer: freeze on one clip */
   debugClip: { name: string; t: number } | null = null;
 
-  constructor(private body: THREE.Object3D, private b: THREE.Object3D[], private set: MocapSet, opts: { attack?: AttackKind } = {}) {
+  constructor(private body: THREE.Object3D, private b: THREE.Object3D[], private set: MocapSet, opts: { attack?: AttackKind; bounce?: number } = {}) {
     this.kind = opts.attack ?? 'flick';
+    this.bounce = opts.bounce ?? 0;
     body.rotation.set(0, 0, 0); body.position.set(0, 0, 0);
     const rp = (i: number) => _v.fromArray(set.restP, i * 3).clone();
     this.legLen = rp(I.hipL).distanceTo(rp(I.kneeL)) + rp(I.kneeL).distanceTo(rp(I.footL));
@@ -430,6 +433,19 @@ export class MocapAnimator {
     this.preRot(0, _qa.setFromAxisAngle(_X, lean + posture * 0.35));
     this.preRot(0, _qa.setFromAxisAngle(_Z, bank));
     p[2] += lean * 0.45; p[0] -= bank * 0.45;
+    if (this.bounce > 0) {
+      // rubber-hose timing: a springy dip on every footfall when moving (feet stay planted, the knees take it),
+      // and standing still he bops along to a tune only he can hear: knees on the beat, head and chest swaying
+      const k = this.bounce * gnd * (1 - lev);
+      const foot = Math.pow(1 - Math.abs(Math.sin(this.phase * Math.PI * 2)), 3);
+      const beat = this.idleT * 2.2, bop = Math.pow(0.5 - 0.5 * Math.cos(beat * Math.PI * 2), 2), sway = Math.sin(beat * Math.PI);
+      const still = (1 - mw) * (1 - smoothstep(0, 0.2, this.castW));
+      p[1] -= (foot * 0.045 * mw + bop * 0.03 * still) * k;
+      this.preRot(I.chest, _qa.setFromAxisAngle(_Z, sway * 0.05 * still * k));
+      this.preRot(I.head, _qa.setFromAxisAngle(_Z, -sway * 0.13 * still * k));
+      this.preRot(I.head, _qa.setFromAxisAngle(_X, -bop * 0.06 * still * k));
+      this.preRot(I.spine, _qa.setFromAxisAngle(_X, foot * 0.06 * mw * k));
+    }
     // the spine untwists so the chest stays on the crosshair, and straightens some of the lean
     for (let k = 0; k < 3; k++) {
       const i = TORSO[k], w = TORSO_W[k];

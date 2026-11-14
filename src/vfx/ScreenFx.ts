@@ -21,6 +21,12 @@ class ScreenFxState {
   /** Sustained zoom blur (vehicles), re-applied every frame by its owner. */
   zoomHold = 0;
   flash = new THREE.Color(0, 0, 0);
+  /**
+   * 0..1 "1928 film": black and white print stock, grain, flicker, scratches, dust and gate weave
+   * (Mickey's Steamboat Willie). Re-applied every frame by its owner and always shown, because it is
+   * the special itself, not a camera effect.
+   */
+  film = 0;
 
   /** Expanding shockwave ring through the world (radius in meters). */
   ripple(pos: THREE.Vector3, radius: number, strength = 1, dur = 0.7) {
@@ -57,19 +63,20 @@ class ScreenFxState {
     this.zoom = Math.max(0, this.zoom - dt * 3.2);
     const k = Math.exp(-dt * 7);
     this.flash.multiplyScalar(k);
+    this.film = Math.max(0, this.film - dt * 2.5);
     if (this.flash.r + this.flash.g + this.flash.b < 0.002) this.flash.setRGB(0, 0, 0);
   }
 
   get active() {
     return this.ripples.length > 0 || this.lenses.length > 0 || this.aberration > 0.002 || this.zoom > 0.002 || this.zoomHold > 0.002
-      || this.flash.r + this.flash.g + this.flash.b > 0.002;
+      || this.flash.r + this.flash.g + this.flash.b > 0.002 || this.film > 0.002;
   }
 
   clear() {
     this.ripples.length = 0;
     for (const l of this.lenses) l.alive = false;
     this.lenses.length = 0;
-    this.aberration = 0; this.zoom = 0; this.zoomHold = 0;
+    this.aberration = 0; this.zoom = 0; this.zoomHold = 0; this.film = 0;
     this.flash.setRGB(0, 0, 0);
   }
 }
@@ -83,6 +90,10 @@ const frag = /* glsl */ `
   uniform float uCA;
   uniform float uZoom;
   uniform vec3 uFlash;
+  uniform float uFilm;
+  uniform float uFilmT;
+
+  float fh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec2 off = vec2(0.0);
@@ -110,6 +121,9 @@ const frag = /* glsl */ `
       }
     }
     off.x /= uAspect;
+    // film gate weave: the frame jitters a hair, once per projected frame (24 fps)
+    float fr = floor(uFilmT * 24.0);
+    if (uFilm > 0.001) off += (vec2(fh(vec2(fr, 1.3)), fh(vec2(fr, 7.1))) - 0.5) * vec2(0.0012, 0.0024) * uFilm;
     vec2 cuv = clamp(uv + off, vec2(0.001), vec2(0.999));
     vec2 fromC = cuv - 0.5;
     float ca = uCA * 0.012 + bend * 0.02;
@@ -126,7 +140,41 @@ const frag = /* glsl */ `
       float edgeK = smoothstep(0.05, 0.45, length(fromC));
       col = mix(col, acc / 6.0, edgeK);
     }
-    outputColor = vec4(col + uFlash, inputColor.a);
+    col += uFlash;
+    if (uFilm > 0.001) {
+      // print stock: luminance with a warm silver tone and a steeper toe, so blacks go inky like a 1928 cartoon
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      float lt = l / (1.0 + l);
+      lt = smoothstep(0.03, 0.82, lt);
+      float flick = 1.0 + (fh(vec2(fr, 3.7)) - 0.5) * 0.14;
+      vec2 px = uv * vec2(uAspect, 1.0) * 420.0;
+      float grain = fh(floor(px) + fr * 13.1) - 0.5;
+      lt += grain * 0.09 * (0.35 + lt);
+      // two or three scratches running down the frame, and dust specks that live for a single frame
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float sx = fh(vec2(floor(uFilmT * 6.0 + fi * 0.37), fi * 9.1));
+        float on = step(0.45, fh(vec2(fr, fi * 5.3)));
+        float w = 0.0008 + 0.0012 * fh(vec2(fi, 2.0));
+        lt += on * (1.0 - smoothstep(0.0, w, abs(uv.x - sx))) * (fi == 1.0 ? -0.35 : 0.45) * (0.6 + 0.4 * sin(uv.y * 40.0 + fi * 7.0));
+      }
+      vec2 cell = floor(uv * vec2(uAspect, 1.0) * 26.0);
+      float dh = fh(cell + fr * 1.7);
+      if (dh > 0.992) {
+        vec2 cp = (fract(uv * vec2(uAspect, 1.0) * 26.0) - 0.5);
+        float spec = 1.0 - smoothstep(0.08, 0.2, length(cp * vec2(1.0, 1.0 + fh(cell) * 2.0)));
+        lt = mix(lt, dh > 0.996 ? 0.95 : 0.02, spec * 0.85);
+      }
+      // the projector's hot spot and a heavy oval vignette
+      vec2 vc = (uv - 0.5) * vec2(1.0, 1.15);
+      float vig = 1.0 - smoothstep(0.32, 0.78, length(vc));
+      lt *= flick * mix(0.32, 1.06, vig);
+      vec3 silver = vec3(lt) * vec3(1.04, 1.0, 0.9);
+      // back to the HDR range the tone mapper expects
+      vec3 fcol = silver / max(vec3(1e-3), vec3(1.0) - min(silver, vec3(0.97)));
+      col = mix(col, fcol, uFilm);
+    }
+    outputColor = vec4(col, inputColor.a);
   }
 `;
 
@@ -150,6 +198,8 @@ export class ImpactEffect extends Effect {
         ['uCA', new THREE.Uniform(0)],
         ['uZoom', new THREE.Uniform(0)],
         ['uFlash', new THREE.Uniform(new THREE.Color())],
+        ['uFilm', new THREE.Uniform(0)],
+        ['uFilmT', new THREE.Uniform(0)],
       ]),
     });
     this.src = src;
@@ -163,6 +213,8 @@ export class ImpactEffect extends Effect {
     u.get('uCA')!.value = screenFx.aberration;
     u.get('uZoom')!.value = Math.max(screenFx.zoom, screenFx.zoomHold);
     (u.get('uFlash')!.value as THREE.Color).copy(screenFx.flash);
+    u.get('uFilm')!.value = screenFx.film;
+    u.get('uFilmT')!.value = performance.now() / 1000;
     for (const s of this.src) s.w = 0;
     let n = 0;
     const right = this._r.set(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -185,6 +237,6 @@ export class ImpactEffect extends Effect {
       const e = 1 - Math.pow(1 - k, 2.2);
       put(r.pos, r.radius * (0.08 + e * 0.92), r.strength * (1 - k) * (1 - k), 0, 0);
     }
-    return n > 0 || screenFx.aberration > 0.002 || screenFx.zoom > 0.002 || screenFx.zoomHold > 0.002 || screenFx.flash.r + screenFx.flash.g + screenFx.flash.b > 0.002;
+    return n > 0 || screenFx.aberration > 0.002 || screenFx.zoom > 0.002 || screenFx.zoomHold > 0.002 || screenFx.flash.r + screenFx.flash.g + screenFx.flash.b > 0.002 || screenFx.film > 0.002;
   }
 }

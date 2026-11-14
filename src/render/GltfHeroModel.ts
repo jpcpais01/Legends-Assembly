@@ -100,7 +100,7 @@ export class GltfHeroModel implements HeroModel {
         for (const n of RIG_BONE_NAMES) bones[n] = obj.getObjectByName(`la_${n}`) ?? new THREE.Object3D();
         // the procedural animator only stands in when the motion library could not be loaded
         this.animator = new RigAnimator(bones as unknown as RigBones, { style: def.motion });
-        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'] });
+        if (snap && set) this.mocap = new MocapAnimator(this.inner, snap.bones, set, { attack: STYLE_ATTACK[def.motion ?? 'default'], bounce: def.motion === 'cartoon' ? 1 : 0 });
         this.handL = bones.handL; this.handR = bones.handR; this.head = bones.head;
         this.handRest = [bones.handL.position.clone(), bones.handR.position.clone()];
         if (def.rubber) obj.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) rubberHands(o as THREE.SkinnedMesh, [bones.handL, bones.handR]); });

@@ -316,6 +316,9 @@ export async function autoRig(doc, { height = H, flip = null, normalize = true, 
     // keep the helper landmarks consistent with overridden joints
     arms[sd].shoulder = joints[`shoulder${sd}`]; arms[sd].elbow = joints[`elbow${sd}`]; arms[sd].wrist = joints[`hand${sd}`];
     legs[sd].hip = joints[`hip${sd}`]; legs[sd].knee = joints[`knee${sd}`]; legs[sd].ankle = joints[`foot${sd}`]; legs[sd].ball = joints[`toe${sd}`];
+    // thin cartoon arms: the sleeve fit can't measure them, so a model may give the radius and hand length outright
+    if (overrides.armR) arms[sd].r = overrides.armR;
+    if (overrides.handLen) arms[sd].tip = arms[sd].wrist.clone().add(arms[sd].wrist.clone().sub(arms[sd].elbow).normalize().multiplyScalar(overrides.handLen));
   }
 
   // how far the arms must stay from vertical so the sleeve clears the body (bulky jackets, coats)

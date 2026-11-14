@@ -1144,11 +1144,211 @@ export const RECIPES = {
   // Tonka: exhaust pops on the lift and the shifter between gears
   backfire: { dur: 0.9, level: 0.55, reverb: 0.3, sampleOnly: true, ref: 6, rolloff: 0.06, maxVoices: 3, dedupe: 0.12, jitter: 0.8 },
   gearShift: { dur: 0.45, level: 0.32, reverb: 0.15, sampleOnly: true, ref: 4, rolloff: 0.08, maxVoices: 2, dedupe: 0.1, jitter: 0.5 },
+  // ───────── Mickey Mouse: 1928 cartoon sound design (slide whistles, woodblocks, steam) ─────────
+  spudThrow: {
+    // a quick cartoon "fwip": rising whoosh with a tiny whistle on top
+    dur: 0.32, variants: 3, level: 0.38, jitter: 1.2, maxVoices: 4,
+    render(s) {
+      const bp = s.filter('bandpass', 600, 1.6, s.vca(T, 0.015, 0.6, 0.16));
+      s.sweep(bp.frequency, T, 500, 3200, 0.14);
+      s.noise(T, 0.2, bp, 'pink');
+      const o = s.osc('sine', s.r(900, 1100), T + 0.01, 0.16, s.vca(T + 0.01, 0.01, 0.18, 0.12));
+      o.frequency.exponentialRampToValueAtTime(s.r(2000, 2600), T + 0.13);
+    },
+  },
+  spudBonk: {
+    // hollow woodblock bonk, a dull potato thud and a short rubbery wobble
+    dur: 0.55, variants: 4, level: 0.5, jitter: 1, maxVoices: 4, dedupe: 0.03,
+    render(s) {
+      const f = s.r(560, 680);
+      s.partials(f, [[1, 0.7, 0.09], [2.76, 0.25, 0.05], [5.4, 0.08, 0.03]], T, s.out, 0, 0.0008);
+      s.thump(T, 220, 90, 0.04, 0.12, 0.6);
+      s.burst(T, 0.0005, 0.02, 0.5, 'bandpass', 2400, 1.5);
+      // the wobble: a sine bent by a fast decaying vibrato
+      const o = s.osc('sine', f * 0.5, T + 0.03, 0.4, s.vca(T + 0.03, 0.005, 0.22, 0.35));
+      o.frequency.exponentialRampToValueAtTime(f * 0.42, T + 0.4);
+      const vib = s.c.createGain(); vib.gain.setValueAtTime(f * 0.12, T + 0.03); vib.gain.exponentialRampToValueAtTime(1, T + 0.4);
+      s.osc('sine', 17, T + 0.03, 0.4, vib); vib.connect(o.frequency);
+    },
+  },
+  spudBounce: {
+    // rubbery boing off the floor
+    dur: 0.4, variants: 3, level: 0.32, jitter: 1.5, maxVoices: 4, dedupe: 0.04,
+    render(s) {
+      const g = s.vca(T, 0.004, 0.5, 0.3);
+      const o = s.osc('triangle', s.r(150, 190), T, 0.35, s.filter('lowpass', 1800, 0.7, g));
+      o.frequency.exponentialRampToValueAtTime(s.r(380, 460), T + 0.07);
+      o.frequency.exponentialRampToValueAtTime(s.r(260, 300), T + 0.3);
+      const vib = s.c.createGain(); vib.gain.setValueAtTime(60, T); vib.gain.exponentialRampToValueAtTime(2, T + 0.32);
+      s.osc('sine', 22, T, 0.35, vib); vib.connect(o.frequency);
+      s.thump(T, 140, 70, 0.03, 0.07, 0.4);
+    },
+  },
+  holeDive: {
+    // slide whistle all the way down, then a deep ink "gloop"
+    dur: 0.9, level: 0.5, reverb: 0.12,
+    render(s) {
+      const g = s.gain(0); g.gain.setValueAtTime(0, T); g.gain.linearRampToValueAtTime(0.42, T + 0.03); g.gain.setValueAtTime(0.42, T + 0.42); g.gain.linearRampToValueAtTime(0, T + 0.5);
+      const o = s.osc('sine', 2100, T, 0.5, g);
+      o.frequency.exponentialRampToValueAtTime(260, T + 0.48);
+      const vib = s.gain(18, o.frequency); s.osc('sine', 7, T, 0.5, vib);
+      s.noise(T, 0.5, s.filter('bandpass', 1800, 6, s.gain(0.04, g)));
+      // gloop
+      const go = s.osc('sine', 120, T + 0.46, 0.3, s.vca(T + 0.46, 0.005, 0.7, 0.22));
+      go.frequency.exponentialRampToValueAtTime(420, T + 0.52); go.frequency.exponentialRampToValueAtTime(90, T + 0.7);
+      s.burst(T + 0.46, 0.003, 0.16, 0.3, 'lowpass', 600, 1.2, s.out, 'pink');
+    },
+  },
+  holeTravel: {
+    // muffled burrowing rumble under the floor
+    dur: 0.6, level: 0.3,
+    render(s) {
+      const lp = s.filter('lowpass', 420, 0.9, s.vca(T, 0.06, 0.8, 0.45));
+      s.noise(T, 0.55, lp, 'brown');
+      for (let i = 0; i < 6; i++) s.thump(T + i * 0.08, 90, 50, 0.03, 0.06, 0.35);
+    },
+  },
+  holePop: {
+    // champagne-cork pop, slide whistle up and a big spring "boing"
+    dur: 0.9, level: 0.55, reverb: 0.12,
+    render(s) {
+      s.burst(T, 0.0004, 0.025, 1, 'bandpass', 1500, 1.4);
+      s.thump(T, 380, 120, 0.03, 0.08, 0.6);
+      const g = s.vca(T, 0.01, 0.35, 0.3);
+      const o = s.osc('sine', 400, T, 0.32, g);
+      o.frequency.exponentialRampToValueAtTime(2200, T + 0.22);
+      const vb = s.gain(25, o.frequency); s.osc('sine', 8, T, 0.32, vb);
+      // the spring
+      const sg = s.vca(T + 0.06, 0.004, 0.45, 0.6);
+      const so = s.osc('triangle', 110, T + 0.06, 0.7, s.filter('lowpass', 2200, 0.8, sg));
+      so.frequency.exponentialRampToValueAtTime(330, T + 0.12);
+      const vib = s.c.createGain(); vib.gain.setValueAtTime(90, T + 0.06); vib.gain.exponentialRampToValueAtTime(3, T + 0.7);
+      s.osc('sine', 19, T + 0.06, 0.7, vib); vib.connect(so.frequency);
+    },
+  },
+  steamWhistle: {
+    // a riverboat steam whistle: three breathy pipes in a major chord, swelling in and choking off
+    dur: 2.2, variants: 2, level: 0.75, reverb: 0.3,
+    render(s, v) {
+      const mix = wetBus(s, 2.6, 0.35, 2.2, 0.5);
+      const len = v === 0 ? 1.35 : 0.6;
+      const env = s.gain(0, mix);
+      env.gain.setValueAtTime(0, T); env.gain.linearRampToValueAtTime(0.5, T + 0.09); env.gain.linearRampToValueAtTime(0.42, T + len); env.gain.linearRampToValueAtTime(0, T + len + 0.12);
+      const base = v === 0 ? 294 : 330;
+      for (const r of [1, 1.26, 1.5]) {
+        const f = base * r;
+        const o = s.osc('sawtooth', f * 0.985, T, len + 0.15, s.filter('bandpass', f * 2, 2.5, s.gain(0.3, env)));
+        o.frequency.linearRampToValueAtTime(f, T + 0.12);
+        const vb = s.gain(f * 0.004, o.frequency); s.osc('sine', 5.5, T, len + 0.15, vb);
+        s.osc('sine', f, T, len + 0.15, s.gain(0.22, env));
+      }
+      // the steam itself
+      s.noise(T, len + 0.2, s.filter('bandpass', 3200, 0.9, s.gain(0.18, env)), 'white');
+      s.noise(T, len + 0.2, s.filter('highpass', 6000, 0.7, s.gain(0.06, env)), 'white');
+    },
+  },
+  paddleChug: {
+    // seamless 0.8 s loop: chug-a-chug pistons, paddles slapping water
+    dur: 0.8, level: 0.4, loop: true,
+    raw(sr) {
+      const n = Math.round(sr * 0.8);
+      const rnd = mulberry(1928);
+      const out = new Float32Array(n);
+      let lp = 0, lp2 = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        // four chugs per loop, the first two heavier ("CHUG-a CHUG-a")
+        const beat = (t * 4) % 1, k = Math.floor(t * 4);
+        const acc = k % 2 === 0 ? 1 : 0.6;
+        const x = rnd() * 2 - 1;
+        lp += (x - lp) * 0.08; lp2 += (x - lp2) * 0.35;
+        const puff = Math.exp(-beat * 9) * acc;
+        const slap = Math.exp(-((t * 8) % 1) * 22) * 0.35;
+        out[i] = lp * puff * 2.2 + lp2 * slap + Math.sin(2 * Math.PI * 55 * t * 0.8) * puff * 0.5;
+      }
+      return [out];
+    },
+  },
+  calliope: {
+    // an original jaunty steam-calliope tune with an oom-pah bass (plays under the Steamboat special)
+    dur: 5.2, stereo: true, level: 0.6, reverb: 0.2,
+    render(s) {
+      const mix = wetBus(s, 2, 0.25, 2, 0.6);
+      const e = 0.19; // eighth note
+      const mel = [67, 72, 76, 79, 76, 72, 74, 76, 77, 81, 77, 74, 76, 72, 67, 67, 69, 71, 72, 74, 76, 77, 79, 76, 74, 79, 71, 74, 72, 0, 79, 84];
+      const hz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
+      mel.forEach((m, i) => {
+        if (!m) return;
+        const at = T + i * e, len = (i === 28 ? e * 2 : e) * 0.92;
+        const pan = s.pan(s.r(-0.25, 0.25), mix);
+        const g = s.gain(0, pan);
+        g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.32, at + 0.012); g.gain.setValueAtTime(0.3, at + len - 0.02); g.gain.linearRampToValueAtTime(0, at + len);
+        const f = hz(m);
+        // pipe: sine + a breathy 2nd/3rd harmonic, wobbly calliope vibrato
+        const o1 = s.osc('sine', f, at, len, g);
+        const o2 = s.osc('sine', f * 2, at, len, s.gain(0.28, g));
+        const o3 = s.osc('triangle', f * 3, at, len, s.gain(0.08, g));
+        for (const o of [o1, o2, o3]) { const vb = s.gain(f * 0.012, o.frequency); s.osc('sine', 6.5, at, len, vb); }
+        s.noise(at, len, s.filter('bandpass', f * 2, 3, s.gain(0.05, g)));
+      });
+      // oom-pah: bass on 1 and 3, a chord stab on 2 and 4 (C, F, C/G, G, C)
+      const bars = [[48, [60, 64, 67]], [53, [60, 65, 69]], [55, [59, 62, 67]], [48, [60, 64, 67]]] as const;
+      bars.forEach(([b, ch], bi) => {
+        for (let q = 0; q < 4; q++) {
+          const at = T + (bi * 8 + q * 2) * e;
+          if (q % 2 === 0) {
+            const g = s.vca(at, 0.006, 0.42, 0.28, mix);
+            s.osc('triangle', hz(b - (q === 2 ? 5 : 0)), at, 0.3, s.filter('lowpass', 700, 0.8, g));
+          } else for (const n of ch) s.osc('square', hz(n), at, 0.12, s.filter('lowpass', 1800, 0.7, s.vca(at, 0.004, 0.07, 0.1, mix)));
+        }
+      });
+      // a cymbal-ish tssh and a final toot on the button
+      s.burst(T + 30 * e, 0.003, 0.5, 0.25, 'highpass', 6000, 0.7, mix);
+    },
+  },
+  bigSplash: {
+    // the steamboat dives under: a whoomp, a wall of water and droplets raining down
+    dur: 2, level: 0.7, reverb: 0.2,
+    render(s) {
+      const mix = wetBus(s, 2, 0.25);
+      s.thump(T, 90, 40, 0.15, 0.5, 0.8, mix);
+      const lp = s.filter('lowpass', 4000, 0.8, s.vca(T, 0.01, 0.8, 0.9, mix));
+      s.sweep(lp.frequency, T, 5000, 500, 0.9);
+      s.noise(T, 1, lp, 'pink');
+      for (let i = 0; i < 22; i++) {
+        const at = T + 0.2 + Math.pow(s.rnd(), 1.2) * 1.4;
+        const o = s.osc('sine', s.r(500, 1000), at, 0.06, s.vca(at, 0.001, 0.18 * (1 - (at - T) / 1.8), 0.04, mix));
+        o.frequency.exponentialRampToValueAtTime(s.r(1400, 2400), at + 0.03);
+      }
+    },
+  },
+  commMickey: {
+    // Mickey's subtitle stinger: a quick slide-whistle "whoop" and a woodblock tock
+    dur: 0.5, level: 0.16, bus: 'ui',
+    render(s) {
+      const mix = wetBus(s, 1, 0.25);
+      const o = s.osc('sine', 700, T, 0.2, s.vca(T, 0.02, 0.45, 0.16, mix));
+      o.frequency.exponentialRampToValueAtTime(1500, T + 0.14);
+      s.partials(900, [[1, 0.35, 0.07], [2.76, 0.12, 0.04]], T + 0.16, mix, 0, 0.0008);
+    },
+  },
+  stepMickey: {
+    // big soft cartoon shoes: a rubbery pat with the odd squeak
+    dur: 0.2, variants: 6, level: 0.24, jitter: 1, maxVoices: 10, dedupe: 0,
+    render(s, v) {
+      s.thump(T, 160, 80, 0.03, 0.06, 0.6);
+      s.burst(T, 0.001, 0.03, 0.4, 'lowpass', 900, 0.8, s.out, 'pink');
+      if (v % 3 === 0) {
+        const o = s.osc('sine', s.r(1700, 2300), T + 0.02, 0.07, s.vca(T + 0.02, 0.005, 0.09, 0.05));
+        o.frequency.exponentialRampToValueAtTime(s.r(2600, 3200), T + 0.08);
+      }
+    },
+  },
   ...IRONMAN_RECIPES,
 } satisfies Record<string, Recipe>;
 
 // Specials carry across the whole arena and are never ducked by the moment they create.
-for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', 'staticCharge', 'staticBlast', ...IRONMAN_ULT_SFX] as const) {
+for (const k of ['emcCharge', 'emcBlast', 'gravityCollapse', 'bellSummon', 'bigBell', 'bellWhistle', 'bellDrop', 'starry', 'starFall', 'staticCharge', 'staticBlast', 'steamWhistle', 'calliope', 'bigSplash', ...IRONMAN_ULT_SFX] as const) {
   Object.assign(RECIPES[k], { bus: 'ult', ref: 18, rolloff: 0.035 });
 }
 
@@ -1161,6 +1361,7 @@ export const BAKE_ORDER: Sfx[] = [
   'bloom', 'heal', 'pickup', 'respawn', 'death', 'ultReady', 'emcCharge', 'emcBlast', 'bellSummon', 'bellWhistle', 'bigBell', 'bellDrop',
   'starry', 'starFall', 'victory', 'defeat',
   'blitzJab', 'blitzPunchHit', 'blitzUppercut', 'grabLaunch', 'grabReel', 'grabHit', 'staticCharge', 'staticBlast', 'staticZap', 'stepBlitz',
+  'commMickey', 'stepMickey', 'spudThrow', 'spudBonk', 'spudBounce', 'holeDive', 'holeTravel', 'holePop', 'steamWhistle', 'paddleChug', 'calliope', 'bigSplash',
   ...IRONMAN_BAKE,
 ];
 
