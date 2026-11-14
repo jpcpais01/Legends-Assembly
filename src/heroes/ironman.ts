@@ -12,6 +12,7 @@ import type { RigBuilder } from '../render/HeroRig';
 import { screenFx } from '../vfx/ScreenFx';
 import { TrailStyle } from '../vfx/Trails';
 import type { LoopHandle } from '../core/Audio';
+import { PROPS } from '../render/props';
 
 /**
  * Iron Man: a flying duelist in powered armour.
@@ -53,6 +54,15 @@ function boltPool() {
 
 let missileGeo: THREE.BufferGeometry | null = null;
 function missilePool() {
+  const t = PROPS.micro_missile;
+  if (t) {
+    // the Meshy missile lies along x with its nose at -x: turn the nose to +z, centre it and make it 0.5 m long
+    const g = t.geometry.clone();
+    g.computeBoundingBox();
+    const bb = g.boundingBox!, c = bb.getCenter(new THREE.Vector3()), len = bb.max.x - bb.min.x;
+    g.translate(-c.x, -c.y, -c.z).rotateY(Math.PI / 2).scale(0.5 / len, 0.5 / len, 0.5 / len);
+    return new InstancedPool(g, t.material, 64);
+  }
   if (!missileGeo) {
     // a sleek micro-missile along +z: body, gold nose cone, four swept fins, a glowing nozzle ring (vertex colours)
     const paint = (g: THREE.BufferGeometry, c: THREE.Color) => {
@@ -503,8 +513,8 @@ export const IRONMAN: HeroDef = {
   color: '#ff4a3d',
   accent: '#ffc857',
   maxHp: 250,
-  // code-built stand-in suit until the Meshy model lands (scripts/build-ironman-placeholder.mjs); bump ?v= when the file changes
-  modelUrl: '/models/heroes/ironman.glb?v=1',
+  // Meshy model (the code-built stand-in from scripts/build-ironman-placeholder.mjs is retired); bump ?v= when the file changes
+  modelUrl: '/models/heroes/ironman.glb?v=2',
   speed: 6.1,
   secondaryCd: 9,
   ultCost: 1500,

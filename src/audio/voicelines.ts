@@ -172,7 +172,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     // an old optical soundtrack: band-limited, a little crackly drive and a bright, sped-up lilt
     chain: { hp: 260, lp: 6200, drive: 0.22, slap: 0, slapMix: 0, reverb: 0.1, rate: 1.06, gain: 1.05 },
     // a designed/premade cheerful high-pitched cartoon voice (never a clone): pick one on the account when recording
-    tts: { voice: 'TBD', direction: '[cheerful, high-pitched 1920s cartoon mouse, bouncy and polite]', stability: 0.35, style: 0.75 },
+    tts: { voice: 'jBpfuIE2acCO8z3wKNLl', direction: '[cheerful, high-pitched 1920s cartoon mouse, bouncy and polite]', stability: 0.35, style: 0.75 },
     lines: {
       matchStart: L('matchStart', '[cheerful] Hot dog! Let\'s have some fun, pals!', '[excited] All aboard! Next stop, victory!', '[whistles] Ha-ha! Ready when you are, fellas!'),
       primary: L('primary', 'Catch!', '[laughs] Heads up!', 'Spud\'s up!'),
@@ -259,7 +259,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Iron Man',
     // a touch of helmet: band-limited, a little bite, a short metallic slap
     chain: { hp: 160, lp: 9500, drive: 0.12, slap: 0.03, slapMix: 0.12, reverb: 0.1, rate: 1, gain: 1.05 },
-    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cocky genius billionaire, fast, dry wit, speaking inside a metal helmet]', stability: 0.4, style: 0.65 },
+    tts: { voice: 'cjVigY5qzO86Huf0OWal', direction: '[cocky genius billionaire, fast, dry wit, speaking inside a metal helmet]', stability: 0.4, style: 0.65 },
     lines: {
       matchStart: L('matchStart', 'Suit\'s warm. Systems green. Let\'s make some noise.', '[smug] Relax, everyone. The expensive one is here.', 'Flight check done. Weapons hot.', '[dry] I was told there would be a challenge.'),
       primary: L('primary', 'Repulsors, online.', '[smug] Hold still.', 'Palm\'s up. Bad news for you.'),
@@ -309,7 +309,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
     short: 'Luffy',
     // bright and bouncy: a little room, no grit
     chain: { hp: 120, lp: 14500, drive: 0, slap: 0, slapMix: 0, reverb: 0.14, rate: 1.03, gain: 1.05 },
-    tts: { voice: 'pNInz6obpgDQGcFmaJgB', direction: '[cheerful young pirate, loud, fearless, always grinning]', stability: 0.3, style: 0.75 },
+    tts: { voice: 'bVMeCyTHy58xNoL34h3p', direction: '[cheerful young pirate, loud, fearless, always grinning]', stability: 0.3, style: 0.75 },
     lines: {
       matchStart: L('matchStart', '[excited] Alright! Let\'s go have an adventure!', '[laughs] Shishishi! This is gonna be fun!', 'I\'m not losing to anybody!', '[hungry] Can we eat after this? Okay, let\'s fight!'),
       primary: L('primary', 'Gum-Gum Pistol!', '[shouting] Pistol!'),

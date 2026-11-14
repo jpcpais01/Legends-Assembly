@@ -8,6 +8,91 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.21.6',
+    date: '2026-11-14',
+    title: 'Iron Man Speaks',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'Iron Man now talks: a cocky, quick-witted voice for his abilities, eliminations, Unibeam call-outs, victories and defeats, instead of subtitles only.',
+          'He trades fully voiced banter and rival lines with Einstein, Yeat, Van Gogh, Blitzcrank, Luffy and even another Iron Man.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.21.5',
+    date: '2026-11-14',
+    title: 'Mickey Finds His Voice',
+    sections: [
+      {
+        heading: 'Mickey Mouse',
+        items: ["Mickey talks now: 64 fully voiced lines, from his \"Hot dog!\" kill cheers to his banter and rival taunts with every other legend, all run through a crackly old-cartoon soundtrack filter."],
+      },
+    ],
+  },
+  {
+    version: '0.21.4',
+    date: '2026-11-14',
+    title: 'Gum-Gum Voice',
+    sections: [
+      {
+        heading: 'Luffy',
+        items: [
+          'Luffy finally speaks! Every line is now fully voiced: his battle cries for Gum-Gum Pistol, Rocket and Gear Fifth, his trash talk, his reactions when he takes a hit or loses a teammate, and his banter with the other legends.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.21.3',
+    date: '2026-11-14',
+    title: "Mickey's New Look",
+    sections: [
+      {
+        heading: 'Mickey Mouse',
+        items: [
+          'Mickey has his final model: big round ears, red shorts, yellow shoes and a proper cartoon grin, with his bouncy rubber-hose walk on top.',
+          'Steamboat Willie now sends a real wooden paddle steamer down the lane, puffing smoke from both funnels and squashing on every chug.',
+          'Spud Shot throws an actual potato now. Look closely: it has a little face.',
+        ],
+      },
+      {
+        heading: 'Fixes',
+        items: ['The start screen now lists all seven legends.'],
+      },
+    ],
+  },
+  {
+    version: '0.21.2',
+    date: '2026-11-14',
+    title: 'Iron Man Suits Up',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'Iron Man now wears his real armor: a fully detailed red and gold suit with a glowing arc reactor, eye slits and back flaps, replacing the stand-in suit.',
+          'Missile Swarm fires proper micro-missiles now: sleek red and gold rockets with gold nose cones and swept fins.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.21.1',
+    date: '2026-11-14',
+    title: 'The Real Straw Hat',
+    sections: [
+      {
+        heading: 'Luffy',
+        items: [
+          'Luffy gets his real look: a fully detailed new model replaces the stand-in, with the red vest, blue shorts, sandals, scar and his trademark grin. His stretchy punches, rocket grabs and giant Gear Fifth fists all work with the new body.',
+          'Gear Fifth now opens with a proper giant straw hat spinning above him as the drums of liberation kick in.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-11-14',
     title: 'Steamboat Willie',
