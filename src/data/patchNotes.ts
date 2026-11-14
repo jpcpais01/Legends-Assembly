@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.26.1',
+    date: '2026-11-14',
+    title: 'Steady Aim',
+    sections: [
+      {
+        heading: 'Steve',
+        items: [
+          'With the bow out, Steve now holds it up in a proper archer stance: limbs upright, out to his left where you can see it, with an arrow nocked whenever one is ready.',
+          'Drawing pulls the arrow back along your aim, and the arrow now flies out of the bow toward the crosshair instead of from his chest.',
+          'Fixed the bow hanging sideways off his hand like a stick when he was not drawing.',
+          'The back of Steve\'s head no longer renders pitch black: his hair is a warmer brown, like the original.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-11-14',
     title: 'Gilded Frame',
