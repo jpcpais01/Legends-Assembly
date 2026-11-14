@@ -246,7 +246,7 @@ function starryMats() {
         vec3 d = normalize(vP);
         vec2 p = d.xz / (1.0 + d.y) ; // stereographic projection of the dome
         vec3 col = starry(p * 0.9);
-        float fres = pow(1.0 - abs(dot(normalize(vN), normalize(cameraPosition - vW))), 2.0);
+        float fres = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(cameraPosition - vW))), 0.0, 1.0), 2.0);
         float base = smoothstep(0.0, 0.15, d.y);
         float a = (0.38 + fres * 0.35) * uFade * (0.6 + 0.4 * base);
         col += vec3(0.4, 0.6, 1.4) * fres * 0.8;
