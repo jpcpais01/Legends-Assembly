@@ -199,6 +199,8 @@ export const ANNOUNCER = [
  * sounds (comm = one stinger per hero).
  */
 export const PICKS = {
+  // T-Rex
+  rexStep: [1, 5, 3, 6], rexSnap: [4, 5, 1], rexChomp: [3, 6, 1], rexSweep: [3, 2], rexSweepHit: [1, 4], stampede: [3], rexCrash: [2], rexRumble: [3], rexRoar: [4], meteorFall: [4, 2], meteorImpact: [2, 3, 1],
   // Marley + Steve (bassPulse stays procedural: no take kept the one-drop clean)
   skank: [6, 5, 3, 4], skankDrop: [3, 1, 4], noteHit: [4, 3, 2], smokeBlow: [3], loveRise: [4], dragonSummon: [1], dragonRoar: [3, 1],
   ui: [3], uiHover: [4], uiTab: [3], uiBack: [3], lockIn: [2], denied: [4], countdown: [3], go: [4], ultReady: [4],
@@ -223,4 +225,4 @@ export const PICKS = {
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
 export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy',
-  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch', 'loveRise', 'dragonSummon', 'dragonRoar']);
+  'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch', 'loveRise', 'dragonSummon', 'dragonRoar', 'rexRoar', 'rexRumble', 'rexCrash']);

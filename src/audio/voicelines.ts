@@ -466,7 +466,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       ultEnemy: L('ultEnemy', '[menacing] Look up.', '[growls] Your time is over.'),
       kill: L('kill', '[satisfied growl] Delicious.', 'Extinct.', 'Food chain. I am the top.', '[deep laugh] Too small.', 'Swallowed whole.', 'Fossilized.'),
       multiKill: L('multiKill', '[roars] A feast!', 'More! I want more!', '[deep laugh] Buffet.'),
-      death: L('death', '[groans] The meteor... again...', '[wounded roar]', 'I will be... a fossil...'),
+      death: L('death', '[groans] The meteor... again...', '[wounded roar] Rrraaagh...', 'I will be... a fossil...'),
       respawn: L('respawn', 'You cannot keep a king buried.', '[growls] Dug myself out.', 'Back from the Cretaceous.'),
       ultReady: L('ultReady', '[rumbling] The sky burns for me.', 'I feel a meteor coming.', '[growls] Time for an extinction.'),
       lowHp: L('lowHp', '[pained growl] Wounded. Still dangerous.', 'I need meat.', '[snarls] Back off.'),
