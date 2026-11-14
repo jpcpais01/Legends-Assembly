@@ -64,6 +64,11 @@ const MODE_COPY: Record<Mode, { desc: string; art: HeroId[]; c1: string; c2: str
 };
 
 const HERO_TIPS: Record<HeroId, string[]> = {
+  steve: [
+    'Scroll the mouse wheel (or press 1 / 2) to swap. Sword up close, bow at range.',
+    'Jump and strike on the way down: falling sword hits are crits.',
+    'Build Up gives you cover and high ground: hop up the steps on your side and shoot over the wall.',
+  ],
   einstein: [
     'Throw Gravity Well first, then fire E = mc² while enemies are pulled together.',
     'Photon Burst flies fast and straight. Track heads for 50% bonus damage.',

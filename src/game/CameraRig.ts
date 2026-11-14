@@ -58,6 +58,10 @@ export class CameraRig {
 
   shake(amount: number) { if (settings.cameraShake) this.trauma = Math.min(1, this.trauma + amount); }
   kick(amount: number) { this.fovKick = Math.max(this.fovKick, amount); }
+  /** Narrow the view by this many degrees this frame (drawing a bow). Re-apply every frame to hold it. */
+  zoom(deg: number) { this.zoomWant = Math.max(this.zoomWant, deg); }
+  private zoomWant = 0;
+  private zoomCur = 0;
   recoil(pitch: number, yaw = 0) { this.recoilV += pitch * 60; this.recoilYaw += yaw; }
   ultBeat() { this.beatT = 0; this.beat = 1; }
 
@@ -75,7 +79,9 @@ export class CameraRig {
     this.modeT += dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
     this.fovKick = damp(this.fovKick, 0, 6, dt);
-    const targetFov = settings.fov + this.fovKick;
+    this.zoomCur = damp(this.zoomCur, this.zoomWant, 9, dt);
+    this.zoomWant = 0;
+    const targetFov = settings.fov + this.fovKick - this.zoomCur;
     if (Math.abs(cam.fov - targetFov) > 0.01) { cam.fov = damp(cam.fov, targetFov, 12, dt); cam.updateProjectionMatrix(); }
 
     if (this.mode === 'outro') {
