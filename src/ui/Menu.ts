@@ -909,6 +909,7 @@ export class Menu {
             ${bind(key('LMB'), 'Basic attack', 'Hold to keep firing')}
             ${bind(key('RMB'), 'Ability', 'Your signature move, on cooldown')}
             ${bind(key('Shift'), 'Special', 'Charges from damage, healing and eliminations')}
+            ${bind(key('V'), 'Selfie cam', 'Hold to swing the camera round to your face')}
             ${bind(key('Tab'), 'Scoreboard', 'Hold to see every player')}
             ${bind(key('Esc'), 'Pause', 'Settings and leave match')}
           </div>
