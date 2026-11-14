@@ -18,8 +18,8 @@ export interface PropTemplate {
   glass?: THREE.BufferGeometry;
 }
 
-export type PropName = 'palette' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell' | 'luffy_hat' | 'steamboat' | 'potato' | 'micro_missile';
-export const PROP_NAMES: PropName[] = ['palette', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell', 'luffy_hat', 'steamboat', 'potato', 'micro_missile'];
+export type PropName = 'palette' | 'sunflower' | 'tonka_truck' | 'giant_bell' | 'golden_bell' | 'luffy_hat' | 'steamboat' | 'potato' | 'micro_missile' | 'marley_guitar' | 'sound_system';
+export const PROP_NAMES: PropName[] = ['palette', 'sunflower', 'tonka_truck', 'giant_bell', 'golden_bell', 'luffy_hat', 'steamboat', 'potato', 'micro_missile', 'marley_guitar', 'sound_system'];
 export const PROPS: Partial<Record<PropName, PropTemplate>> = {};
 /**
  * Bump a prop's version whenever its GLB changes: /models/ is cache-first on players' devices, so an

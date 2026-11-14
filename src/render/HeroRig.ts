@@ -46,6 +46,8 @@ export interface AnimState {
   armReach?: 'fore' | 'upper';
   fistL?: number;
   fistR?: number;
+  /** 0..1: hold a guitar slung on its strap: fretting hand on the neck, picking hand over the strings (Bob Marley). */
+  guitar?: number;
   /** Non-humanoid legends (the T-Rex): what the beast's body is doing, set by its kit. */
   beast?: BeastPose;
   /** Which held item is out (HeroDef.items ids); the others are hidden. */

@@ -99,6 +99,11 @@ const HERO_TIPS: Record<HeroId, string[]> = {
     'Portable Hole is an escape and an opener: pop out right under an enemy to bonk them into the air.',
     'Steamboat Willie runs straight down your crosshair. Line it up along a corridor full of enemies.',
   ],
+  marley: [
+    'Every 4th strum is the drop. Land it near your team: it splashes enemies and heals allies.',
+    'Kaya Cloud rolls ahead and lingers. Blow it into a doorway or onto a dive to blunt it.',
+    'One Love heals everyone in sight of the speakers. Drop it behind cover where your team will fight.',
+  ],
   trex: [
     'Bites heal you. Stay in the brawl: every third swing is a tail sweep that clears everyone around you.',
     'Stampede into an enemy standing in front of a wall: the crash hits them again and stuns them longer.',

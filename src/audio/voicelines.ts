@@ -401,6 +401,57 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       { id: 'vs_luffy', vs: 'luffy', text: 'Whoa! Are you me?', reply: 'Nope! You\'re me!' },
     ],
   },
+  marley: {
+    short: 'Marley',
+    // warm and close, a little tape saturation and a short room, like a vocal booth in Kingston
+    chain: { hp: 110, lp: 9000, drive: 0.1, slap: 0.02, slapMix: 0.1, reverb: 0.12, rate: 1, gain: 1.05 },
+    // premade Chris (casual, laid-back; never a clone)
+    tts: { voice: 'iP95p4xoKVk53GoZ742B', direction: '[warm, laid-back Jamaican accent, calm, soulful reggae musician, smiling]', stability: 0.45, style: 0.6 },
+    lines: {
+      matchStart: L('matchStart', '[warm] Easy now, bredren. Let the music lead.', '[laughs] Ya mon, time fi play some riddim.', '[calm] Feel the bass. We ready.', 'Tune up, everybody. Here we go.'),
+      primary: L('primary', 'Skank it!', '[laughs] Feel dat?', 'On the offbeat.'),
+      secondary: L('secondary', '[exhales] Breathe it in, bredren.', '[laughs] Cool down, cool down.', 'Kaya time.', '[calm] Take it easy now.'),
+      secondaryHit: L('secondaryHit', '[laughs] Sleepy now?', 'Mellow out, mon.', 'Head a-swim, eh?'),
+      ult: L('ult', '[shouting] One love! Turn it up!', '[joyful] Sound system, come alive!', '[shouting] Let the bass drop!'),
+      ultEnemy: L('ultEnemy', '[shouting] Big tune comin\' through!', '[joyful] Everybody feel it now!'),
+      kill: L('kill', '[calm] Rest easy.', '[laughs] Ya mon, dat\'s the riddim.', 'Peace be with you.', 'Natural mystic, bredren.', '[smiling] Jah guide you home.', 'Gone with the music.'),
+      multiKill: L('multiKill', '[laughs] The whole crowd a-dance!', '[joyful] Big chune, big chune!', '[laughs] Dem cyaan handle the bass!'),
+      death: L('death', '[sighs] Ah... the music stop.', '[groans] Rest a while...', '[calm] Me soon come back.'),
+      respawn: L('respawn', '[warm] Back on the riddim.', 'Fresh like morning.', '[laughs] Can\'t stop the music.'),
+      ultReady: L('ultReady', '[warm] Sound system ready, bredren.', 'Speakers warm. Just say the word.'),
+      lowHp: L('lowHp', '[strained] Me need a likkle healing here!', '[worried] Bredren, help me out!'),
+      victory: L('victory', '[joyful] One love! We did it together!', '[laughs] The music wins, mon.'),
+      defeat: L('defeat', '[calm] No worry. We rise again.', '[sighs] Next time, bredren.'),
+      assist: L('assist', 'Together, mon.', '[warm] Nice, bredren.'),
+      revenge: L('revenge', '[calm] Every debt get paid, bredren.', '[laughs] Remember me?'),
+      streak: L('streak', '[joyful] Me cyaan stop the riddim!', '[laughs] Still skankin\'!'),
+      heal: L('heal', '[warm] Feel better, bredren.', 'Music heals.'),
+      takeLead: L('takeLead', '[warm] We out front now. Keep the rhythm.', 'Up top, bredren.'),
+      behind: L('behind', '[calm] Stand up, everybody. We nah done.', 'Get up, get it back.'),
+      matchPoint: L('matchPoint', '[warm] One more, then we celebrate.', 'Last verse, bredren.'),
+      overtime: L('overtime', '[laughs] Encore! The crowd want more!', 'Extended mix, mon.'),
+      enemyUlt: L('enemyUlt', '[alarmed] Watch out, bredren!', 'Big danger comin\'!'),
+      allyDown: L('allyDown', '[sad] We lost one.', 'Bredren down!'),
+      shutdown: L('shutdown', '[calm] Your run is over, mon.', 'Volume down.'),
+    },
+    rival: {
+      einstein: R('einstein', '[laughs] Relativity can\'t beat the riddim, professor.', 'Even genius need a rest.'),
+      yeat: R('yeat', '[laughs] Your bell out of tune, youngster.', 'Real music, mon.'),
+      vangogh: R('vangogh', '[warm] Paint me a sunset, Vincent. Rest now.', 'Art and music, bredren. Music win today.'),
+      blitzcrank: R('blitzcrank', '[laughs] Robot cyaan dance!', 'Unplugged, mon.'),
+      luffy: R('luffy', '[laughs] Stretch all you want, pirate.', 'Rubber man, rest easy.'),
+      ironman: R('ironman', '[laughs] All dat metal and no soul.', 'Iron no match fi music.'),
+      mickey: R('mickey', '[laughs] Little mouse, big dreams.', 'Back to the cartoon, mon.'),
+      marley: R('marley', '[laughs] Only one Bob, bredren.'),
+      trex: R('trex', '[laughs] Big ting! Me nah run from no lizard.', '[calm] Extinct, bredren. Easy.'),
+    },
+    banter: [
+      { id: 'vs_einstein', vs: 'einstein', text: 'Professor, you ever hear music in your equations?', reply: 'Constantly. Usually the violin.' },
+      { id: 'vs_yeat', vs: 'yeat', text: 'Youngster, your bell loud. You know the offbeat?', reply: 'Bro, I invented the offbeat.' },
+      { id: 'vs_vangogh', vs: 'vangogh', text: 'Vincent, you paint the stars. Me sing about them.', reply: 'Then we see the same sky, my friend.' },
+      { id: 'vs_marley', vs: 'marley', text: 'Two of us? Double the bass, bredren!', reply: 'One love, even for a twin.' },
+    ],
+  },
   trex: {
     short: 'T-Rex',
     // a voice from a ribcage the size of a car: slowed down, saturated, with a cavernous slap
@@ -442,6 +493,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
       ironman: R('ironman', 'Canned food.', '[deep laugh] I opened the can.'),
       mickey: R('mickey', 'One small mouse. One small bite.', '[growls] Squeak no more.'),
       steve: R('steve', 'Square meat. Still meat.', '[growls] Your blocks crumble.'),
+      marley: R('marley', 'Your music cannot calm a king.', '[growls] Stop singing. Start running.'),
       trex: R('trex', 'There is only one king.', '[roars] My territory!'),
     },
     banter: [
@@ -453,7 +505,7 @@ export const VOICES: Record<HeroId, HeroVoice> = {
   },
 };
 /** The order heroes are numbered in for per-hero stinger variants. */
-export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, steve: 7, trex: 8 };
+export const VOICE_INDEX: Record<HeroId, number> = { einstein: 0, yeat: 1, vangogh: 2, blitzcrank: 3, luffy: 4, ironman: 5, mickey: 6, steve: 7, marley: 8, trex: 9 };
 
 /**
  * Arena announcer lines beyond the kill feats (recorded into src/assets/announcer/).
