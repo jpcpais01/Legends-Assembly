@@ -185,9 +185,6 @@ export const SAMPLE_FILES: Record<string, string[]> = {
   "ambStudy": [
     "ambStudy-0.ogg?v=a12c7e78"
   ],
-  "ambRuins": [
-    "ambRuins-0.ogg?v=e45d1c87"
-  ],
   "fireLoop": [
     "fireLoop-0.ogg?v=83af44ca"
   ],

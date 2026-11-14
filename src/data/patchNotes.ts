@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.16.1',
+    date: '2026-11-14',
+    title: 'Farewell, Sunset Ruins',
+    sections: [
+      {
+        heading: 'Arenas',
+        items: [
+          "The Sunset Ruins are gone for good. Matches now play in the Giant's Study or the Grand Museum.",
+          "If the Ruins were your last pick, you'll land in the Giant's Study instead.",
+        ],
+      },
+      {
+        heading: 'Under the hood',
+        items: ['The ruins meadow, its props and its ambience no longer download, so the game loads a little lighter.'],
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-11-14',
     title: 'The Grand Museum',

@@ -131,7 +131,6 @@ export const SFX = [
   { name: 'musicCalm', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter match music loop, low intensity: tense atmospheric hybrid orchestral underscore, ticking pizzicato strings, soft pulsing synth bass and light percussion, anticipation, seamless loop' },
   { name: 'musicCombat', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Hero shooter battle music loop, high intensity: driving epic hybrid orchestral action with heavy trap drums, booming 808 bass, fast staccato strings and bold brass hits, energetic, seamless loop' },
   { name: 'musicClutch', dur: 30, takes: 3, keep: 1, inf: 0.5, loop: true, text: 'Final moments of a match music loop: urgent epic orchestral climax, racing strings, pounding taiko and trap drums, rising brass, ticking clock pulse, maximum tension, seamless loop' },
-  { name: 'ambRuins', dur: 20, takes: 2, keep: 1, inf: 0.5, loop: true, text: 'Peaceful outdoor ancient ruins ambience: soft breeze through tall grass, distant birds, light wind, continuous, seamless loop' },
 ];
 
 /** Announcer lines (ElevenLabs text to speech, premade voice "Brian", eleven_v3 with audio tags). */
@@ -172,7 +171,7 @@ export const PICKS = {
   photon: [2, 4, 1, 6], photonHit: [1, 2, 3], gravityThrow: [3], gravity: [4], gravityCollapse: [2], emcCharge: [2], emcBlast: [2],
   bell: [5], bellHit: [4, 3, 1], tonka: [1], engineLoop: [1], engineHigh: [3], skid: [3], crash: [3, 1], ram: [4], bellSummon: [1], bigBell: [1], bellWhistle: [3], bellDrop: [3],
   paint: [2, 4, 1, 3], splat: [4, 5, 1, 2], seedToss: [2], bloom: [3], starry: [3], starFall: [2, 4, 1],
-  ambStudy: [1], ambRuins: [2],
+  ambStudy: [1],
   fireLoop: [3], windowLoop: [3], watchTick: [4, 1], cradleClack: [2, 3, 5], metronome: [2, 1], woodCreak: [2, 4, 5, 6], chainCreak: [2, 3], cityDistant: [2, 3, 4], birdsWindow: [3], fireSurge: [1, 3],
   rattleChina: [3, 4], rattleCoins: [4, 1], rattleGlass: [1, 3], rattleWood: [4, 3], paperFlutter: [4, 2], chandelierTinkle: [3], deskThud: [4, 3],
   stepEinstein: [1, 3, 5, 8, 7], stepYeat: [1, 2, 7, 3, 8], stepVangogh: [6, 8, 2, 7, 3], stepPaper: [3, 2, 1, 4], stepMetal: [2, 5, 6, 3], stepLeather: [2, 5, 6, 1], stepStone: [6, 4, 5, 1],
@@ -184,5 +183,5 @@ export const PICKS = {
 };
 
 /** Wide, non-positional sounds keep their stereo image; everything placed in the world is mono. */
-export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy', 'ambRuins',
+export const STEREO = new Set(['lockIn', 'countdown', 'go', 'ultReady', 'victory', 'defeat', 'kill', 'bellSummon', 'starry', 'ambStudy',
   'killDrop', 'ultAlly', 'ultEnemy', 'slowmo', 'matchPointSting', 'heartbeat', 'musicMenu', 'musicSelect', 'hallAmb', 'musicCalm', 'musicCombat', 'musicClutch']);
