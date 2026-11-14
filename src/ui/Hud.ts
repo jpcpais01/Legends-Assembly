@@ -40,6 +40,9 @@ export class Hud {
   /** Crosshair bloom: grows when you fire or land hits, settles back. */
   private xKick = 0;
   private lastPrimaryCd = 0;
+  private lastScore = [-1, -1];
+  private healT = 0;
+  private healing = false;
 
   constructor(parent: HTMLElement, g: Game) {
     this.g = g;
@@ -63,7 +66,7 @@ export class Hud {
       </div>
       <div class="feed"></div>
       <div class="crosshair"></div>
-      <div class="hitmarker"></div>
+      <div class="hitmarker"><i></i><i></i><i></i><i></i><b></b></div>
       <div class="elims"></div>
       <div class="announce"><div class="big"></div><div class="small"></div></div>
       <div class="callout">
@@ -85,11 +88,11 @@ export class Hud {
         <small class="dt-l">Respawning</small>
       </div>
       <div class="vitals">
-        <div class="v-av"><img alt=""></div>
+        <div class="v-av"><img alt=""><span class="v-role"></span></div>
         <div class="v-main">
-          <div class="v-name"><span class="v-role"></span><b class="hname"></b></div>
+          <div class="v-name"><b class="hname"></b><span class="v-title"></span></div>
           <div class="v-hp"><b class="hpv">250</b><small>/ <span class="hpm">250</span></small></div>
-          <div class="hpbar"><i class="trail"></i><i class="fill"></i><i class="ticks"></i></div>
+          <div class="hpbar"><i class="trail"></i><i class="ghost"></i><i class="fill"></i><i class="ticks"></i></div>
         </div>
       </div>
       <div class="abilities">
@@ -97,9 +100,10 @@ export class Hud {
         <div class="slot s-rmb"><div class="sl-box"><span class="sl-ic"></span><i class="cd"></i><b class="num"></b></div><kbd>RMB</kbd><span class="sl-n"></span></div>
         <div class="ult">
           <div class="u-core">
-            <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" class="rb"/><circle cx="50" cy="50" r="44" class="rc" stroke-dasharray="${RING}" stroke-dashoffset="${RING}"/></svg>
-            <span class="u-ic"></span><b class="pct">0%</b><span class="u-ready">Ready</span>
+            <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" class="u-rb"/><circle cx="50" cy="50" r="44" class="u-rc" stroke-dasharray="${RING}" stroke-dashoffset="${RING}"/><circle cx="50" cy="50" r="44" class="u-rt" stroke-dashoffset="-5.55"/></svg>
+            <span class="u-ic"></span><b class="pct">0<small>%</small></b><span class="u-ready">Ready</span>
           </div>
+          <div class="u-toast">Special ready</div>
           <kbd>SHIFT</kbd><span class="sl-n u-n"></span>
         </div>
       </div>
@@ -114,8 +118,8 @@ export class Hud {
       elims: '.elims', announce: '.announce', intro: '.intro', countdown: '.countdown', cdNum: '.countdown span',
       death: '.death', dtAv: '.dt-av img', dtN: '.dt-n', dtH: '.dt-h', dtS: '.dt-s', dtRc: '.dt-rc', dtCard: '.dt-card', dtK: '.dt-k',
       vitals: '.vitals', vAv: '.v-av img', vRole: '.v-role', hname: '.hname', hpv: '.hpv', hpm: '.hpm', hpbar: '.hpbar',
-      fill: '.hpbar .fill', trail: '.hpbar .trail',
-      lmb: '.s-lmb', rmb: '.s-rmb', rmbCd: '.s-rmb .cd', rmbNum: '.s-rmb .num', ult: '.ult', ultRing: '.ult .rc', ultPct: '.ult .pct',
+      fill: '.hpbar .fill', trail: '.hpbar .trail', ghost: '.hpbar .ghost', vTitle: '.v-title', uToast: '.u-toast',
+      lmb: '.s-lmb', rmb: '.s-rmb', rmbCd: '.s-rmb .cd', rmbNum: '.s-rmb .num', ult: '.ult', ultRing: '.ult .u-rc', ultPct: '.ult .pct',
       teamA: '.h-team.ally', teamE: '.h-team.enemy', scoreA: '.hs-side.ally .hs-n', scoreE: '.hs-side.enemy .hs-n',
       barA: '.hs-side.ally .hs-bar s', barE: '.hs-side.enemy .hs-bar s', timer: '.hs-time', goal: '.hs-goal',
       nums: '.nums', plates: '.plates', scoreboard: '.scoreboard', cine: '.cine', danger: '.danger',
@@ -147,6 +151,7 @@ export class Hud {
     (this.els.vAv as HTMLImageElement).src = portraits[d.id] ?? '';
     this.els.vRole.innerHTML = icon(ROLE_ICONS[d.role]);
     this.els.hname.textContent = d.name;
+    this.els.vTitle.textContent = d.title;
     this.els.hpm.textContent = String(d.maxHp);
     this.els.hpbar.style.setProperty('--tick', `${(25 / d.maxHp) * 100}%`);
     (this.els.lmb.querySelector('.sl-ic') as HTMLElement).innerHTML = icon(a.primary.icon);
@@ -202,6 +207,8 @@ export class Hud {
     this.ultWasReady = false;
     this.rmbWasCd = false;
     this.vig = 0;
+    this.lastScore = [-1, -1];
+    this.els.uToast.className = 'u-toast';
     // mode intro card plays over the countdown
     (this.els.intro.querySelector('.in-mode') as HTMLElement).textContent = `${g.config!.mode} · vs bots · ${g.config!.difficulty}`;
     (this.els.intro.querySelector('.in-title') as HTMLElement).textContent = info.label;
@@ -307,7 +314,7 @@ export class Hud {
     const me = this.g.local;
     // kill feed
     const el = document.createElement('div');
-    el.className = 'k' + (killer === me || victim === me || assists.includes(me) ? ' me' : '') + (ab === 'ult' ? ' ult' : '') + (killer && killer.team !== me.team ? ' foe' : '');
+    el.className = 'k' + (killer === me || victim === me || assists.includes(me) ? ' me' : '') + (ab === 'ult' ? ' kult' : '') + (killer && killer.team !== me.team ? ' foe' : '');
     const side = (h: Hero) => (h.team === me.team ? 'a' : 'e');
     const who = (h: Hero) => `<span class="kp ${side(h)}"><img src="${portraits[h.def.id] ?? ''}" alt=""><b>${esc(h.name)}</b></span>`;
     el.innerHTML = killer
@@ -317,8 +324,8 @@ export class Hud {
     while (this.els.feed.children.length > 5) this.els.feed.lastElementChild!.remove();
     setTimeout(() => el.remove(), 7000);
     // personal elimination ticker under the crosshair
-    if (killer === me && victim !== me) this.elim(`${icon(UI.skull)}<span>Eliminated</span><b>${esc(victim.name)}</b>`, '');
-    else if (assists.includes(me)) this.elim(`<span>Assist</span><b>${esc(victim.name)}</b>`, 'as');
+    if (killer === me && victim !== me) this.elim(`<span class="et">${icon(UI.skull)}<span>Eliminated</span></span><b><span>${esc(victim.name)}</span></b>`, '');
+    else if (assists.includes(me)) this.elim(`<span class="et"><span>Assist</span></span><b><span>${esc(victim.name)}</span></b>`, 'as');
     if (victim === me) {
       this.deathTotal = Math.max(1, victim.respawnT);
       this.els.dtCard.style.display = killer ? '' : 'none';
@@ -386,12 +393,19 @@ export class Hud {
     // health
     const hpFrac = Math.max(0, Math.min(1, h.hp / h.maxHp));
     const fk = hpFrac.toFixed(3);
+    // damage: the fill drops at once and a warm chunk drains after it; healing: a green ghost leads and the fill catches up
     c.style('hpf', E.fill, 'transform', `scaleX(${fk})`);
+    c.style('hpg', E.ghost, 'transform', `scaleX(${fk})`);
     c.style('hpt', E.trail, 'transform', `scaleX(${fk})`);
     c.text('hpv', E.hpv, String(Math.ceil(h.hp)));
     c.cls('low', E.vitals, 'low', h.alive && hpFrac < 0.35);
     this.healFlashT -= dt;
-    if (h.hp > this.lastHp + 0.5 && this.healFlashT <= 0) { this.healFlashT = 0.5; this.restart(E.hpbar, 'hpbar', 'heal'); }
+    this.healT -= dt;
+    if (h.hp > this.lastHp + 0.5) {
+      this.healT = 0.45;
+      if (this.healFlashT <= 0) { this.healFlashT = 0.5; this.restart(E.hpbar, 'hpbar', 'heal'); this.healing = false; }
+    }
+    if ((this.healT > 0) !== this.healing) { this.healing = this.healT > 0; E.hpbar.classList.toggle('healing', this.healing); }
     const hurtPulse = h.hp < this.lastHp - 0.5 ? 0.6 : 0;
     this.lastHp = h.hp;
     const lowV = h.alive ? Math.max(0, (0.4 - hpFrac) / 0.4) * 0.8 : 0;
@@ -412,11 +426,11 @@ export class Hud {
     this.xKick = Math.max(0, this.xKick - dt * 5);
     c.style('xk', E.crosshair, 'transform', `scale(${(1 + this.xKick * 0.35).toFixed(3)})`);
     c.style('ult', E.ultRing, 'strokeDashoffset', (RING * (1 - h.ult)).toFixed(1));
-    c.text('ultp', E.ultPct, `${Math.floor(h.ult * 100)}%`);
+    c.text('ultp', E.ultPct.firstChild as unknown as HTMLElement, String(Math.floor(h.ult * 100)));
     const ready = h.ult >= 1;
     if (ready !== this.ultWasReady) {
       E.ult.classList.toggle('ready', ready);
-      if (ready) this.restart(E.ultEdge, 'ult-edge', 'pulse');
+      if (ready) { this.restart(E.ultEdge, 'ult-edge', 'pulse'); this.restart(E.uToast, 'u-toast', 'on'); }
       this.ultWasReady = ready;
     }
     c.cls('dead', this.root, 'is-dead', !h.alive);
@@ -424,6 +438,13 @@ export class Hud {
     // score & time (ally always on the left)
     const info = MODE_INFO[g.config!.mode];
     const sa = g.score[h.team], se = g.score[1 - h.team];
+    if (sa !== this.lastScore[0] || se !== this.lastScore[1]) {
+      if (this.lastScore[0] >= 0) {
+        if (sa !== this.lastScore[0]) this.restart(E.scoreA, 'hs-n', 'bump');
+        if (se !== this.lastScore[1]) this.restart(E.scoreE, 'hs-n', 'bump');
+      }
+      this.lastScore = [sa, se];
+    }
     c.text('sa', E.scoreA, String(sa));
     c.text('se', E.scoreE, String(se));
     c.style('ba', E.barA, 'transform', `scaleX(${Math.min(1, sa / info.target).toFixed(3)})`);

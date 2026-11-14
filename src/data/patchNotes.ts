@@ -8,6 +8,55 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.14.0',
+    date: '2026-11-14',
+    title: 'Assembly Hall',
+    sections: [
+      {
+        heading: 'A stage of their own',
+        items: [
+          'The menus no longer stand your legend in the middle of the battle map. They now pose in the Assembly Hall: a floating obsidian dais under a beam of light, a turning gilded armillary halo, a ring of dark obelisks with glowing seams and a painted nebula sky.',
+          'The whole hall takes on your legend’s colours, easing between them when you switch: icy blue for Einstein, hot pink for Yeat, sunflower gold for Van Gogh.',
+          'Locking in makes the hall flare: the halo flashes, a light wave runs across the floor and the beam spikes.',
+        ],
+      },
+      {
+        heading: 'New hero select',
+        items: [
+          'Hero select is rebuilt like a real hero shooter: your team down the left, your legend big and centre stage, their kit on the right, the roster grouped by role along the bottom and Lock In bottom right.',
+          'Your bot teammates pick one after another while you choose, and the match uses exactly the team you saw. If a teammate held the legend you switch to, they swap.',
+          'Hover or click an ability to preview what it does, with its key, stats and description.',
+          'Locking in stamps the button, wipes a band of your legend’s colour across the screen and ticks every teammate as locked.',
+        ],
+      },
+      {
+        heading: 'Home screen',
+        items: [
+          'Reorganised around the stage: game modes as cards on the left (the selected one shows what it is about), the latest patch top right, your legend’s nameplate under the dais with a Change legend shortcut (L), and bot skill, arena and a bigger Play button bottom right.',
+          'Arrow keys up and down now switch game modes.',
+        ],
+      },
+      {
+        heading: 'HUD, rebuilt with care',
+        items: [
+          'Health: a bigger number, a segmented bar with a gloss, a warm chunk that drains after you take damage and a green ghost that leads the bar when you are healed.',
+          'Abilities: cleaner tiles with a cooldown sweep and edge line, a big countdown, and a flash plus an expanding ring the moment one is ready again.',
+          'Special: a segmented ring that fills in your legend’s colour with the charge in the middle. When it is full the ring turns, the icon lights up and a “Special ready” call pops above it.',
+          'Hit markers are four crisp ticks: white for hits, gold for headshots, red with a ring burst for eliminations.',
+          'Eliminations under the crosshair are now a red badge with the name, assists in blue. Kill feed rows got team colour edges and skewed portraits, and your own kills are outlined.',
+          'Score: sharper team panels, a bump when the score changes, and fallen teammates’ portraits are struck through until they respawn.',
+          'Fixed: the special ring’s charge arc did not show, and kill feed rows for specials could break onto several lines.',
+        ],
+      },
+      {
+        heading: 'Menus',
+        items: [
+          'Settings and the other pages use solid panels instead of blurred glass, which is sharper and cheaper to draw.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-11-13',
     title: 'Main Event',

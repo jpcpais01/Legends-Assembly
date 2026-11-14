@@ -31,7 +31,41 @@ const HEALC = new THREE.Color(0.6, 3.2, 1.2);
 const SLOWC = new THREE.Color(0.9, 1.4, 3.2);
 const BOT_NAMES = ['Nova', 'Kairo', 'Mika', 'Juno', 'Rex', 'Vale', 'Orion', 'Lumen', 'Zephyr', 'Sable', 'Ember', 'Atlas', 'Pixel', 'Echo', 'Blitz'];
 
-export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard' }
+export interface LineupSlot { id: HeroId; name: string }
+/** Who the bots play: [allies (without you), enemies]. Hero select rolls this up front so it can show the picks. */
+export type Lineup = [LineupSlot[], LineupSlot[]];
+export interface MatchConfig { mode: Mode; heroId: HeroId; difficulty: 'easy' | 'normal' | 'hard'; lineup?: Lineup }
+
+/** Varied comps: each team cycles through a shuffled roster; small ally teams avoid doubling your legend. */
+export function rollLineup(mode: Mode, heroId: HeroId): Lineup {
+  const size = MODE_INFO[mode].size;
+  const names = shuffle([...BOT_NAMES]);
+  const all: HeroId[] = HERO_LIST.map((h) => h.id);
+  const out: Lineup = [[], []];
+  for (let team = 0; team < 2; team++) {
+    const roster = shuffle([...all]);
+    for (let i = team === 0 ? 1 : 0; i < size; i++) {
+      let id = roster[(i + (team === 0 ? 1 : 0)) % roster.length];
+      if (team === 0 && size <= 3 && id === heroId) id = roster[(i + 2) % roster.length];
+      out[team].push({ id, name: names.pop() ?? 'Bot' });
+    }
+  }
+  return out;
+}
+
+/** Keep a rolled lineup valid after you switch legend (small ally teams never double your pick). */
+export function fixLineup(l: Lineup, mode: Mode, heroId: HeroId): number[] {
+  const changed: number[] = [];
+  if (MODE_INFO[mode].size > 3) return changed;
+  const all: HeroId[] = HERO_LIST.map((h) => h.id);
+  l[0].forEach((s, i) => {
+    if (s.id !== heroId) return;
+    const taken = new Set([heroId, ...l[0].map((x) => x.id)]);
+    s.id = all.find((x) => !taken.has(x)) ?? all.find((x) => x !== heroId) ?? s.id;
+    changed.push(i);
+  });
+  return changed;
+}
 
 export type AbilitySlot = 'primary' | 'secondary' | 'ult';
 
@@ -199,21 +233,14 @@ export class Game {
     this.time = 0;
     this.winner = -1;
     this.timeScale = 1;
-    const names = shuffle([...BOT_NAMES]);
-    const all: HeroId[] = HERO_LIST.map((h) => h.id);
+    const lineup = cfg.lineup ?? rollLineup(cfg.mode, cfg.heroId);
     for (let team = 0; team < 2; team++) {
-      // varied comps: cycle through a shuffled roster
-      const roster = shuffle([...all]);
       for (let i = 0; i < info.size; i++) {
         const isLocal = team === 0 && i === 0;
-        let id: HeroId;
-        if (isLocal) id = cfg.heroId;
-        else {
-          id = roster[(i + (team === 0 ? 1 : 0)) % roster.length];
-          if (team === 0 && info.size <= 3 && id === cfg.heroId) id = roster[(i + 2) % roster.length];
-        }
+        const slot = isLocal ? null : lineup[team][team === 0 ? i - 1 : i];
+        const id: HeroId = slot ? slot.id : cfg.heroId;
         const def = HEROES[id];
-        const name = isLocal ? (settings.playerName || 'You') : names.pop() ?? 'Bot';
+        const name = isLocal ? (settings.playerName || 'You') : slot?.name ?? 'Bot';
         const h = new Hero(def, team, name, isLocal, TEAM_COLORS[team]);
         this.scene.add(h.model.root);
         this.heroes.push(h);
@@ -261,13 +288,14 @@ export class Game {
   }
 
   /** Menu showcase: a single hero posing on the dais. */
-  setShowcase(id: HeroId | null) {
-    if (this.showcase) { this.scene.remove(this.showcase.model.root); this.showcase.dispose(); this.showcase = null; }
+  setShowcase(id: HeroId | null, stage?: { scene: THREE.Scene; heroPos: THREE.Vector3 }) {
+    if (this.showcase) { this.showcase.model.root.removeFromParent(); this.showcase.dispose(); this.showcase = null; }
     if (!id) return;
     const h = new Hero(HEROES[id], 0, 'showcase', false, new THREE.Color(HEROES[id].color));
-    h.respawnAt(this.arena.showcasePos.clone(), 0);
+    h.respawnAt((stage?.heroPos ?? this.arena.showcasePos).clone(), 0);
     h.spawnT = 0;
-    this.scene.add(h.model.root);
+    if (stage) h.model.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+    (stage?.scene ?? this.scene).add(h.model.root);
     this.showcase = h;
   }
 
