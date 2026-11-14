@@ -5,7 +5,7 @@ import type { Game } from './Game';
 import type { RigLook } from '../render/HeroRig';
 import type { PropName } from '../render/props';
 
-export type HeroId = 'einstein' | 'yeat' | 'vangogh';
+export type HeroId = 'einstein' | 'yeat' | 'vangogh' | 'blitzcrank';
 export type Role = 'Duelist' | 'Vanguard' | 'Strategist';
 
 export interface AbilityInfo {
