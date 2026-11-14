@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Player-facing patch notes. Newest first. Every merge to main adds an entry. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.22.5',
+    date: '2026-11-14',
+    title: 'Unibeam Overhaul',
+    sections: [
+      {
+        heading: 'Iron Man',
+        items: [
+          'The Unibeam no longer rattles your screen: the camera stays steady for the whole beam, with just a small kick when it fires.',
+          'The arc reactor now visibly charges up: it swells into a star while two glowing emitter rings spin up and close in on his chest.',
+          'The beam itself is rebuilt in layers: a white-hot filament, a surging blue plasma core, a soft halo and twin helix bands spiralling down it, flaring out where it leaves his chest.',
+          'Pressure rings race down the beam, the air shimmers with heat at his chest and where it lands, and the impact point burns with a bright star and a spreading ring.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.4',
     date: '2026-11-14',
     title: 'Clean Finish',
