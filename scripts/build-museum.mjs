@@ -35,6 +35,10 @@ const BIG = new Set(['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring
  */
 const DROP = {
   museum_upper_loggia: [9961, 14247, 9652, 14580, 14583],
+  // the sky fresco ("Gilded Sky Portal") had a full-width sheet over its face whose two triangles sample different parts of
+  // the texture (a bright diagonal wedge across the painting), two slanted slivers, a second copy of the painted quad
+  // fighting the first, and two slivers along its diagonal
+  museum_upper_fresco: [11572, 13997, 13994, 13996, 2718, 7803, 7800, 13823],
   // the lion fountain's recess backdrop came out as shards with broken UVs (black and yellow wedges, two stray sheets):
   // it is cut here and the game puts a verde marble panel in its place (FOUNTAIN_PATCH in MuseumArena)
   museum_bay_fountain: [1777, 14195, 10705, 14199, 372, 374, 846, 849, 1778, 1780, 2199, 2200, 4076, 4078, 5454, 5455, 6302, 6304, 6470, 6729,
