@@ -8,6 +8,8 @@ import * as THREE from 'three';
  * colors. Everything is a handful of draw calls with cheap shaders: one shadowed spot light (the hero only),
  * no transparency sorting beyond a few additive layers, and no per-frame allocations.
  */
+const WHITE = new THREE.Color(1, 1, 1);
+
 export class MenuStage {
   readonly scene = new THREE.Scene();
   /** Where the showcase hero stands (on top of the dais). */
@@ -36,11 +38,15 @@ export class MenuStage {
     const s = this.scene;
     s.fog = new THREE.FogExp2(0x05060d, 0.045);
     s.environment = buildEnv(gl);
-    s.environmentIntensity = 0.4;
+    s.environmentIntensity = 0.55;
 
     // ── lights ──
-    s.add(new THREE.HemisphereLight(0x8a9cff, 0x0b0705, 0.35));
-    const key = new THREE.SpotLight(0xfff1dc, 420, 30, 0.42, 0.7, 2);
+    // Portrait lighting for the legend: a soft warm key from the front at face height, a cool fill from the
+    // other side and tinted rims behind. The overhead spot only grounds the hero with a shadow on the dais; it is
+    // kept gentle because a steep hard key is what turned faces into masks (blown foreheads, eyes and whole faces
+    // lost under hat brims). Neither front light casts shadows, so brims and hair never black out a face.
+    s.add(new THREE.HemisphereLight(0xc9d2e6, 0x1a120c, 0.5));
+    const key = new THREE.SpotLight(0xfff1dc, 150, 30, 0.42, 0.75, 2);
     key.position.set(-2.4, 8.5, -3.6);
     key.target.position.copy(this.heroPos).setY(1.1);
     key.castShadow = true;
@@ -51,6 +57,13 @@ export class MenuStage {
     key.shadow.camera.far = 16;
     s.add(key, key.target);
     this.key = key;
+    const face = new THREE.DirectionalLight(0xffe7cf, 2.1);
+    face.position.set(-2.6, 3.2, -4.4);
+    face.target.position.set(0, 1.4, 0);
+    const fill = new THREE.DirectionalLight(0xd6e2ff, 0.75);
+    fill.position.set(3.8, 1.6, -3.2);
+    fill.target.position.set(0, 1.2, 0);
+    s.add(face, face.target, fill, fill.target);
     this.rimL = new THREE.DirectionalLight(0xffffff, 3.2);
     this.rimL.position.set(-4, 3.5, 5);
     this.rimR = new THREE.DirectionalLight(0xffffff, 2.6);
@@ -105,11 +118,12 @@ export class MenuStage {
     this.rings[3].rotation.z -= dt * 0.16;
     this.halo.position.y = 1.75 + Math.sin(this.t * 0.6) * 0.06;
     (this.scene.fog as THREE.FogExp2).color.setRGB(0.012, 0.014, 0.026).lerp(u.uC.value, 0.035);
-    this.rimL.color.copy(u.uC.value);
-    this.rimR.color.copy(u.uA.value);
+    // rims carry the legend's colour, but only half saturated so skin never turns neon
+    this.rimL.color.copy(u.uC.value).lerp(WHITE, 0.45);
+    this.rimR.color.copy(u.uA.value).lerp(WHITE, 0.45);
     this.glow.color.copy(u.uC.value);
     this.glow.intensity = 16 + b * 60;
-    this.key.intensity = 420 + b * 300;
+    this.key.intensity = 150 + b * 300;
     this.seamMat.color.copy(u.uC.value).multiplyScalar(1.1 + b * 2);
     this.haloMat.emissive.copy(u.uC.value);
     this.haloMat.emissiveIntensity = 2.4 + b * 5;
