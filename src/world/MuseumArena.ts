@@ -33,9 +33,9 @@ const { HX, HZ, CEIL } = HALL;
 /** Bump a model's version whenever its GLB changes: /models/ is cache-first on players' devices. */
 const MODEL_VER: Record<MuseumModel, number> = {
   museum_column_bay: 1, museum_wall_niche: 1, broken_dome_ring: 1, trex_skeleton: 1, winged_statue: 1, equestrian_statue: 1,
-  grand_staircase: 1, painting_frame: 1,
+  grand_staircase: 1, painting_frame: 1, whale_skeleton: 1, sarcophagus: 1, rope_stanchion: 1, museum_bench: 1,
 };
-const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame'] as const;
+const MODELS = ['museum_column_bay', 'museum_wall_niche', 'broken_dome_ring', 'trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'painting_frame', 'whale_skeleton', 'sarcophagus', 'rope_stanchion', 'museum_bench'] as const;
 type MuseumModel = (typeof MODELS)[number];
 
 // ── the wall system: lower tier of column bays, cornice, upper tier of niches, crown cornice, ceiling
@@ -52,6 +52,17 @@ const CX = 3 * BAY_W, CZ = 2 * BAY_W;
 const STAIR_H = 7, STAIR_LAND = 0.696;
 const STAIRS: [number, number, number][] = [[LONG_SLOTS[3], -(HZ - BAY_D - 0.849 * STAIR_H), 0], [LONG_SLOTS[2], HZ - BAY_D - 0.849 * STAIR_H, Math.PI]];
 const SCREEN_X = 33.5, SCREEN_H = 10, SCREEN_DZ = 0.45;
+/** Exhibits on the floor: sarcophagi (with a rope in front) by the spawn corners, velvet benches facing the art. */
+const SARC_H = 4, ROPE_H = 1.2, BENCH_H = 1;
+const SARCOPHAGI: [number, number][] = [[40, 22], [40, -22], [-40, 22], [-40, -22]];
+/** [x, z, yaw]: the benches look at the screens' inner paintings and at the long walls' arches. */
+const BENCHES: [number, number, number][] = [
+  [26.5, 0, Math.PI / 2], [-26.5, 0, -Math.PI / 2],
+  [LONG_SLOTS[4], -(HZ - BAY_D - 6), Math.PI], [LONG_SLOTS[1], HZ - BAY_D - 6, 0],
+  [LONG_SLOTS[1], -(HZ - BAY_D - 6), Math.PI], [LONG_SLOTS[4], HZ - BAY_D - 6, 0],
+];
+/** The blue whale hangs on cables over the +x half of the hall (pivot at the ceiling) and sways a little. */
+const WHALE = { x: 33, z: 0, yaw: 0.35, H: 7, DROP: 6.5 };
 
 interface Place { m: THREE.Matrix4; collide: boolean }
 
@@ -81,6 +92,7 @@ export class MuseumArena implements ArenaLike {
   private hemi: THREE.HemisphereLight;
   private fog: THREE.FogExp2;
   private lamps: THREE.PointLight[] = [];
+  private whale: THREE.Group | null = null;
   private dust: ReturnType<typeof makeMuseumDust> | null = null;
   private dustOn = false;
   private beacons: THREE.Mesh[] = [];
@@ -211,10 +223,20 @@ export class MuseumArena implements ArenaLike {
       put('equestrian_statue', mat4(s * 20, 0, -s * 14.5, facing(s * 20, -s * 14.5, 0, 0) + s * 0.4, 12.5), true);
     }
     for (const [x, z, yaw] of STAIRS) put('grand_staircase', mat4(x, 0, z, yaw, STAIR_H), false);
+    for (const [x, z] of SARCOPHAGI) {
+      const yaw = facing(x, z, x, 0);
+      put('sarcophagus', mat4(x, 0, z, yaw, SARC_H), true);
+      // a rope on three sides: in front and to either side of the exhibit
+      const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), r = new THREE.Vector3(f.z, 0, -f.x);
+      put('rope_stanchion', mat4(x + f.x * 2, 0, z + f.z * 2, yaw, ROPE_H), true);
+      for (const sd of [-1, 1]) put('rope_stanchion', mat4(x + r.x * sd * 1.7 + f.x * 0.9, 0, z + r.z * sd * 1.7 + f.z * 0.9, yaw + Math.PI / 2, ROPE_H), true);
+    }
+    for (const [x, z, yaw] of BENCHES) put('museum_bench', mat4(x, 0, z, yaw, BENCH_H), true);
 
     // ── instance everything: one draw per model
     const noShadow = new Set<MuseumModel>(['museum_column_bay', 'museum_wall_niche', 'painting_frame']);
     for (const n of MODELS) {
+      if (n === 'whale_skeleton' || n === 'broken_dome_ring') continue;
       const t = this.T[n], list = places[n] ?? [];
       if (!t || !list.length) continue;
       const mesh = new THREE.InstancedMesh(t.geometry, t.material, list.length);
@@ -239,6 +261,7 @@ export class MuseumArena implements ArenaLike {
       this.scene.add(dome);
     }
 
+    this.hangWhale();
     this.buildArchitecture(grid);
     this.hangPaintings(frames);
     for (const [x, z, yaw] of STAIRS) this.stairCollision(grid, mat4(x, 0, z, yaw, STAIR_H));
@@ -452,9 +475,42 @@ export class MuseumArena implements ArenaLike {
    * Image-based light from the finished hall: a cube capture at head height in the crossing (the treasures hidden, so the
    * capture is just architecture and light, which box projection maps back onto the floor correctly).
    */
+  /**
+   * The whale skeleton on four steel cables. The group's origin is the ceiling, so swinging it is a slow pendulum and the
+   * cables stay attached. Far above any hero, so it never collides.
+   */
+  private hangWhale() {
+    const t = this.T.whale_skeleton;
+    if (!t) return;
+    const g = new THREE.Group();
+    g.position.set(WHALE.x, CEIL, WHALE.z);
+    g.rotation.y = WHALE.yaw;
+    const whale = new THREE.Mesh(t.geometry, t.material);
+    whale.scale.setScalar(WHALE.H);
+    whale.position.y = -WHALE.DROP - WHALE.H;
+    whale.rotation.z = 0.06; // a slight banking turn, as if gliding
+    whale.castShadow = true; whale.receiveShadow = true;
+    g.add(whale);
+    const len = WHALE.H * 4.41; // the model is 4.41x as long (z) as it is tall
+    const cable = new THREE.CylinderGeometry(0.025, 0.025, 1, 5, 1, true).translate(0, -0.5, 0);
+    const steel = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.9, roughness: 0.35 });
+    const cables = new THREE.InstancedMesh(cable, steel, 4);
+    [-0.32, -0.1, 0.12, 0.34].forEach((f, i) => {
+      const top = new THREE.Vector3((i % 2 ? 1 : -1) * 0.6, 0, f * len);
+      const bot = new THREE.Vector3(0, whale.position.y + WHALE.H * 0.8, f * len);
+      const d = bot.clone().sub(top);
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), d.clone().normalize());
+      cables.setMatrixAt(i, new THREE.Matrix4().compose(top, q, new THREE.Vector3(1, d.length(), 1)));
+    });
+    g.add(cables);
+    this.scene.add(g);
+    this.whale = g;
+  }
+
   private captureEnvironment() {
     const r = this.renderer;
-    const hide = (['trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase'] as const).map((n) => this.instanced[n]).filter(Boolean) as THREE.Object3D[];
+    const hide = (['trex_skeleton', 'winged_statue', 'equestrian_statue', 'grand_staircase', 'sarcophagus', 'rope_stanchion', 'museum_bench'] as const)
+      .map((n): THREE.Object3D | undefined => this.instanced[n]).concat(this.whale ?? undefined).filter(Boolean) as THREE.Object3D[];
     hide.forEach((o) => (o.visible = false));
     const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
     const cc = new THREE.CubeCamera(0.5, 400, rt);
@@ -500,6 +556,11 @@ export class MuseumArena implements ArenaLike {
     if (this.dust) {
       if (!this.dustOn && this.dust.sync()) { this.scene.add(this.dust.points); this.dustOn = true; }
       if (this.dustOn) { this.dust.sync(); (this.dust.points.material as THREE.ShaderMaterial).uniforms.uTime.value = time; }
+    }
+    if (this.whale) {
+      this.whale.rotation.x = Math.sin(time * 0.21) * 0.012;
+      this.whale.rotation.z = Math.sin(time * 0.17 + 1.3) * 0.016;
+      this.whale.rotation.y = WHALE.yaw + Math.sin(time * 0.11) * 0.02;
     }
     for (let i = 0; i < this.lamps.length; i++) this.lamps[i].intensity = 60 * (0.96 + Math.sin(time * 9.1 + i * 2.3) * 0.02 + Math.sin(time * 23.7 + i) * 0.015);
     for (let i = 0; i < this.beacons.length; i++) { const bc = this.beacons[i]; bc.rotation.y = time * 0.8; bc.position.y = 6.5 + Math.sin(time * 1.4 + i) * 0.35; }
